@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "News Card",
-        "description": "Wähle die Feeds, die Home Assistant serverseitig laden soll. Sie erscheinen als sensor.news_<key> und werden von der News Card automatisch erkannt.",
+        "title": "Family Task Card",
+        "description": "Wähle die Feeds, die Home Assistant serverseitig laden soll. Sie erscheinen als sensor.family_task_<key> und werden von der Family Task Card automatisch erkannt.",
         "data": {
           "presets": "Standard-Feeds",
           "custom": "Eigene Feeds (eine pro Zeile: Name | https://…/feed.xml)",
@@ -12,13 +12,13 @@
       }
     },
     "abort": {
-      "single_instance_allowed": "News Card ist bereits eingerichtet. Ändere die Feeds über die Optionen."
+      "single_instance_allowed": "Family Task Card ist bereits eingerichtet. Ändere die Feeds über die Optionen."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "News-Card-Feeds",
+        "title": "Family-Task-Card-Feeds",
         "description": "Ändere, welche Feeds geladen werden und wie oft.",
         "data": {
           "presets": "Standard-Feeds",

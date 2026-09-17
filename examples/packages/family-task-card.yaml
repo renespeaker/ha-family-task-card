@@ -1,16 +1,16 @@
-# Package "News Card" – standard news sensors
+# Package "Family Task Card" – standard feed sensors
 #
 # Include in configuration.yaml:
 #   homeassistant:
 #     packages: !include_dir_named packages
-# …and copy this file to /config/packages/news-card.yaml.
+# …and copy this file to /config/packages/family-task-card.yaml.
 #
 # Requires the HACS integration "feedparser" (custom-components/feedparser).
 #
-# Naming: sensors are called "News <Name>" -> entity_id sensor.news_<name>.
-# The News Card finds preset sensors via this convention automatically
-# (preset: tagesschau -> sensor.news_tagesschau). Leave sensors you don't
-# need commented out.
+# Naming: sensors are called "Family Task <Name>" -> entity_id
+# sensor.family_task_<name>. The Family Task Card finds preset sensors via this
+# convention automatically (preset: tagesschau -> sensor.family_task_tagesschau).
+# Leave sensors you don't need commented out.
 
 sensor:
   # ── Standard: national ────────────────────────────────────────────────
@@ -18,7 +18,7 @@ sensor:
   # the card without a sensor. Only add a sensor for feeds where the card
   # shows a CORS message – it names the exact sensor id to create.
   - platform: feedparser
-    name: News Tagesschau
+    name: Family TaskTagesschau
     feed_url: "https://www.tagesschau.de/index~rss2.xml"
     date_format: "%d.%m. %H:%M"
     local_time: true
@@ -26,27 +26,27 @@ sensor:
       minutes: 30
     inclusions: [title, link, published]
 
-  # Deutschlandfunk (preset: dlf) -> sensor.news_dlf
+  # Deutschlandfunk (preset: dlf) -> sensor.family_task_dlf
   # - platform: feedparser
-  #   name: News DLF
+  #   name: Family TaskDLF
   #   feed_url: "https://www.deutschlandfunk.de/nachrichten-100.rss"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
   #   scan_interval: { minutes: 30 }
   #   inclusions: [title, link, published]
 
-  # Deutsche Welle (preset: dw) -> sensor.news_dw
+  # Deutsche Welle (preset: dw) -> sensor.family_task_dw
   # - platform: feedparser
-  #   name: News DW
+  #   name: Family TaskDW
   #   feed_url: "https://rss.dw.com/rdf/rss-de-all"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
   #   scan_interval: { minutes: 30 }
   #   inclusions: [title, link, published]
 
-  # WELT (preset: welt) -> sensor.news_welt
+  # WELT (preset: welt) -> sensor.family_task_welt
   # - platform: feedparser
-  #   name: News WELT
+  #   name: Family TaskWELT
   #   feed_url: "https://www.welt.de/feeds/latest.rss"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -56,43 +56,43 @@ sensor:
   # ── International ─────────────────────────────────────────────────────
   # Reuters has no official RSS anymore -> via Google News (preset: reuters)
   # - platform: feedparser
-  #   name: News Reuters
+  #   name: Family TaskReuters
   #   feed_url: "https://news.google.com/rss/search?q=Reuters&hl=de&gl=DE&ceid=DE:de"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
   #   scan_interval: { minutes: 30 }
   #   inclusions: [title, link, published]
 
-  # BBC News (preset: bbc) -> sensor.news_bbc
+  # BBC News (preset: bbc) -> sensor.family_task_bbc
   # - platform: feedparser
-  #   name: News BBC
+  #   name: Family TaskBBC
   #   feed_url: "https://feeds.bbci.co.uk/news/world/rss.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
   #   scan_interval: { minutes: 30 }
   #   inclusions: [title, link, published]
 
-  # The Guardian (preset: guardian) -> sensor.news_guardian
+  # The Guardian (preset: guardian) -> sensor.family_task_guardian
   # - platform: feedparser
-  #   name: News Guardian
+  #   name: Family TaskGuardian
   #   feed_url: "https://www.theguardian.com/world/rss"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
   #   scan_interval: { minutes: 30 }
   #   inclusions: [title, link, published]
 
-  # Al Jazeera (preset: aljazeera) -> sensor.news_aljazeera
+  # Al Jazeera (preset: aljazeera) -> sensor.family_task_aljazeera
   # - platform: feedparser
-  #   name: News Al Jazeera
+  #   name: Family TaskAl Jazeera
   #   feed_url: "https://www.aljazeera.com/xml/rss/all.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
   #   scan_interval: { minutes: 30 }
   #   inclusions: [title, link, published]
 
-  # Euronews (preset: euronews) -> sensor.news_euronews
+  # Euronews (preset: euronews) -> sensor.family_task_euronews
   # - platform: feedparser
-  #   name: News Euronews
+  #   name: Family TaskEuronews
   #   feed_url: "https://de.euronews.com/rss"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -102,7 +102,7 @@ sensor:
   # ── Regional: uncomment the block you need ───────────────────────────
   # NRW (WDR) – active as the default region; swap for another block below.
   - platform: feedparser
-    name: News WDR
+    name: Family TaskWDR
     feed_url: "https://www1.wdr.de/uebersicht-100.feed"
     date_format: "%d.%m. %H:%M"
     local_time: true
@@ -112,7 +112,7 @@ sensor:
 
   # Niedersachsen (NDR)
   # - platform: feedparser
-  #   name: News NDR Niedersachsen
+  #   name: Family TaskNDR Niedersachsen
   #   feed_url: "https://www.ndr.de/nachrichten/niedersachsen/index-rss.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -121,7 +121,7 @@ sensor:
 
   # Schleswig-Holstein (NDR)
   # - platform: feedparser
-  #   name: News NDR SH
+  #   name: Family TaskNDR SH
   #   feed_url: "https://www.ndr.de/nachrichten/schleswig-holstein/index-rss.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -130,7 +130,7 @@ sensor:
 
   # Hamburg (NDR)
   # - platform: feedparser
-  #   name: News NDR Hamburg
+  #   name: Family TaskNDR Hamburg
   #   feed_url: "https://www.ndr.de/nachrichten/hamburg/index-rss.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -139,7 +139,7 @@ sensor:
 
   # Mecklenburg-Vorpommern (NDR)
   # - platform: feedparser
-  #   name: News NDR MV
+  #   name: Family TaskNDR MV
   #   feed_url: "https://www.ndr.de/nachrichten/mecklenburg-vorpommern/index-rss.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -148,7 +148,7 @@ sensor:
 
   # Hessen (hessenschau)
   # - platform: feedparser
-  #   name: News Hessenschau
+  #   name: Family TaskHessenschau
   #   feed_url: "https://www.hessenschau.de/index.rss"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -157,7 +157,7 @@ sensor:
 
   # Sachsen / Sachsen-Anhalt / Thüringen (MDR)
   # - platform: feedparser
-  #   name: News MDR
+  #   name: Family TaskMDR
   #   feed_url: "https://www.mdr.de/nachrichten/index-rss.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -166,7 +166,7 @@ sensor:
 
   # Berlin / Brandenburg (rbb24)
   # - platform: feedparser
-  #   name: News Rbb24
+  #   name: Family TaskRbb24
   #   feed_url: "https://www.rbb24.de/aktuell/index.xml/feed=rss.xml"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -176,7 +176,7 @@ sensor:
   # ── Google News ───────────────────────────────────────────────────────
   # Topmeldungen Deutschland (Preset: google_news)
   # - platform: feedparser
-  #   name: News Google News
+  #   name: Family TaskGoogle News
   #   feed_url: "https://news.google.com/rss?hl=de&gl=DE&ceid=DE:de"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true
@@ -186,7 +186,7 @@ sensor:
   # Lokal-Suche: Ort oder Begriff hinter q= eintragen (URL-kodiert).
   # Alternativ direkt in der Karte: google: "Mein Ort"
   # - platform: feedparser
-  #   name: News Google Lokal
+  #   name: Family TaskGoogle Lokal
   #   feed_url: "https://news.google.com/rss/search?q=Meine%20Stadt&hl=de&gl=DE&ceid=DE:de"
   #   date_format: "%d.%m. %H:%M"
   #   local_time: true

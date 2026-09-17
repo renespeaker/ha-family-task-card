@@ -1,7 +1,7 @@
 """Built-in feed presets.
 
 Keys mirror the presets used by the Lovelace card, so a sensor named
-``sensor.news_<key>`` created here is picked up automatically by the card's
+``sensor.family_task_<key>`` created here is picked up automatically by the card's
 ``preset:`` and ``region: auto`` logic.
 """
 

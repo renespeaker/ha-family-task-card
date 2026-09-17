@@ -1,12 +1,12 @@
-# Automation: refresh news sensors in the morning + push top 3 to your phone
-# - adjust the entity_id list to your own News sensors (sensor.news_…)
+# Automation: refresh feed sensors in the morning + push top 3 to your phone
+# - adjust the entity_id list to your own sensors (sensor.family_task_…)
 # - adjust notify.mobile_app_your_phone to your device name
 #   (Developer tools → Actions → search for "notify.mobile_app").
 
 automation:
-  - alias: "News Card: refresh news and push"
+  - alias: "Family Task Card: refresh feeds and push"
     description: >-
-      Refreshes the news feeds at 06:00 and sends the top 3 headlines
+      Refreshes the feeds at 06:00 and sends the top 3 headlines
       as a notification.
     triggers:
       - trigger: time
@@ -16,14 +16,14 @@ automation:
       - action: homeassistant.update_entity
         target:
           entity_id:
-            - sensor.news_tagesschau
-            # - sensor.news_wdr        # add your own regional sensor
+            - sensor.family_task_tagesschau
+            # - sensor.family_task_wdr        # add your own regional sensor
       - delay:
           seconds: 15
       - action: notify.mobile_app_your_phone
         data:
-          title: "📰 News Card"
+          title: "📰 Family Task Card"
           message: >-
-            {{ (state_attr('sensor.news_tagesschau', 'entries') or [])[:3]
+            {{ (state_attr('sensor.family_task_tagesschau', 'entries') or [])[:3]
                | map(attribute='title') | join('  •  ') }}
     mode: single

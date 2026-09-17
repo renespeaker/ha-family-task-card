@@ -1,12 +1,12 @@
-# 📰 News Card
+# 📰 Family Task Card
 
-A news card for your Home Assistant dashboard. It shows the top national and
+A feed card for your Home Assistant dashboard. It shows the top national and
 regional headlines every morning – with **built-in feeds** (presets incl.
 Google News), **automatic region detection** from the HA location or GPS,
 **Google News search feeds** for any place or topic, **custom RSS links**, and
 support for **existing feed sensors** if you already use RSS in Home Assistant.
 
-News Card is a **Home Assistant integration**: it loads the feeds
+Family Task Card is a **Home Assistant integration**: it loads the feeds
 **server-side**, so the browser never runs into CORS blocks, and it **ships the
 Lovelace card and registers it automatically**. One install gives you both the
 data and the card – no manual sensors, no YAML, no CORS workarounds.
@@ -15,7 +15,7 @@ The interface is available in **English and German** and follows your Home
 Assistant language automatically (override with the `language` option).
 
 <p align="center">
-  <img src="docs/screenshot-card.png" alt="News Card on a dashboard" width="45%">
+  <img src="docs/screenshot-card.png" alt="Family Task Card on a dashboard" width="45%">
   &nbsp;&nbsp;
   <img src="docs/screenshot-editor.png" alt="Visual editor" width="45%">
 </p>
@@ -25,7 +25,7 @@ Assistant language automatically (override with the `language` option).
 ## Configure without YAML: the visual editor
 
 The card ships a **graphical settings menu** – YAML is optional.
-Dashboard → Edit → Add card → "News Card", or click the **gear** on an existing
+Dashboard → Edit → Add card → "Family Task Card", or click the **gear** on an existing
 card. Everything can be set with clicks and input fields:
 
 - **Language** (Automatic / English / Deutsch), **card title**, **headlines per
@@ -44,8 +44,8 @@ Each entry in `sections` gets its news one of five ways – a dropdown in the
 editor, a key in YAML:
 
 ```yaml
-type: custom:news-card
-title: News Card
+type: custom:family-task-card
+title: Family Task Card
 max_items: 5
 sections:
   - preset: tagesschau            # 1. built-in standard feed
@@ -90,30 +90,30 @@ third parties.
 
 1. HACS → ⋮ → **Custom repositories**
 2. Repository `https://github.com/renespeaker/ha-news-card`, type **Integration**
-3. Install "News Card" and **restart Home Assistant**.
+3. Install "Family Task Card" and **restart Home Assistant**.
 4. Settings → **Devices & Services** → **Add Integration** → search
-   **News Card** → pick the feeds you want and an update interval.
+   **Family Task Card** → pick the feeds you want and an update interval.
 
 That's it – the integration loads the chosen feeds server-side, creates a
-`sensor.news_<key>` for each, and registers the Lovelace card automatically.
-Add it to a dashboard: **Edit dashboard → Add card → "News Card"**. If the card
+`sensor.family_task_<key>` for each, and registers the Lovelace card automatically.
+Add it to a dashboard: **Edit dashboard → Add card → "Family Task Card"**. If the card
 type isn't found right away, hard-refresh the browser once (Ctrl+F5).
 
-> **Upgrading from the old card-only version?** News Card used to be a HACS
+> **Upgrading from the old card-only version?** Family Task Card used to be a HACS
 > **Dashboard** plugin. It is now an **Integration** that includes the card. In
 > HACS remove the old "Dashboard" entry, add the repository again as an
-> **Integration**, and you can delete the manual `/local/news-card.js` resource
+> **Integration**, and you can delete the manual `/local/family-task-card.js` resource
 > under Settings → Dashboards → Resources.
 
 ### Manual
 
-Copy the `custom_components/news_card` folder into your `/config/custom_components/`
+Copy the `custom_components/family_task_card` folder into your `/config/custom_components/`
 directory and restart Home Assistant, then add the integration as in step 4
 above.
 
 ### Add feeds later
 
-Settings → Devices & Services → **News Card** → **Configure** to change which
+Settings → Devices & Services → **Family Task Card** → **Configure** to change which
 feeds are loaded, add your own (`Name | https://…/feed.xml`, one per line), or
 adjust the update interval.
 
@@ -151,7 +151,7 @@ as a club name. Google News links go through news.google.com to the article,
 and titles include the source name.
 
 **How the card resolves a preset source:** it uses the sensor
-`sensor.news_<preset>` created by the integration – Home Assistant loads that
+`sensor.family_task_<preset>` created by the integration – Home Assistant loads that
 feed **server-side**, so there is no CORS issue. Enable the matching preset in
 the integration's options and the card picks the sensor up automatically. The
 same convention applies to `region: auto` (it maps to a preset and looks for
@@ -181,7 +181,7 @@ remain available for special cases:
 | Option | Default | Description |
 |---|---|---|
 | `language` | HA language | `en` or `de` (forces the UI language) |
-| `title` | `News Card` | card title |
+| `title` | `Family Task Card` | card title |
 | `max_items` | `5` | headlines per section (global or per section) |
 | `show_time` | `true` | show timestamps |
 | `cors_proxy` | – | optional proxy for browser-blocked feeds (see below) |

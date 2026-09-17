@@ -1,6 +1,6 @@
-"""Constants for the News Card integration."""
+"""Constants for the Family Task Card integration."""
 
-DOMAIN = "news_card"
+DOMAIN = "family_task_card"
 VERSION = "1.0.0"
 
 # Config entry data / options keys
@@ -13,5 +13,5 @@ DEFAULT_SCAN_INTERVAL = 30  # minutes
 DEFAULT_MAX_ENTRIES = 15    # headlines kept per feed
 
 # URL under which the bundled card JavaScript is served.
-CARD_URL = "/news_card/news-card.js"
-CARD_FILENAME = "news-card.js"
+CARD_URL = "/family_task_card/family-task-card.js"
+CARD_FILENAME = "family-task-card.js"

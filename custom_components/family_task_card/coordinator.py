@@ -1,4 +1,4 @@
-"""Server-side feed fetching for the News Card integration."""
+"""Server-side feed fetching for the Family Task Card integration."""
 
 from __future__ import annotations
 
@@ -24,10 +24,10 @@ from .feeds import resolve_feeds
 _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 20
-USER_AGENT = "HomeAssistant-NewsCard/1.0 (+https://github.com/renespeaker/ha-news-card)"
+USER_AGENT = "HomeAssistant-FamilyTaskCard/1.0 (+https://github.com/renespeaker/ha-news-card)"
 
 
-class NewsCoordinator(DataUpdateCoordinator[dict]):
+class FamilyTaskCoordinator(DataUpdateCoordinator[dict]):
     """Fetch all configured feeds server-side (no browser CORS involved)."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -62,7 +62,7 @@ class NewsCoordinator(DataUpdateCoordinator[dict]):
                     raw = await resp.read()
             except Exception as err:  # noqa: BLE001 - one bad feed must not kill the rest
                 _LOGGER.warning(
-                    "News Card: could not load feed '%s' (%s): %s", key, url, err
+                    "Family Task Card: could not load feed '%s' (%s): %s", key, url, err
                 )
                 results[key] = {
                     "title": title,

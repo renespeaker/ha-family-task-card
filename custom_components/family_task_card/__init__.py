@@ -1,7 +1,7 @@
-"""The News Card integration.
+"""The Family Task Card integration.
 
-Loads news feeds server-side (so the browser never hits CORS) and exposes them
-as ``sensor.news_<key>`` entities. It also ships the Lovelace card and
+Loads feeds server-side (so the browser never hits CORS) and exposes them
+as ``sensor.family_task_<key>`` entities. It also ships the Lovelace card and
 registers it automatically, so a single install provides both the data and the
 card.
 """
@@ -15,7 +15,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import CARD_FILENAME, CARD_URL, DOMAIN, VERSION
-from .coordinator import NewsCoordinator
+from .coordinator import FamilyTaskCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,10 +23,10 @@ PLATFORMS = ["sensor"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up News Card from a config entry."""
+    """Set up Family Task Card from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    coordinator = NewsCoordinator(hass, entry)
+    coordinator = FamilyTaskCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -79,7 +79,7 @@ async def _async_register_card(hass: HomeAssistant) -> None:
         add_extra_js_url(hass, f"{CARD_URL}?v={VERSION}")
     except Exception as err:  # noqa: BLE001 - non-fatal; manual resource still works
         _LOGGER.warning(
-            "News Card: could not auto-register the card resource "
+            "Family Task Card: could not auto-register the card resource "
             "(add it manually as %s): %s",
             CARD_URL,
             err,

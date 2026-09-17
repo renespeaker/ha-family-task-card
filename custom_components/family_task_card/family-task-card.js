@@ -1,5 +1,5 @@
 /**
- * News Card – news card for Home Assistant
+ * Family Task Card – feed card for Home Assistant
  *
  * Five ways to define a source (per entry in `sections`):
  *   1. preset: tagesschau        – built-in standard feed (incl. Google News)
@@ -22,7 +22,7 @@
 (function () {
   "use strict";
 
-  const CARD_NAME = "News Card";
+  const CARD_NAME = "Family Task Card";
 
   const PRESETS = {
     // National / nationwide
@@ -160,7 +160,7 @@
       entity_no_entries: (id) => `${id} has no "entries" attribute (Feedparser sensor expected).`,
       no_source: "No source set (preset, url, entity, google or region).",
       cors: (hint) => hint
-        ? `Direct fetch blocked by the browser (CORS). Create the sensor ${hint} with the Feedparser integration so Home Assistant loads this feed server-side – copy examples/packages/news-card.yaml, see README. Or set a "cors_proxy" in the card options.`
+        ? `Direct fetch blocked by the browser (CORS). Create the sensor ${hint} with the Feedparser integration so Home Assistant loads this feed server-side – copy examples/packages/family-task-card.yaml, see README. Or set a "cors_proxy" in the card options.`
         : 'Direct fetch blocked by the browser (CORS). Create a Feedparser sensor for this feed and bind it via "entity:", or set a "cors_proxy" in the card options – see README.',
       proxy_failed: "Feed could not be loaded through the configured cors_proxy. Check the proxy URL, or create a Feedparser sensor instead (see README).",
       region_pick: "Please choose a region in the settings.",
@@ -215,7 +215,7 @@
       entity_no_entries: (id) => `${id} hat kein "entries"-Attribut (Feedparser-Sensor erwartet).`,
       no_source: "Keine Quelle angegeben (preset, url, entity, google oder region).",
       cors: (hint) => hint
-        ? `Direkter Abruf vom Browser blockiert (CORS). Lege den Sensor ${hint} mit der Feedparser-Integration an, damit Home Assistant diesen Feed serverseitig lädt – kopiere examples/packages/news-card.yaml, siehe README. Oder setze in den Kartenoptionen einen "cors_proxy".`
+        ? `Direkter Abruf vom Browser blockiert (CORS). Lege den Sensor ${hint} mit der Feedparser-Integration an, damit Home Assistant diesen Feed serverseitig lädt – kopiere examples/packages/family-task-card.yaml, siehe README. Oder setze in den Kartenoptionen einen "cors_proxy".`
         : 'Direkter Abruf vom Browser blockiert (CORS). Lege für diesen Feed einen Feedparser-Sensor an und binde ihn per "entity:" ein, oder setze in den Kartenoptionen einen "cors_proxy" – siehe README.',
       proxy_failed: 'Feed konnte nicht über den konfigurierten cors_proxy geladen werden. Prüfe die Proxy-URL oder lege stattdessen einen Feedparser-Sensor an (siehe README).',
       region_pick: "Bitte Region in den Einstellungen wählen.",
@@ -309,14 +309,14 @@
       : d.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" });
   }
 
-  class NewsCard extends HTMLElement {
+  class FamilyTaskCard extends HTMLElement {
     static getStubConfig() {
       return { sections: [{ preset: "tagesschau" }] };
     }
 
     // Visual settings menu (gear icon when editing the card)
     static getConfigElement() {
-      return document.createElement("news-card-editor");
+      return document.createElement("family-task-card-editor");
     }
 
     setConfig(config) {
@@ -366,11 +366,11 @@
       const ids = [];
       for (const s of this._config.sections) {
         if (s.entity) ids.push(s.entity);
-        if (s.preset) ids.push(`sensor.news_${s.preset}`);
+        if (s.preset) ids.push(`sensor.family_task_${s.preset}`);
         if (s.tracker) ids.push(s.tracker);
         if (s.region && this._hass) {
           const r = this._resolveRegion(s);
-          if (r.region && r.region.preset) ids.push(`sensor.news_${r.region.preset}`);
+          if (r.region && r.region.preset) ids.push(`sensor.family_task_${r.region.preset}`);
         }
       }
       return ids;
@@ -424,8 +424,8 @@
 
       // 1. Explicit or preset-convention sensor
       let entityId = section.entity;
-      if (!entityId && section.preset && this._hass && this._hass.states[`sensor.news_${section.preset}`]) {
-        entityId = `sensor.news_${section.preset}`;
+      if (!entityId && section.preset && this._hass && this._hass.states[`sensor.family_task_${section.preset}`]) {
+        entityId = `sensor.family_task_${section.preset}`;
       }
       if (entityId) {
         const st = this._hass && this._hass.states[entityId];
@@ -447,7 +447,7 @@
       if (!url) return { title, error: t.no_source };
 
       // If this feed comes from a preset, name the exact sensor to create.
-      const sensorHint = section.preset ? `sensor.news_${section.preset}` : null;
+      const sensorHint = section.preset ? `sensor.family_task_${section.preset}` : null;
       const proxy = (this._config.cors_proxy || "").trim();
       const failMsg = proxy ? t.proxy_failed : t.cors(sensorHint);
       // Cache is keyed by the actually fetched URL, so adding or changing the
@@ -552,12 +552,12 @@
   // ────────────────────────────────────────────────────────────────────────
   // Visual editor
   // ────────────────────────────────────────────────────────────────────────
-  class NewsCardEditor extends HTMLElement {
+  class FamilyTaskCardEditor extends HTMLElement {
     setConfig(config) {
       const sections = Array.isArray(config.sections) && config.sections.length
         ? config.sections.map((s) => ({ ...s }))
         : [{ preset: "tagesschau" }];
-      this._config = { type: config.type || "custom:news-card",
+      this._config = { type: config.type || "custom:family-task-card",
         language: config.language, title: config.title, max_items: config.max_items,
         show_time: config.show_time, cors_proxy: config.cors_proxy, sections };
       this._render();
@@ -572,7 +572,7 @@
 
     _emit() {
       const c = this._config;
-      const out = { type: c.type || "custom:news-card" };
+      const out = { type: c.type || "custom:family-task-card" };
       if (c.language) out.language = c.language;
       if (c.title) out.title = c.title;
       if (c.max_items) out.max_items = Number(c.max_items);
@@ -813,13 +813,13 @@
     return out;
   }
 
-  customElements.define("news-card-editor", NewsCardEditor);
-  customElements.define("news-card", NewsCard);
+  customElements.define("family-task-card-editor", FamilyTaskCardEditor);
+  customElements.define("family-task-card", FamilyTaskCard);
   window.customCards = window.customCards || [];
   window.customCards.push({
-    type: "news-card",
+    type: "family-task-card",
     name: CARD_NAME,
-    description: "News card with built-in feeds (tagesschau, Google News, regional broadcasters), automatic region detection via HA location/GPS, Google News search, custom RSS URLs and existing feed sensors. UI in English or German.",
+    description: "Card with built-in feeds (tagesschau, Google News, regional broadcasters), automatic region detection via HA location/GPS, Google News search, custom RSS URLs and existing feed sensors. UI in English or German.",
     preview: true,
     documentationURL: "https://github.com/renespeaker/ha-news-card",
   });

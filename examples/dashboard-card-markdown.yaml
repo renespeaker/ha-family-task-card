@@ -1,14 +1,14 @@
-# Fallback without the custom card: a plain Markdown "News Card"
-# Works only with Feedparser sensors (see packages/news-card.yaml).
+# Fallback without the custom card: a plain Markdown "Family Task Card"
+# Works only with Feedparser sensors (see packages/family-task-card.yaml).
 # Dashboard → Edit → Add card → Manual → paste this content.
 
 type: markdown
 content: >-
-  ## 📰 News Card · {{ now().strftime('%A, %d.%m.%Y') }}
+  ## 📰 Family Task Card · {{ now().strftime('%A, %d.%m.%Y') }}
 
   **Germany**
 
-  {% for e in (state_attr('sensor.news_tagesschau', 'entries') or [])[:5] %}
+  {% for e in (state_attr('sensor.family_task_tagesschau', 'entries') or [])[:5] %}
   - [{{ e.title }}]({{ e.link }})
   {% endfor %}
 
@@ -16,6 +16,6 @@ content: >-
 
   **My region**
 
-  {% for e in (state_attr('sensor.news_wdr', 'entries') or [])[:5] %}
+  {% for e in (state_attr('sensor.family_task_wdr', 'entries') or [])[:5] %}
   - [{{ e.title }}]({{ e.link }})
   {% endfor %}

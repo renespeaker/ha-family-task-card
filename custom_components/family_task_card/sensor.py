@@ -1,8 +1,8 @@
-"""Sensor platform for the News Card integration.
+"""Sensor platform for the Family Task Card integration.
 
-Each feed becomes a ``sensor.news_<key>`` entity with an ``entries`` attribute,
-exactly the shape the Lovelace card reads – so the card picks them up
-automatically (including ``region: auto`` -> ``sensor.news_<preset>``).
+Each feed becomes a ``sensor.family_task_<key>`` entity with an ``entries``
+attribute, exactly the shape the Lovelace card reads – so the card picks them
+up automatically (including ``region: auto`` -> ``sensor.family_task_<preset>``).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import NewsCoordinator
+from .coordinator import FamilyTaskCoordinator
 
 
 async def async_setup_entry(
@@ -24,37 +24,37 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Create one sensor per configured feed."""
-    coordinator: NewsCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: FamilyTaskCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
-        NewsSensor(hass, coordinator, entry, key, meta["title"])
+        FamilyTaskSensor(hass, coordinator, entry, key, meta["title"])
         for key, meta in coordinator.feeds.items()
     ]
     async_add_entities(entities)
 
 
-class NewsSensor(CoordinatorEntity[NewsCoordinator], SensorEntity):
-    """A single news feed exposed as a sensor with an ``entries`` attribute."""
+class FamilyTaskSensor(CoordinatorEntity[FamilyTaskCoordinator], SensorEntity):
+    """A single feed exposed as a sensor with an ``entries`` attribute."""
 
     _attr_has_entity_name = False
     _attr_icon = "mdi:newspaper"
-    # Keep the large headline list out of the recorder history.
+    # Keep the large entry list out of the recorder history.
     _unrecorded_attributes = frozenset({"entries"})
 
     def __init__(
         self,
         hass: HomeAssistant,
-        coordinator: NewsCoordinator,
+        coordinator: FamilyTaskCoordinator,
         entry: ConfigEntry,
         key: str,
         title: str,
     ) -> None:
-        """Initialise the sensor and pin its entity_id to sensor.news_<key>."""
+        """Initialise the sensor and pin its entity_id to sensor.family_task_<key>."""
         super().__init__(coordinator)
         self._key = key
         self._attr_name = title
         self._attr_unique_id = f"{entry.entry_id}_{key}"
         self.entity_id = async_generate_entity_id(
-            ENTITY_ID_FORMAT, f"news_{key}", hass=hass
+            ENTITY_ID_FORMAT, f"family_task_{key}", hass=hass
         )
 
     @property
@@ -63,7 +63,7 @@ class NewsSensor(CoordinatorEntity[NewsCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        """The latest headline (truncated to the state length limit)."""
+        """The latest entry title (truncated to the state length limit)."""
         entries = self._data.get("entries") or []
         if entries:
             return entries[0]["title"][:255]

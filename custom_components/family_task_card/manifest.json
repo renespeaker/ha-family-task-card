@@ -1,6 +1,6 @@
 {
-  "domain": "news_card",
-  "name": "News Card",
+  "domain": "family_task_card",
+  "name": "Family Task Card",
   "codeowners": ["@renespeaker"],
   "config_flow": true,
   "dependencies": ["http", "frontend"],

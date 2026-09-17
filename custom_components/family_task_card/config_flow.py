@@ -1,4 +1,4 @@
-"""Config and options flow for the News Card integration."""
+"""Config and options flow for the Family Task Card integration."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def _build_schema(defaults: dict[str, Any]) -> vol.Schema:
     )
 
 
-class NewsCardConfigFlow(ConfigFlow, domain=DOMAIN):
+class FamilyTaskCardConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the initial setup."""
 
     VERSION = 1
@@ -79,7 +79,7 @@ class NewsCardConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="single_instance_allowed")
 
         if user_input is not None:
-            return self.async_create_entry(title="News Card", data=user_input)
+            return self.async_create_entry(title="Family Task Card", data=user_input)
 
         return self.async_show_form(
             step_id="user", data_schema=_build_schema({})
@@ -89,10 +89,10 @@ class NewsCardConfigFlow(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Return the options flow."""
-        return NewsCardOptionsFlow(config_entry)
+        return FamilyTaskCardOptionsFlow(config_entry)
 
 
-class NewsCardOptionsFlow(OptionsFlow):
+class FamilyTaskCardOptionsFlow(OptionsFlow):
     """Reconfigure feeds and scan interval after setup."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
