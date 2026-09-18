@@ -45,7 +45,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       sortieren/entfernen), `person.*` & `todo.*`-Listen per Auswahlfeld, Farbe,
       Punkte & Ziel per UI statt YAML; „Personen erkennen" übernimmt `person.*`.
       Funktioniert auch am Handy.
-- [ ] **Kinder-Modus** (großes, tippbares Layout).
+- [x] **Kinder-Modus** (`kid_mode`) – großes, tippbares Einzel-Kind-Layout fürs
+      Wandtablet: Avatar-Umschalter oben, XL-Aufgabenkacheln mit Emoji, Punkte-
+      Ziel-Balken und Konfetti-Feedback beim Abhaken.
 - [ ] **Einkaufen mit Bring!** – ganze Bring!-Liste = eine zugewiesene Aufgabe
       mit Punkten; „In Bring! öffnen" (Deep-Link) + Push; Abhaken synchron.
 

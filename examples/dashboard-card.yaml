@@ -30,3 +30,15 @@ persons:
 # - `lists` are todo.* entity_ids. Leave empty to show a person with no tasks yet.
 # - `person` is optional; without it the card shows initials from `name`.
 # - Colors follow the Family Board Card palette automatically; `color` overrides.
+
+# --- Optional: a second card in kid mode (big, tappable, for a wall tablet) ---
+# type: custom:family-task-card
+# kid_mode: true
+# goal: 100
+# persons:
+#   - name: Lina
+#     person: person.lina
+#     lists: todo.lina_aemtli
+#   - name: Ben
+#     person: person.ben
+#     lists: todo.ben_aemtli

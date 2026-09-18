@@ -96,6 +96,15 @@ persons:
 | `points_per_task` | Zahl               | Punkte je erledigter Aufgabe (Standard 10).             |
 | `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
 | `show_completed`  | Bool               | erledigte Aufgaben ausgegraut mitanzeigen.              |
+| `kid_mode`        | Bool               | großes, tippbares Kinder-Layout (Avatar-Umschalter).    |
+
+### Kinder-Modus
+
+Mit `kid_mode: true` zeigt die Karte ein **großes, tippbares Einzel-Kind-Layout**
+fürs Wandtablet: oben ein Avatar-Umschalter (wer ist dran?), darunter XL-Kacheln
+mit Emoji, ein Punkte-/Ziel-Balken und ein kurzes Konfetti-Feedback beim Abhaken.
+Ideal als eigene Karte auf einem Kinder-Dashboard, während das volle Board für
+die Eltern bleibt.
 
 Ein vollständiges Beispiel liegt unter
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).

@@ -34,6 +34,7 @@ const SETTINGS_SCHEMA = [
   },
   { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
   { name: "show_completed", selector: { boolean: {} } },
+  { name: "kid_mode", selector: { boolean: {} } },
 ];
 
 /** One ha-form per person, with entity pickers filtered by domain. */
@@ -50,6 +51,7 @@ const LABELS: Record<string, string> = {
   points_per_task: "Punkte pro Aufgabe",
   goal: "Ziel (Punkte)",
   show_completed: "Erledigte anzeigen",
+  kid_mode: "Kinder-Modus",
   name: "Name",
   person: "Person (Avatar)",
   lists: "Aufgabenlisten (todo.*)",
@@ -58,6 +60,7 @@ const HELPERS: Record<string, string> = {
   points_per_task: "Punkte je erledigter Aufgabe (Standard 10).",
   goal: "Familien-Punkteziel für den Fortschrittsbalken. 0 = aus.",
   show_completed: "Erledigte Aufgaben ausgegraut mitanzeigen.",
+  kid_mode: "Großes, tippbares Layout fürs Kinder-Tablet (Avatar oben zum Wechseln).",
   person: "Optional: person.* liefert Avatarbild & Anzeigename.",
   lists: "Eine oder mehrere todo.*-Listen, die zu dieser Person gehören.",
   goal_person: "Optionales persönliches Punkteziel.",
@@ -89,6 +92,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.title) delete next.title;
     if (!next.goal) delete next.goal;
     if (!next.show_completed) delete next.show_completed;
+    if (!next.kid_mode) delete next.kid_mode;
     this._emit({ ...this._config, ...next, persons: this._persons });
   }
 

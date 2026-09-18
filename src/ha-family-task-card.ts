@@ -64,6 +64,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   points_per_task?: number; // points earned per completed task. default 10
   goal?: number; // family points goal -> progress bar
   show_completed?: boolean; // also list completed tasks (dimmed). default false
+  kid_mode?: boolean; // big, tappable single-child layout (wall tablet). default false
 }
 
 interface TodoItem {
@@ -104,6 +105,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** Remember each todo entity's last state signature to know when to refetch. */
   private _sig: Record<string, string> = {};
   private _loading = false;
+
+  /** Kid mode: index of the child currently in focus, and a brief celebration. */
+  @state() private _activeKid = 0;
+  @state() private _burst = false;
+  private _burstTimer?: number;
 
   public static async getConfigElement() {
     await import("./editor");
@@ -221,6 +227,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   protected render() {
     if (!this._config) return nothing;
     const cfg = this._config;
+    if (cfg.kid_mode && cfg.persons.length > 0) return this._renderKid();
     const pts = cfg.points_per_task ?? DEFAULT_POINTS;
 
     let familyEarned = 0;
@@ -248,6 +255,119 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </div>
       </ha-card>
     `;
+  }
+
+  /* ---- kid mode --------------------------------------------------- */
+
+  private _renderKid() {
+    const cfg = this._config!;
+    const pts = cfg.points_per_task ?? DEFAULT_POINTS;
+    const persons = cfg.persons;
+    const idx = Math.min(this._activeKid, persons.length - 1);
+    const p = persons[idx];
+    const color = personColor(p, idx);
+    const name = this._personName(p, idx);
+    const items = this._itemsFor(p);
+    const open = items.filter((o) => o.item.status !== "completed");
+    const done = items.filter((o) => o.item.status === "completed");
+    const earned = done.length * pts;
+    const goal = p.goal ?? cfg.goal;
+    const pct = goal && goal > 0 ? Math.min(100, Math.round((earned / goal) * 100)) : 0;
+    const allDone = open.length === 0;
+
+    return html`
+      <ha-card class="kid" style="--pc:${color}">
+        ${
+          persons.length > 1
+            ? html`<div class="kid-people">
+                ${persons.map((pp, i) => this._kidAvatar(pp, i, i === idx))}
+              </div>`
+            : nothing
+        }
+
+        <div class="kid-hero">
+          ${this._kidAvatar(p, idx, false, true)}
+          <div class="kid-hero-text">
+            <div class="kid-name">${name}</div>
+            <div class="kid-stars">
+              ⭐ ${earned}${open.length ? html` · ${open.length} offen` : nothing}
+            </div>
+          </div>
+        </div>
+
+        ${
+          goal && goal > 0
+            ? html`<div class="kid-bar"><div class="kid-fill" style="width:${pct}%"></div></div>`
+            : nothing
+        }
+
+        <div class="kid-tasks">
+          ${
+            allDone
+              ? html`<div class="kid-alldone">
+                  🎉
+                  <div>Alles geschafft!</div>
+                </div>`
+              : open.map((o) => this._kidTask(o, color))
+          }
+        </div>
+
+        ${this._burst ? html`<div class="burst">⭐</div>` : nothing}
+      </ha-card>
+    `;
+  }
+
+  private _kidAvatar(p: PersonConfig, idx: number, active: boolean, big = false) {
+    const color = personColor(p, idx);
+    const name = this._personName(p, idx);
+    const st = p.person ? this.hass?.states[p.person] : undefined;
+    const pic = st?.attributes?.entity_picture as string | undefined;
+    const initials = name.slice(0, 2).toUpperCase();
+    const cls = `kid-av ${big ? "big" : ""} ${active ? "active" : ""}`;
+    const style = pic
+      ? `background-image:url('${pic}');box-shadow:0 0 0 3px ${color}`
+      : `background:${color}`;
+    const inner = pic ? nothing : html`<span>${initials}</span>`;
+    return big
+      ? html`<div class="${cls}" style="${style}">${inner}</div>`
+      : html`<button
+          class="${cls}"
+          style="${style}"
+          title=${name}
+          @click=${() => (this._activeKid = idx)}
+        >
+          ${inner}
+        </button>`;
+  }
+
+  private _kidTask(owned: OwnedItem, color: string) {
+    const { entity, item } = owned;
+    const emoji = emojiFor(item.summary);
+    return html`
+      <button
+        class="kid-task"
+        style="--pc:${color}"
+        @click=${() => this._kidComplete(entity, item)}
+      >
+        <span class="kid-emoji">${emoji}</span>
+        <span class="kid-task-title">${item.summary}</span>
+        <span class="kid-check">◯</span>
+      </button>
+    `;
+  }
+
+  private async _kidComplete(entity: string, item: TodoItem): Promise<void> {
+    this._burst = true;
+    if (this._burstTimer) clearTimeout(this._burstTimer);
+    this._burstTimer = window.setTimeout(() => {
+      this._burst = false;
+    }, 900);
+    await this._toggle(entity, item);
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this._burstTimer) clearTimeout(this._burstTimer);
   }
 
   private _goalBar(earned: number) {
@@ -537,6 +657,163 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       font-size: 0.75em;
       color: var(--secondary-text-color);
       margin-top: 2px;
+    }
+
+    /* ---- kid mode ---- */
+    ha-card.kid {
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .kid-people {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .kid-av {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #11181f;
+      font-weight: 800;
+      font-size: 16px;
+      opacity: 0.55;
+      transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+    }
+    .kid-av.active {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+    .kid-av.big {
+      width: 72px;
+      height: 72px;
+      font-size: 24px;
+      opacity: 1;
+    }
+    .kid-hero {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .kid-name {
+      font-size: 1.7em;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .kid-stars {
+      font-size: 1.05em;
+      font-weight: 700;
+      color: var(--secondary-text-color);
+      margin-top: 2px;
+    }
+    .kid-bar {
+      height: 14px;
+      border-radius: 10px;
+      background: var(--divider-color);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .kid-fill {
+      height: 100%;
+      border-radius: 10px;
+      background: var(--pc);
+      transition: width 0.4s ease;
+    }
+    .kid-tasks {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .kid-task {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 16px 18px;
+      border-radius: 16px;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      color: var(--primary-text-color);
+      background: color-mix(in srgb, var(--pc) 16%, var(--card-background-color, #fff));
+      border-left: 6px solid var(--pc);
+      transition:
+        transform 0.1s ease,
+        box-shadow 0.1s ease;
+    }
+    .kid-task:hover {
+      transform: translateY(-2px);
+    }
+    .kid-task:active {
+      transform: scale(0.98);
+    }
+    .kid-emoji {
+      font-size: 34px;
+      flex: none;
+    }
+    .kid-task-title {
+      flex: 1 1 auto;
+      font-size: 1.25em;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .kid-check {
+      flex: none;
+      font-size: 30px;
+      color: var(--pc);
+      font-weight: 700;
+    }
+    .kid-alldone {
+      text-align: center;
+      padding: 28px 10px;
+      font-size: 1.4em;
+      font-weight: 800;
+    }
+    .kid-alldone > div {
+      font-size: 0.75em;
+      margin-top: 6px;
+    }
+    .burst {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 120px;
+      pointer-events: none;
+      animation: burst 0.9s ease-out forwards;
+    }
+    @keyframes burst {
+      0% {
+        transform: scale(0.3);
+        opacity: 0;
+      }
+      30% {
+        transform: scale(1.1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .burst {
+        animation: none;
+        display: none;
+      }
     }
   `;
 }
