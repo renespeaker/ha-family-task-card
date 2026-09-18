@@ -1,11 +1,32 @@
-# Family Task Card — minimal dashboard usage
+# Family Task Card — dashboard usage
 #
-# The Family Task Card integration serves and registers the card automatically
-# (see README) — no manual dashboard resource needed. Add it to a dashboard:
-# Edit dashboard → Add card → "Family Task Card".
+# The integration serves and registers the card automatically (see README) —
+# no manual dashboard resource needed. Add it via:
+#   Edit dashboard → Add card → "Family Task Card".
 #
-# Configuration options (family members, task lists / providers, points and
-# rewards) are on the roadmap; see ROADMAP.md. For now:
+# The card reads Home Assistant `todo.*` lists live. Any provider that exposes
+# a todo entity works: local To-do lists, Apple Erinnerungen (CalDAV/iCloud),
+# Todoist, Google Tasks, Bring!. Checking a task writes back to the source list.
 
 type: custom:family-task-card
 title: Familien-Aufgaben
+points_per_task: 10 # points earned per completed task (default 10)
+goal: 200 # optional family points goal -> progress bar
+show_completed: false # also list completed tasks (dimmed). default false
+persons:
+  - name: Mama
+    person: person.mama # optional -> avatar + friendly name
+    lists: todo.mama_aufgaben # one list ...
+  - name: Papa
+    person: person.papa
+    lists:
+      - todo.papa_aufgaben # ... or several lists
+      - todo.einkauf_bring
+  - name: Lina
+    color: "#FB7185" # optional palette override
+    lists: todo.lina_aemtli
+
+# Notes
+# - `lists` are todo.* entity_ids. Leave empty to show a person with no tasks yet.
+# - `person` is optional; without it the card shows initials from `name`.
+# - Colors follow the Family Board Card palette automatically; `color` overrides.

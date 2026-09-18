@@ -1,8 +1,10 @@
 # 🧹 Family Task Card
 
-> **Status: frühe Entwicklung (Skeleton).** Diese Karte lädt und registriert
-> sich bereits in Home Assistant, zeigt aber noch einen Platzhalter. Die
-> Aufgaben-Funktionen sind in Arbeit – siehe [ROADMAP.md](ROADMAP.md).
+> **Status: frühes MVP.** Die Karte zeigt ein funktionierendes Personen-Board:
+> sie liest `todo.*`-Listen live, zeigt Aufgaben pro Person mit Punkten &
+> Familienziel, und Abhaken schreibt in die Quell-Liste zurück. Gamification-
+> Ausbau (Kinder-Modus, Belohnungen, Kontext-Aufgaben, Bring!-Deep-Links,
+> Konfig-UI) folgt – siehe [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
 [Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
@@ -54,8 +56,45 @@ eine Bedienung.
 3. Einstellungen → **Geräte & Dienste → Integration hinzufügen → „Family Task Card"**.
 4. Dashboard → Karte hinzufügen → **„Family Task Card"**.
 
-> Aktuell zeigt die Karte einen Platzhalter – die Aufgaben-Funktionen folgen
-> gemäß Roadmap.
+## Konfiguration
+
+Die Karte wird pro Person mit einer oder mehreren `todo.*`-Listen konfiguriert –
+im selben Stil wie die Family Board Card mit `persons`. Ein visueller Editor
+(zum Einrichten am Handy) folgt gemäß Roadmap; bis dahin per YAML:
+
+```yaml
+type: custom:family-task-card
+title: Familien-Aufgaben
+points_per_task: 10   # Punkte pro erledigter Aufgabe (Standard 10)
+goal: 200             # optionales Familienziel -> Fortschrittsbalken
+show_completed: false # erledigte Aufgaben (ausgegraut) mitanzeigen
+persons:
+  - name: Mama
+    person: person.mama          # optional -> Avatar + Anzeigename
+    lists: todo.mama_aufgaben     # eine Liste ...
+  - name: Papa
+    person: person.papa
+    lists:
+      - todo.papa_aufgaben        # ... oder mehrere
+      - todo.einkauf_bring
+  - name: Lina
+    color: "#FB7185"              # optionaler Farb-Override
+    lists: todo.lina_aemtli
+```
+
+| Option            | Typ                | Beschreibung                                             |
+|-------------------|--------------------|---------------------------------------------------------|
+| `persons`         | Liste (Pflicht)    | Familienmitglieder; je Person `name`/`person`/`lists`.  |
+| `persons[].lists` | Entität(en)        | `todo.*`-Entität(en), die zu dieser Person gehören.     |
+| `persons[].person`| `person.*`         | optional – liefert Avatar & Anzeigename.                |
+| `persons[].color` | Farbe              | optional – überschreibt die Palette.                    |
+| `title`           | Text               | Kartentitel.                                             |
+| `points_per_task` | Zahl               | Punkte je erledigter Aufgabe (Standard 10).             |
+| `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
+| `show_completed`  | Bool               | erledigte Aufgaben ausgegraut mitanzeigen.              |
+
+Ein vollständiges Beispiel liegt unter
+[`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).
 
 ## Aufbau des Repos
 

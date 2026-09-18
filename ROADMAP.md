@@ -33,16 +33,27 @@ das im Look der Family Board Card.
 
 Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 
-- [ ] Config-Flow: Familienmitglieder (`person.*`) + je Person eine/mehrere
-      `todo.*`-Listen zuordnen; Punkte-Grundwerte.
-- [ ] Coordinator: `todo`-Items lesen → Aufgaben je Person (offen/erledigt).
-- [ ] Karte (Erwachsenen-Board) im Family-Board-Look: Spalten pro Person,
+- [x] Karte (Erwachsenen-Board) im Family-Board-Look: Spalten pro Person,
       Avatar, Kacheln mit Emoji + `border-left`-Akzent, Abhaken schreibt ins
-      `todo`-Entity zurück.
-- [ ] Punkte & Familienziel-Fortschritt.
+      `todo`-Entity zurück (liest live via `todo/item/list`).
+- [x] Punkte & Familienziel-Fortschritt (Punkte je erledigter Aufgabe,
+      Familienziel als Fortschrittsbalken).
+- [x] Zuordnung Familienmitglieder (`person.*`) ↔ `todo.*`-Listen –
+      **über die Karten-Konfiguration** (`persons`), wie bei der Family Board
+      Card. Ein visueller Editor (Handy-Konfig) folgt weiter unten.
+- [ ] **Visueller Karten-Editor** (`LovelaceCardEditor`) – Personen, Listen,
+      Punkte & Ziel per UI statt YAML; funktioniert auch am Handy.
 - [ ] **Kinder-Modus** (großes, tippbares Layout).
 - [ ] **Einkaufen mit Bring!** – ganze Bring!-Liste = eine zugewiesene Aufgabe
       mit Punkten; „In Bring! öffnen" (Deep-Link) + Push; Abhaken synchron.
+
+> **Architektur-Entscheidung (MVP).** Die Karte liest/schreibt `todo`-Entities
+> direkt im Frontend (`hass.callWS` / `todo.update_item`) und wird per
+> Karten-Konfiguration eingerichtet – genau wie die Family Board Card. Der
+> Config-Flow/Coordinator der Integration bleibt vorerst schlank (serviert die
+> Karte). Persistente Gamification (Punkte-Historie, Belohnungs-Freigaben,
+> Zuweisungen) wandert in die Integration, sobald sie über die Laufzeit hinaus
+> gespeichert werden muss.
 
 ## Killer-Features (nach MVP)
 
