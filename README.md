@@ -59,8 +59,12 @@ eine Bedienung.
 ## Konfiguration
 
 Die Karte wird pro Person mit einer oder mehreren `todo.*`-Listen konfiguriert –
-im selben Stil wie die Family Board Card mit `persons`. Ein visueller Editor
-(zum Einrichten am Handy) folgt gemäß Roadmap; bis dahin per YAML:
+im selben Stil wie die Family Board Card mit `persons`. Am einfachsten geht das
+über den **visuellen Editor** (Karte im Dashboard bearbeiten): Personen
+hinzufügen/sortieren, `person.*` & `todo.*`-Listen per Auswahlfeld zuordnen,
+Farbe wählen, Punkte & Ziel setzen – funktioniert auch am Handy. Ein Klick auf
+**„Personen erkennen"** übernimmt vorhandene `person.*`-Entitäten. Wer lieber
+YAML schreibt:
 
 ```yaml
 type: custom:family-task-card
@@ -100,7 +104,8 @@ Ein vollständiges Beispiel liegt unter
 
 ```
 src/
-└── ha-family-task-card.ts  Quelle der Lovelace-Karte (Lit + TypeScript)
+├── ha-family-task-card.ts  Quelle der Lovelace-Karte (Lit + TypeScript)
+└── editor.ts               Visueller Karten-Editor (Personen, Listen, Punkte)
 custom_components/family_task_card/
 ├── __init__.py             Setup + serviert & registriert die Karte automatisch
 ├── config_flow.py          UI-Einrichtung (Single-Instance-Gerüst)

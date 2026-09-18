@@ -41,8 +41,10 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] Zuordnung Familienmitglieder (`person.*`) ↔ `todo.*`-Listen –
       **über die Karten-Konfiguration** (`persons`), wie bei der Family Board
       Card. Ein visueller Editor (Handy-Konfig) folgt weiter unten.
-- [ ] **Visueller Karten-Editor** (`LovelaceCardEditor`) – Personen, Listen,
-      Punkte & Ziel per UI statt YAML; funktioniert auch am Handy.
+- [x] **Visueller Karten-Editor** (`LovelaceCardEditor`) – Personen (hinzufügen/
+      sortieren/entfernen), `person.*` & `todo.*`-Listen per Auswahlfeld, Farbe,
+      Punkte & Ziel per UI statt YAML; „Personen erkennen" übernimmt `person.*`.
+      Funktioniert auch am Handy.
 - [ ] **Kinder-Modus** (großes, tippbares Layout).
 - [ ] **Einkaufen mit Bring!** – ganze Bring!-Liste = eine zugewiesene Aufgabe
       mit Punkten; „In Bring! öffnen" (Deep-Link) + Push; Abhaken synchron.

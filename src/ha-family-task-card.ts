@@ -105,6 +105,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private _sig: Record<string, string> = {};
   private _loading = false;
 
+  public static async getConfigElement() {
+    await import("./editor");
+    return document.createElement("family-task-card-editor");
+  }
+
   public static getStubConfig(hass?: HomeAssistant): FamilyTaskConfig {
     const firstTodo = hass
       ? Object.keys(hass.states).find((e) => e.startsWith("todo."))
