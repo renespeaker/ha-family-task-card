@@ -1,7 +1,6 @@
 # Family Task Card — dashboard usage
 #
-# The integration serves and registers the card automatically (see README) —
-# no manual dashboard resource needed. Add it via:
+# Install the card via HACS (type "Dashboard") — see README. Then add it via:
 #   Edit dashboard → Add card → "Family Task Card".
 #
 # The card reads Home Assistant `todo.*` lists live. Any provider that exposes

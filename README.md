@@ -1,10 +1,9 @@
 # 🧹 Family Task Card
 
-> **Status: frühes MVP.** Die Karte zeigt ein funktionierendes Personen-Board:
-> sie liest `todo.*`-Listen live, zeigt Aufgaben pro Person mit Punkten &
-> Familienziel, und Abhaken schreibt in die Quell-Liste zurück. Gamification-
-> Ausbau (Kinder-Modus, Belohnungen, Kontext-Aufgaben, Bring!-Deep-Links,
-> Konfig-UI) folgt – siehe [ROADMAP.md](ROADMAP.md).
+> **Status: nutzbar (v0.2.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Bring!-Einkauf und Kontext-Aufgaben sind da. Die Karte liest `todo.*`-Listen
+> live und schreibt beim Abhaken zurück. Weiteres (Belohnungs-Shop, Kiosk) siehe
+> [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
 [Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
@@ -48,13 +47,30 @@ Gleiche Design-Sprache und dieselben `person.*`-Entities: die Aufgaben können
 neben – oder perspektivisch in – der Family Board Card erscheinen. Ein Look,
 eine Bedienung.
 
-## Installation (HACS)
+## Installation
+
+Die Family Task Card ist eine **Lovelace-Karte** (Frontend) – genau wie die
+Family Board Card. Es gibt **keine Integration** zum Hinzufügen und **kein
+Neustart** nötig.
+
+### Über HACS (empfohlen)
 
 1. HACS → ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
-   Typ **Integration**.
-2. „Family Task Card" installieren und **Home Assistant neu starten**.
-3. Einstellungen → **Geräte & Dienste → Integration hinzufügen → „Family Task Card"**.
-4. Dashboard → Karte hinzufügen → **„Family Task Card"**.
+   Typ **Dashboard** (Lovelace).
+2. **„Family Task Card"** installieren. HACS legt die Ressource automatisch an.
+3. Browser einmal **hart neu laden** (Strg+Shift+R), damit die Karte geladen wird.
+4. Dashboard → Karte hinzufügen → nach **„Family Task Card"** suchen.
+
+### Manuell (ohne HACS)
+
+1. `family-task-card.js` aus diesem Repo nach `config/www/` kopieren.
+2. Einstellungen → **Dashboards → ⋮ → Ressourcen → Ressource hinzufügen**:
+   URL `/local/family-task-card.js`, Typ **JavaScript-Modul**.
+3. Browser hart neu laden, dann Karte hinzufügen.
+
+> **Von einer früheren Version als Integration installiert?** Entferne die alte
+> „Family Task Card"-Integration unter *Geräte & Dienste* und deinstalliere sie
+> in HACS, dann füge das Repo wie oben als **Dashboard** neu hinzu.
 
 ## Konfiguration
 
@@ -139,7 +155,7 @@ Assistant-Automation (nicht die Karte) – eine fertige Vorlage liegt unter
 > Hinweis: Einen offiziellen Deep-Link auf eine *bestimmte* Bring!-Liste gibt es
 > öffentlich nicht; der Button öffnet Bring! allgemein. Die Punkte für Einkäufe
 > werden aktuell live aus dem Listenzustand geschätzt – eine echte Punkte-
-> Historie zieht laut Roadmap in die Integration.
+> Historie kommt laut Roadmap mit einem optionalen Backend.
 
 ### Kontext-Aufgaben
 
@@ -201,24 +217,18 @@ Ein vollständiges Beispiel liegt unter
 src/
 ├── ha-family-task-card.ts  Quelle der Lovelace-Karte (Lit + TypeScript)
 └── editor.ts               Visueller Karten-Editor (Personen, Listen, Punkte)
-custom_components/family_task_card/
-├── __init__.py             Setup + serviert & registriert die Karte automatisch
-├── config_flow.py          UI-Einrichtung (Single-Instance-Gerüst)
-├── coordinator.py          Aufgaben-Coordinator (Gerüst: künftig todo-Entities)
-├── sensor.py               Sensor-Platform (Gerüst)
-├── const.py, manifest.json, strings.json, translations/
-└── family-task-card.js     Gebaute Karte (Rollup-Output, wird eingecheckt)
+family-task-card.js         Gebaute Karte (Rollup-Output, wird eingecheckt)
+hacs.json                   HACS-Metadaten (Lovelace/Dashboard-Karte)
 ROADMAP.md                  Vision, MVP & Roadmap
-examples/dashboard-card.yaml
+examples/                   Beispiel-Dashboards & Bring!-Push-Automation
 ```
 
 ## Entwicklung
 
 Die Karte wird mit TypeScript + [Lit](https://lit.dev/) geschrieben und mit
-Rollup zu einem einzelnen Bundle gebaut – **direkt** nach
-`custom_components/family_task_card/family-task-card.js`, das die Integration
-ausliefert. Diese Datei wird eingecheckt (die CI prüft, dass sie zum Stand von
-`src/` passt).
+Rollup zu einem einzelnen Bundle gebaut – nach `family-task-card.js` im
+Repo-Root, das HACS als Dashboard-Ressource ausliefert. Diese Datei wird
+eingecheckt (die CI prüft, dass sie zum Stand von `src/` passt).
 
 ```bash
 npm install        # Abhängigkeiten

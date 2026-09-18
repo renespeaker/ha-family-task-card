@@ -28,6 +28,9 @@ das im Look der Family Board Card.
   Freigaben verwaltet die Family Task Card obendrauf (Bring!/todo-Listen kennen
   keine „Zuständigkeit").
 - **Lokal & privat.** Kein separater Cloud-Account für Kinder.
+- **Reine Lovelace-Karte.** Auslieferung als HACS-Dashboard-Karte (wie die
+  Family Board Card) – keine Integration, kein Neustart. Ein optionales Backend
+  (für persistente Punkte-Historie & Freigaben) kann später dazukommen.
 
 ## MVP (v0.x)
 
@@ -54,12 +57,12 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       ganzen Einkauf synchron. Push-Zustellung als HA-Automation-Vorlage
       (`examples/bring-push-automation.yaml`), nicht als Kartencode.
 
-> **Architektur-Entscheidung (MVP).** Die Karte liest/schreibt `todo`-Entities
-> direkt im Frontend (`hass.callWS` / `todo.update_item`) und wird per
-> Karten-Konfiguration eingerichtet – genau wie die Family Board Card. Der
-> Config-Flow/Coordinator der Integration bleibt vorerst schlank (serviert die
-> Karte). Persistente Gamification (Punkte-Historie, Belohnungs-Freigaben,
-> Zuweisungen) wandert in die Integration, sobald sie über die Laufzeit hinaus
+> **Architektur-Entscheidung.** Die Karte liest/schreibt `todo`-Entities direkt
+> im Frontend (`hass.callWS` / `todo.update_item`) und wird per Karten-
+> Konfiguration eingerichtet – genau wie die Family Board Card. Ausgeliefert als
+> reine **HACS-Lovelace-Karte** (kein Integration/Neustart). Persistente
+> Gamification (Punkte-Historie, Belohnungs-Freigaben, Zuweisungen) kann später
+> ein **optionales Backend** übernehmen, sobald Zustand über die Laufzeit hinaus
 > gespeichert werden muss.
 
 ## Killer-Features (nach MVP)
