@@ -48,8 +48,11 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Kinder-Modus** (`kid_mode`) – großes, tippbares Einzel-Kind-Layout fürs
       Wandtablet: Avatar-Umschalter oben, XL-Aufgabenkacheln mit Emoji, Punkte-
       Ziel-Balken und Konfetti-Feedback beim Abhaken.
-- [ ] **Einkaufen mit Bring!** – ganze Bring!-Liste = eine zugewiesene Aufgabe
-      mit Punkten; „In Bring! öffnen" (Deep-Link) + Push; Abhaken synchron.
+- [x] **Einkaufen mit Bring!** (Karten-Teil) – `shopping_lists` zeigt eine
+      Bring!-Liste als eine „Einkauf"-Kachel mit 🛒, Artikel-Anzahl, Punkten
+      (`shopping_points`) und „In Bring! öffnen"-Button; Abhaken erledigt den
+      ganzen Einkauf synchron. Push-Zustellung als HA-Automation-Vorlage
+      (`examples/bring-push-automation.yaml`), nicht als Kartencode.
 
 > **Architektur-Entscheidung (MVP).** Die Karte liest/schreibt `todo`-Entities
 > direkt im Frontend (`hass.callWS` / `todo.update_item`) und wird per

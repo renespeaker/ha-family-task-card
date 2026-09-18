@@ -97,6 +97,9 @@ persons:
 | `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
 | `show_completed`  | Bool               | erledigte Aufgaben ausgegraut mitanzeigen.              |
 | `kid_mode`        | Bool               | großes, tippbares Kinder-Layout (Avatar-Umschalter).    |
+| `shopping_lists`  | Entität(en)        | `todo.*`-Listen (z. B. Bring!) als eine „Einkauf"-Kachel. |
+| `shopping_points` | Zahl               | Punkte für einen erledigten Einkauf (Std. = pro Aufgabe). |
+| `bring_deeplink`  | Text               | Ziel des „In Bring! öffnen"-Buttons (Std. web.getbring.com). |
 
 ### Kinder-Modus
 
@@ -105,6 +108,36 @@ fürs Wandtablet: oben ein Avatar-Umschalter (wer ist dran?), darunter XL-Kachel
 mit Emoji, ein Punkte-/Ziel-Balken und ein kurzes Konfetti-Feedback beim Abhaken.
 Ideal als eigene Karte auf einem Kinder-Dashboard, während das volle Board für
 die Eltern bleibt.
+
+### Einkaufen mit Bring!
+
+Listen unter `shopping_lists` (z. B. eine Bring!-Liste aus der HA-Bring-
+Integration) werden **als eine „Einkauf"-Kachel** dargestellt: 🛒 + Anzahl der
+Artikel + ein **„In Bring! öffnen"**-Button. Antippen der Kachel erledigt den
+ganzen Einkauf – jeder offene Artikel wird abgehakt und **synchron zurück in die
+Quell-Liste** geschrieben. Für einen erledigten Einkauf gibt es `shopping_points`.
+
+```yaml
+type: custom:family-task-card
+shopping_lists: todo.einkauf_bring
+shopping_points: 20
+# bring_deeplink: "https://web.getbring.com"   # optional
+persons:
+  - name: Papa
+    person: person.papa
+    lists:
+      - todo.papa_aufgaben
+      - todo.einkauf_bring    # dieselbe Liste der Person zuweisen -> zählt für sie
+```
+
+Den **Push aufs Handy**, der Bring! direkt öffnet, übernimmt eine Home-
+Assistant-Automation (nicht die Karte) – eine fertige Vorlage liegt unter
+[`examples/bring-push-automation.yaml`](examples/bring-push-automation.yaml).
+
+> Hinweis: Einen offiziellen Deep-Link auf eine *bestimmte* Bring!-Liste gibt es
+> öffentlich nicht; der Button öffnet Bring! allgemein. Die Punkte für Einkäufe
+> werden aktuell live aus dem Listenzustand geschätzt – eine echte Punkte-
+> Historie zieht laut Roadmap in die Integration.
 
 Ein vollständiges Beispiel liegt unter
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).

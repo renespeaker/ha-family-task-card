@@ -1,0 +1,46 @@
+# Family Task Card — Bring! Push-Beispiel (Home Assistant Automation)
+#
+# Die Karte zeigt eine Bring!-Liste als eine "Einkauf"-Aufgabe und hat einen
+# "In Bring! öffnen"-Button. Das *Zustellen* an die zuständige Person (Push aufs
+# Handy, das direkt Bring! öffnet) macht Home Assistant per Automation — nicht
+# die Karte. Dieses Beispiel ist eine Vorlage zum Anpassen.
+#
+# Voraussetzungen:
+# - Die Bring!-Integration in HA (liefert die Liste als todo.*-Entity).
+# - Die Home Assistant Companion App auf dem Handy der zuständigen Person
+#   (notify.mobile_app_<geraet>).
+#
+# Idee: Sobald die Einkaufsliste Artikel enthält, bekommt die zuständige Person
+# einen Push. Tippen öffnet Bring! (Deep-Link). Passe todo-Entity, notify-Ziel
+# und ggf. den Bring!-Link an.
+
+alias: Einkauf – Push an zuständige Person
+description: Benachrichtigt beim Befüllen der Bring!-Liste und öffnet per Tipp Bring!
+triggers:
+  # Auslösen, wenn die Anzahl offener Artikel auf der Liste steigt (0 -> >0).
+  - trigger: numeric_state
+    entity_id: todo.einkauf_bring
+    above: 0
+conditions: []
+actions:
+  - action: notify.mobile_app_papa_handy # <- Ziel-Handy anpassen
+    data:
+      title: "🛒 Einkauf steht an"
+      message: "{{ states('todo.einkauf_bring') }} Artikel auf der Bring!-Liste."
+      data:
+        # iOS: öffnet die URL beim Tippen. Android: clickAction.
+        url: "https://web.getbring.com"
+        clickAction: "https://web.getbring.com"
+        # Optional: eine Aktions-Schaltfläche direkt in der Benachrichtigung.
+        actions:
+          - action: URI
+            title: "In Bring! öffnen"
+            uri: "https://web.getbring.com"
+        tag: "einkauf-bring"
+        group: "family-task-card"
+mode: single
+
+# Tipp: Für die App statt Web kannst du als uri/url auch einen App-Deep-Link
+# setzen, sofern dein Gerät/Bring! ihn unterstützt. Einen offiziellen Deep-Link
+# auf eine *bestimmte* Bring!-Liste gibt es öffentlich nicht — daher öffnet der
+# Link Bring! allgemein. Die Zuweisung "wer kauft ein" verwaltest du in der Karte.

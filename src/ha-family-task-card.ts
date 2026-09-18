@@ -5,17 +5,19 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
 /**
  * Family Task Card — a gamified family task / chore card for Home Assistant.
  *
- * MVP: a per-person board in the visual language of the Family Board Card.
- * It reads `todo.*` items live (Apple Reminders, Todoist, Google Tasks, Bring!,
- * local lists all expose these), renders tinted task tiles per person, and
- * checking a task writes back to the source list. A points / family-goal layer
- * sits on top. See ROADMAP.md for what comes next (kid mode, rewards, context
- * tasks, Bring! deep-links, config UI).
+ * A per-person board in the visual language of the Family Board Card. It reads
+ * `todo.*` items live (Apple Reminders, Todoist, Google Tasks, Bring!, local
+ * lists all expose these), renders tinted task tiles per person, and checking a
+ * task writes back to the source list. On top: a points / family-goal layer, a
+ * big tappable kid mode, and Bring!/shopping lists shown as one aggregated
+ * "Einkauf" tile. See ROADMAP.md for what comes next (rewards, context tasks,
+ * kiosk moment).
  */
 
 const CARD_NAME = "Family Task Card";
 const REPO = "https://github.com/renespeaker/ha-family-task-card";
 const DEFAULT_POINTS = 10;
+const DEFAULT_BRING_LINK = "https://web.getbring.com";
 
 /* Same person palette as the Family Board Card, for one shared look. */
 const FALLBACK_COLORS = [
@@ -65,6 +67,9 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   goal?: number; // family points goal -> progress bar
   show_completed?: boolean; // also list completed tasks (dimmed). default false
   kid_mode?: boolean; // big, tappable single-child layout (wall tablet). default false
+  shopping_lists?: string | string[]; // todo.* lists shown as one aggregated "Einkauf" tile
+  shopping_points?: number; // points for a finished shopping trip. default = points_per_task
+  bring_deeplink?: string; // URL for the "In Bring! öffnen" button. default web.getbring.com
 }
 
 interface TodoItem {
@@ -79,6 +84,22 @@ interface TodoItem {
 interface OwnedItem {
   entity: string;
   item: TodoItem;
+}
+
+/** A shopping list (e.g. Bring!) shown as one aggregated "Einkauf" tile. */
+interface ShoppingEntry {
+  entity: string;
+  name: string;
+  open: OwnedItem[];
+}
+
+/** Everything one person's column / kid view needs, computed once. */
+interface PersonView {
+  tasksOpen: OwnedItem[];
+  tasksDone: OwnedItem[];
+  shopOpen: ShoppingEntry[];
+  earned: number;
+  openCount: number;
 }
 
 function personColor(p: PersonConfig, idx: number): string {
@@ -185,12 +206,58 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     }
   }
 
-  private _itemsFor(p: PersonConfig): OwnedItem[] {
-    const out: OwnedItem[] = [];
+  private _shoppingSet(): Set<string> {
+    const raw = this._config?.shopping_lists;
+    const arr = raw ? (Array.isArray(raw) ? raw : [raw]) : [];
+    return new Set(arr.filter(Boolean));
+  }
+
+  private _listName(entity: string): string {
+    return (this.hass?.states[entity]?.attributes?.friendly_name as string) || "Einkauf";
+  }
+
+  private _bringLink(): string {
+    return this._config?.bring_deeplink || DEFAULT_BRING_LINK;
+  }
+
+  /** Split a person's lists into tasks + shopping trips and tally points. */
+  private _personView(p: PersonConfig): PersonView {
+    const cfg = this._config!;
+    const pts = cfg.points_per_task ?? DEFAULT_POINTS;
+    const shopPts = cfg.shopping_points ?? pts;
+    const shopping = this._shoppingSet();
+
+    const tasksOpen: OwnedItem[] = [];
+    const tasksDone: OwnedItem[] = [];
+    const shopOpen: ShoppingEntry[] = [];
+    let earned = 0;
+
     for (const entity of listsOf(p)) {
-      for (const item of this._items[entity] ?? []) out.push({ entity, item });
+      const items: OwnedItem[] = (this._items[entity] ?? []).map((item) => ({ entity, item }));
+      if (shopping.has(entity)) {
+        const open = items.filter((o) => o.item.status !== "completed");
+        const done = items.filter((o) => o.item.status === "completed");
+        if (open.length > 0) shopOpen.push({ entity, name: this._listName(entity), open });
+        // Best-effort, stateless: a trip counts as done when items were checked
+        // off and none remain open. Real points history moves to the integration.
+        else if (done.length > 0) earned += shopPts;
+      } else {
+        for (const o of items) (o.item.status === "completed" ? tasksDone : tasksOpen).push(o);
+      }
     }
-    return out;
+    earned += tasksDone.length * pts;
+    return {
+      tasksOpen,
+      tasksDone,
+      shopOpen,
+      earned,
+      openCount: tasksOpen.length + shopOpen.length,
+    };
+  }
+
+  /** Complete a whole shopping trip: check off every open item (syncs to source). */
+  private async _completeShopping(entry: ShoppingEntry): Promise<void> {
+    await Promise.all(entry.open.map((o) => this._toggle(o.entity, o.item)));
   }
 
   private _personName(p: PersonConfig, idx: number): string {
@@ -228,15 +295,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (!this._config) return nothing;
     const cfg = this._config;
     if (cfg.kid_mode && cfg.persons.length > 0) return this._renderKid();
-    const pts = cfg.points_per_task ?? DEFAULT_POINTS;
-
     let familyEarned = 0;
     const columns = cfg.persons.map((p, idx) => {
-      const items = this._itemsFor(p);
-      const open = items.filter((o) => o.item.status !== "completed");
-      const done = items.filter((o) => o.item.status === "completed");
-      familyEarned += done.length * pts;
-      return { p, idx, open, done };
+      const view = this._personView(p);
+      familyEarned += view.earned;
+      return { p, idx, view };
     });
 
     return html`
@@ -250,9 +313,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           ${this._goalBar(familyEarned)}
         </div>
 
-        <div class="board">
-          ${columns.map((c) => this._column(c.p, c.idx, c.open, c.done, pts))}
-        </div>
+        <div class="board">${columns.map((c) => this._column(c.p, c.idx, c.view))}</div>
       </ha-card>
     `;
   }
@@ -261,19 +322,17 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   private _renderKid() {
     const cfg = this._config!;
-    const pts = cfg.points_per_task ?? DEFAULT_POINTS;
     const persons = cfg.persons;
     const idx = Math.min(this._activeKid, persons.length - 1);
     const p = persons[idx];
     const color = personColor(p, idx);
     const name = this._personName(p, idx);
-    const items = this._itemsFor(p);
-    const open = items.filter((o) => o.item.status !== "completed");
-    const done = items.filter((o) => o.item.status === "completed");
-    const earned = done.length * pts;
+    const view = this._personView(p);
+    const earned = view.earned;
+    const openCount = view.openCount;
     const goal = p.goal ?? cfg.goal;
     const pct = goal && goal > 0 ? Math.min(100, Math.round((earned / goal) * 100)) : 0;
-    const allDone = open.length === 0;
+    const allDone = openCount === 0;
 
     return html`
       <ha-card class="kid" style="--pc:${color}">
@@ -290,7 +349,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           <div class="kid-hero-text">
             <div class="kid-name">${name}</div>
             <div class="kid-stars">
-              ⭐ ${earned}${open.length ? html` · ${open.length} offen` : nothing}
+              ⭐ ${earned}${openCount ? html` · ${openCount} offen` : nothing}
             </div>
           </div>
         </div>
@@ -308,7 +367,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                   🎉
                   <div>Alles geschafft!</div>
                 </div>`
-              : open.map((o) => this._kidTask(o, color))
+              : html`${view.shopOpen.map((s) => this._kidShopping(s, color))}
+                ${view.tasksOpen.map((o) => this._kidTask(o, color))}`
           }
         </div>
 
@@ -356,13 +416,47 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private async _kidComplete(entity: string, item: TodoItem): Promise<void> {
+  private _kidShopping(entry: ShoppingEntry, color: string) {
+    return html`
+      <button
+        class="kid-task"
+        style="--pc:${color}"
+        @click=${() => this._kidCompleteShopping(entry)}
+      >
+        <span class="kid-emoji">🛒</span>
+        <span class="kid-task-title">
+          ${entry.name}
+          <span class="kid-sub">${entry.open.length} Artikel</span>
+        </span>
+        <a
+          class="bring-open"
+          href=${this._bringLink()}
+          target="_blank"
+          rel="noopener"
+          @click=${(e: MouseEvent) => e.stopPropagation()}
+        >
+          Öffnen
+        </a>
+      </button>
+    `;
+  }
+
+  private _celebrate(): void {
     this._burst = true;
     if (this._burstTimer) clearTimeout(this._burstTimer);
     this._burstTimer = window.setTimeout(() => {
       this._burst = false;
     }, 900);
+  }
+
+  private async _kidComplete(entity: string, item: TodoItem): Promise<void> {
+    this._celebrate();
     await this._toggle(entity, item);
+  }
+
+  private async _kidCompleteShopping(entry: ShoppingEntry): Promise<void> {
+    this._celebrate();
+    await this._completeShopping(entry);
   }
 
   public disconnectedCallback(): void {
@@ -386,14 +480,14 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _column(p: PersonConfig, idx: number, open: OwnedItem[], done: OwnedItem[], pts: number) {
+  private _column(p: PersonConfig, idx: number, view: PersonView) {
     const color = personColor(p, idx);
     const name = this._personName(p, idx);
     const st = p.person ? this.hass?.states[p.person] : undefined;
     const pic = st?.attributes?.entity_picture as string | undefined;
     const initials = name.slice(0, 2).toUpperCase();
-    const earned = done.length * pts;
     const showDone = this._config?.show_completed;
+    const isEmpty = view.openCount === 0 && (!showDone || view.tasksDone.length === 0);
 
     return html`
       <div class="col" style="--pc:${color}">
@@ -408,19 +502,52 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           }
           <div class="col-meta">
             <div class="pname">${name}</div>
-            <div class="pstatus">${open.length} offen · ⭐ ${earned}</div>
+            <div class="pstatus">${view.openCount} offen · ⭐ ${view.earned}</div>
           </div>
         </div>
 
         <div class="tiles">
-          ${
-            open.length === 0 && (!showDone || done.length === 0)
-              ? html`<div class="empty">Alles erledigt 🎉</div>`
-              : nothing
-          }
-          ${open.map((o) => this._tile(o, color, false))}
-          ${showDone ? done.map((o) => this._tile(o, color, true)) : nothing}
+          ${isEmpty ? html`<div class="empty">Alles erledigt 🎉</div>` : nothing}
+          ${view.shopOpen.map((s) => this._shoppingTile(s, color))}
+          ${view.tasksOpen.map((o) => this._tile(o, color, false))}
+          ${showDone ? view.tasksDone.map((o) => this._tile(o, color, true)) : nothing}
         </div>
+      </div>
+    `;
+  }
+
+  private _shoppingTile(entry: ShoppingEntry, color: string) {
+    const count = entry.open.length;
+    return html`
+      <div
+        class="tile shopping"
+        style="--pc:${color}"
+        role="button"
+        tabindex="0"
+        @click=${() => this._completeShopping(entry)}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this._completeShopping(entry);
+          }
+        }}
+      >
+        <div class="check"></div>
+        <div class="tile-emoji">🛒</div>
+        <div class="tile-text">
+          <div class="tile-title">${entry.name}</div>
+          <div class="tile-due">${count} Artikel</div>
+        </div>
+        <a
+          class="bring-open"
+          href=${this._bringLink()}
+          target="_blank"
+          rel="noopener"
+          title="In Bring! öffnen"
+          @click=${(e: MouseEvent) => e.stopPropagation()}
+        >
+          Öffnen
+        </a>
       </div>
     `;
   }
@@ -658,6 +785,21 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       color: var(--secondary-text-color);
       margin-top: 2px;
     }
+    .tile.shopping .tile-text {
+      flex: 1 1 auto;
+    }
+    .bring-open {
+      flex: none;
+      align-self: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.78em;
+      font-weight: 700;
+      text-decoration: none;
+      color: #fff;
+      background: var(--pc);
+      white-space: nowrap;
+    }
 
     /* ---- kid mode ---- */
     ha-card.kid {
@@ -768,6 +910,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       font-size: 1.25em;
       font-weight: 700;
       overflow-wrap: anywhere;
+    }
+    .kid-sub {
+      display: block;
+      font-size: 0.7em;
+      font-weight: 600;
+      color: var(--secondary-text-color);
+      margin-top: 2px;
     }
     .kid-check {
       flex: none;
