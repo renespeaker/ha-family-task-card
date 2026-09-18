@@ -1,5 +1,7 @@
 # 🧹 Family Task Card
 
+![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
+
 > **Status: nutzbar (v0.2.0).** Personen-Board, visueller Editor, Kinder-Modus,
 > Bring!-Einkauf und Kontext-Aufgaben sind da. Die Karte liest `todo.*`-Listen
 > live und schreibt beim Abhaken zurück. Weiteres (Belohnungs-Shop, Kiosk) siehe
