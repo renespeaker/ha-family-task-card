@@ -1,2 +1,9 @@
+# Python
 __pycache__/
 *.py[cod]
+
+# Node / build toolchain
+node_modules/
+*.log
+.DS_Store
+.vscode/

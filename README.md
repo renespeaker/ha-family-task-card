@@ -60,16 +60,37 @@ eine Bedienung.
 ## Aufbau des Repos
 
 ```
+src/
+└── ha-family-task-card.ts  Quelle der Lovelace-Karte (Lit + TypeScript)
 custom_components/family_task_card/
-├── __init__.py            Setup + serviert & registriert die Karte automatisch
-├── config_flow.py         UI-Einrichtung (Single-Instance-Gerüst)
-├── coordinator.py         Aufgaben-Coordinator (Gerüst: künftig todo-Entities)
-├── sensor.py              Sensor-Platform (Gerüst)
+├── __init__.py             Setup + serviert & registriert die Karte automatisch
+├── config_flow.py          UI-Einrichtung (Single-Instance-Gerüst)
+├── coordinator.py          Aufgaben-Coordinator (Gerüst: künftig todo-Entities)
+├── sensor.py               Sensor-Platform (Gerüst)
 ├── const.py, manifest.json, strings.json, translations/
-└── family-task-card.js    Lovelace-Karte (theme-aware Platzhalter)
-ROADMAP.md                 Vision, MVP & Roadmap
+└── family-task-card.js     Gebaute Karte (Rollup-Output, wird eingecheckt)
+ROADMAP.md                  Vision, MVP & Roadmap
 examples/dashboard-card.yaml
 ```
+
+## Entwicklung
+
+Die Karte wird mit TypeScript + [Lit](https://lit.dev/) geschrieben und mit
+Rollup zu einem einzelnen Bundle gebaut – **direkt** nach
+`custom_components/family_task_card/family-task-card.js`, das die Integration
+ausliefert. Diese Datei wird eingecheckt (die CI prüft, dass sie zum Stand von
+`src/` passt).
+
+```bash
+npm install        # Abhängigkeiten
+npm run build      # src/ → gebaute Karte
+npm run watch      # Neu bauen bei Änderungen
+npm run lint       # Typecheck (tsc --noEmit)
+npm run format     # Prettier
+```
+
+Die GitHub-Actions bauen bei jedem Push (`CI`) und prüfen die HACS-Struktur
+(`Validate`).
 
 ## Mitwirken
 
