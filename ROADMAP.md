@@ -64,8 +64,10 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 
 ## Killer-Features (nach MVP)
 
-- [ ] **Kontext-Aufgaben** – Regeln auf Basis von Kalender, Wetter, Anwesenheit
-      (einblenden/überspringen/eskalieren).
+- [x] **Kontext-Aufgaben** – überfällige Aufgaben werden automatisch als dringend
+      markiert; `context_rules` reagieren auf beliebige HA-Entities (Wetter,
+      Anwesenheit, Kalender, Sensoren) und blenden Aufgaben aus, heben sie hervor
+      oder markieren sie als dringend. Eskalations-Push bleibt HA-Automation.
 - [ ] **Belohnungs-Shop mit Eltern-Freigabe** – Einlösen → Freigabe-Push an
       Eltern (optional Foto-Beweis); Punkte→Taschengeld-Automatik.
 - [ ] **Kiosk-Moment** – Erfolg über HA fühlbar machen (Licht/Sound/TTS/Push),

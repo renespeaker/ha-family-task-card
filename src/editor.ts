@@ -35,6 +35,7 @@ const SETTINGS_SCHEMA = [
   { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
   { name: "show_completed", selector: { boolean: {} } },
   { name: "kid_mode", selector: { boolean: {} } },
+  { name: "highlight_overdue", selector: { boolean: {} } },
   {
     name: "shopping_lists",
     selector: { entity: { filter: { domain: "todo" }, multiple: true } },
@@ -61,6 +62,7 @@ const LABELS: Record<string, string> = {
   goal: "Ziel (Punkte)",
   show_completed: "Erledigte anzeigen",
   kid_mode: "Kinder-Modus",
+  highlight_overdue: "Überfällige hervorheben",
   shopping_lists: "Einkaufslisten (Bring!)",
   shopping_points: "Punkte pro Einkauf",
   bring_deeplink: "Bring!-Link",
@@ -73,6 +75,8 @@ const HELPERS: Record<string, string> = {
   goal: "Familien-Punkteziel für den Fortschrittsbalken. 0 = aus.",
   show_completed: "Erledigte Aufgaben ausgegraut mitanzeigen.",
   kid_mode: "Großes, tippbares Layout fürs Kinder-Tablet (Avatar oben zum Wechseln).",
+  highlight_overdue:
+    "Aufgaben mit überschrittenem Fälligkeitsdatum als dringend markieren (Standard an). Weitere Kontext-Regeln per YAML (context_rules).",
   shopping_lists:
     "Diese todo.*-Listen (z. B. Bring!) werden als eine 'Einkauf'-Kachel gezeigt; Abhaken erledigt den ganzen Einkauf.",
   shopping_points: "Punkte für einen erledigten Einkauf (Standard = Punkte pro Aufgabe).",
@@ -94,11 +98,13 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     return Array.isArray(this._config.persons) ? this._config.persons : [];
   }
 
-  /** Settings data with shopping_lists normalized to an array for the picker. */
+  /** Settings data with shopping_lists normalized and defaults reflected. */
   private get _settingsData(): FamilyTaskConfig {
     const s = this._config.shopping_lists;
     const shopping_lists = Array.isArray(s) ? s : s ? [s] : [];
-    return { ...this._config, shopping_lists };
+    // highlight_overdue defaults to on -> show the toggle on unless explicitly off.
+    const highlight_overdue = this._config.highlight_overdue !== false;
+    return { ...this._config, shopping_lists, highlight_overdue };
   }
 
   private _emit(config: FamilyTaskConfig): void {
@@ -118,6 +124,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.kid_mode) delete next.kid_mode;
     if (!next.shopping_points) delete next.shopping_points;
     if (!next.bring_deeplink) delete next.bring_deeplink;
+    // Default is on: store only the explicit "off"; drop the redundant "on".
+    if (next.highlight_overdue) delete next.highlight_overdue;
     if (Array.isArray(next.shopping_lists)) {
       if (next.shopping_lists.length === 0) delete next.shopping_lists;
       else if (next.shopping_lists.length === 1) next.shopping_lists = next.shopping_lists[0];

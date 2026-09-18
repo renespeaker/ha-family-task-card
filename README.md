@@ -100,6 +100,8 @@ persons:
 | `shopping_lists`  | Entität(en)        | `todo.*`-Listen (z. B. Bring!) als eine „Einkauf"-Kachel. |
 | `shopping_points` | Zahl               | Punkte für einen erledigten Einkauf (Std. = pro Aufgabe). |
 | `bring_deeplink`  | Text               | Ziel des „In Bring! öffnen"-Buttons (Std. web.getbring.com). |
+| `highlight_overdue` | Bool             | überfällige Aufgaben als dringend markieren (Std. an).  |
+| `context_rules`   | Liste              | Regeln, die auf HA-Zustände reagieren (siehe unten).    |
 
 ### Kinder-Modus
 
@@ -138,6 +140,57 @@ Assistant-Automation (nicht die Karte) – eine fertige Vorlage liegt unter
 > öffentlich nicht; der Button öffnet Bring! allgemein. Die Punkte für Einkäufe
 > werden aktuell live aus dem Listenzustand geschätzt – eine echte Punkte-
 > Historie zieht laut Roadmap in die Integration.
+
+### Kontext-Aufgaben
+
+Die HA-Superkraft: Aufgaben **reagieren auf den Zustand deines Zuhauses**
+(Wetter, Anwesenheit, Kalender, Sensoren). Zwei Ebenen:
+
+**1. Überfällig automatisch** – Aufgaben mit überschrittenem Fälligkeitsdatum
+(`due`) werden ohne Konfiguration als **dringend** markiert (⚠️, roter Akzent,
+Chip „Überfällig"). Abschaltbar mit `highlight_overdue: false`.
+
+**2. `context_rules`** – eigene Regeln. Trifft die Bedingung auf `entity` zu,
+bekommen passende Aufgaben den `effect`:
+
+- `hide` – ausblenden (z. B. Gießen überspringen, wenn es regnet)
+- `highlight` – hervorheben (farbiger Rahmen)
+- `urgent` – als dringend markieren (⚠️, z. B. Müll am Abfuhr-Vorabend)
+
+```yaml
+type: custom:family-task-card
+persons:
+  - name: Papa
+    lists: todo.haushalt
+context_rules:
+  # Gießen ausblenden, wenn das Wetter auf Regen steht
+  - match: "gieß|blumen|pflanze"
+    entity: weather.home
+    state: rainy
+    effect: hide
+  # Müll dringend machen, wenn der Abfuhr-Sensor morgen meldet
+  - match: "müll|tonne"
+    entity: binary_sensor.muellabfuhr_morgen
+    state: "on"
+    effect: urgent
+    label: "Morgen Abfuhr!"
+  # Einkauf hervorheben, wenn jemand unterwegs ist (Anwesenheit)
+  - match: "einkauf"
+    entity: person.papa
+    state: not_home
+    effect: highlight
+    label: "Du bist unterwegs"
+```
+
+Bedingungen je Regel: `state` (ein Wert oder Liste), `above`/`below` (numerisch),
+oder ganz ohne → „Zustand ist an/aktiv". `invert: true` dreht die Bedingung um.
+Ohne `match`/`lists` gilt die Regel für alle Aufgaben; `lists` schränkt auf
+bestimmte `todo.*`-Listen ein.
+
+> Die **Eskalations-Push** („nicht rechtzeitig erledigt") ist – wie bei Bring! –
+> eine HA-Automation, nicht Kartencode. Die Karte macht die **sichtbare**
+> Eskalation (Dringend-Markierung); den Push kannst du an denselben Sensoren
+> aufhängen.
 
 Ein vollständiges Beispiel liegt unter
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).

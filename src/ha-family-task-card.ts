@@ -9,9 +9,9 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
  * `todo.*` items live (Apple Reminders, Todoist, Google Tasks, Bring!, local
  * lists all expose these), renders tinted task tiles per person, and checking a
  * task writes back to the source list. On top: a points / family-goal layer, a
- * big tappable kid mode, and Bring!/shopping lists shown as one aggregated
- * "Einkauf" tile. See ROADMAP.md for what comes next (rewards, context tasks,
- * kiosk moment).
+ * big tappable kid mode, Bring!/shopping lists shown as one aggregated "Einkauf"
+ * tile, and context rules that react to Home Assistant state (hide / highlight /
+ * mark urgent). See ROADMAP.md for what comes next (rewards, kiosk moment).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -70,6 +70,25 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   shopping_lists?: string | string[]; // todo.* lists shown as one aggregated "Einkauf" tile
   shopping_points?: number; // points for a finished shopping trip. default = points_per_task
   bring_deeplink?: string; // URL for the "In Bring! öffnen" button. default web.getbring.com
+  context_rules?: ContextRule[]; // react to HA state: hide / highlight / mark urgent
+  highlight_overdue?: boolean; // mark tasks past their due date as urgent. default true
+}
+
+/**
+ * A context rule reacts to Home Assistant state. When its condition on `entity`
+ * is met, matching tasks get its `effect`: hidden (e.g. skip watering when it
+ * rains), highlighted, or marked urgent (e.g. bins out the evening before).
+ */
+interface ContextRule {
+  entity: string; // the HA entity to evaluate
+  effect: "hide" | "highlight" | "urgent";
+  match?: string; // regex on the task summary (case-insensitive). default: all tasks
+  lists?: string | string[]; // restrict to these todo.* lists
+  state?: string | string[]; // condition: entity state equals one of these
+  above?: number; // numeric condition: entity state > above
+  below?: number; // numeric condition: entity state < below
+  invert?: boolean; // flip the condition (e.g. apply when NOT home)
+  label?: string; // chip shown on highlighted / urgent tasks
 }
 
 interface TodoItem {
@@ -86,6 +105,14 @@ interface OwnedItem {
   item: TodoItem;
 }
 
+type ContextFlag = "none" | "highlight" | "urgent";
+
+/** An open task plus the context flag / label the rules gave it. */
+interface DecoratedItem extends OwnedItem {
+  flag: ContextFlag;
+  label?: string;
+}
+
 /** A shopping list (e.g. Bring!) shown as one aggregated "Einkauf" tile. */
 interface ShoppingEntry {
   entity: string;
@@ -95,7 +122,7 @@ interface ShoppingEntry {
 
 /** Everything one person's column / kid view needs, computed once. */
 interface PersonView {
-  tasksOpen: OwnedItem[];
+  tasksOpen: DecoratedItem[];
   tasksDone: OwnedItem[];
   shopOpen: ShoppingEntry[];
   earned: number;
@@ -114,6 +141,54 @@ function listsOf(p: PersonConfig): string[] {
 function emojiFor(summary: string): string {
   for (const [re, emoji] of EMOJI_RULES) if (re.test(summary)) return emoji;
   return "📝";
+}
+
+/** A task is overdue once its due date/time has fully passed. */
+function isOverdue(item: TodoItem): boolean {
+  if (!item.due) return false;
+  // Date-only due -> overdue after end of that day; datetime -> exact moment.
+  const d = new Date(item.due.length <= 10 ? `${item.due}T23:59:59` : item.due);
+  return !isNaN(d.getTime()) && d.getTime() < Date.now();
+}
+
+/** Does a rule target this task (by title regex and/or list)? */
+function ruleApplies(rule: ContextRule, summary: string, entity: string): boolean {
+  if (rule.lists) {
+    const arr = Array.isArray(rule.lists) ? rule.lists : [rule.lists];
+    if (!arr.includes(entity)) return false;
+  }
+  if (rule.match) {
+    try {
+      if (!new RegExp(rule.match, "i").test(summary)) return false;
+    } catch {
+      return false; // a bad regex simply never matches
+    }
+  }
+  return true;
+}
+
+/** Is a rule's condition on its entity currently met? */
+function ruleConditionMet(rule: ContextRule, st: { state: string } | undefined): boolean {
+  let met = false;
+  if (st) {
+    if (rule.state !== undefined) {
+      const arr = Array.isArray(rule.state) ? rule.state : [rule.state];
+      met = arr.includes(st.state);
+    } else if (rule.above !== undefined || rule.below !== undefined) {
+      const n = Number(st.state);
+      if (!isNaN(n)) {
+        met = true;
+        if (rule.above !== undefined && !(n > rule.above)) met = false;
+        if (rule.below !== undefined && !(n < rule.below)) met = false;
+      }
+    } else {
+      // No explicit condition -> treat a truthy state as met (on/home/open/...).
+      met = !["off", "unavailable", "unknown", "", "none", "false"].includes(
+        st.state.toLowerCase(),
+      );
+    }
+  }
+  return rule.invert ? !met : met;
 }
 
 export class FamilyTaskCard extends LitElement implements LovelaceCard {
@@ -227,7 +302,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const shopPts = cfg.shopping_points ?? pts;
     const shopping = this._shoppingSet();
 
-    const tasksOpen: OwnedItem[] = [];
+    const rawOpen: OwnedItem[] = [];
     const tasksDone: OwnedItem[] = [];
     const shopOpen: ShoppingEntry[] = [];
     let earned = 0;
@@ -242,9 +317,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         // off and none remain open. Real points history moves to the integration.
         else if (done.length > 0) earned += shopPts;
       } else {
-        for (const o of items) (o.item.status === "completed" ? tasksDone : tasksOpen).push(o);
+        for (const o of items) (o.item.status === "completed" ? tasksDone : rawOpen).push(o);
       }
     }
+    // Context rules can hide, highlight or flag open tasks as urgent.
+    const tasksOpen = this._decorate(rawOpen);
     earned += tasksDone.length * pts;
     return {
       tasksOpen,
@@ -253,6 +330,49 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       earned,
       openCount: tasksOpen.length + shopOpen.length,
     };
+  }
+
+  /** Apply context rules + overdue detection to open tasks; drop hidden ones. */
+  private _decorate(open: OwnedItem[]): DecoratedItem[] {
+    const rules = this._config?.context_rules ?? [];
+    const overdueOn = this._config?.highlight_overdue !== false;
+    const out: DecoratedItem[] = [];
+
+    for (const o of open) {
+      let hidden = false;
+      let flag: ContextFlag = "none";
+      let label: string | undefined;
+
+      for (const rule of rules) {
+        if (!ruleApplies(rule, o.item.summary, o.entity)) continue;
+        if (!ruleConditionMet(rule, this.hass?.states[rule.entity])) continue;
+        if (rule.effect === "hide") {
+          hidden = true;
+          break;
+        }
+        if (rule.effect === "urgent") {
+          flag = "urgent";
+          label = rule.label ?? label;
+        } else if (rule.effect === "highlight" && flag !== "urgent") {
+          flag = "highlight";
+          label = label ?? rule.label;
+        }
+      }
+      if (hidden) continue;
+
+      if (overdueOn && isOverdue(o.item)) {
+        flag = "urgent";
+        label = label ?? "Überfällig";
+      }
+      out.push({ ...o, flag, label });
+    }
+
+    // Urgent first, then highlighted, then the rest — order within stays stable.
+    const rank = (f: ContextFlag) => (f === "urgent" ? 0 : f === "highlight" ? 1 : 2);
+    return out
+      .map((d, i) => ({ d, i }))
+      .sort((a, b) => rank(a.d.flag) - rank(b.d.flag) || a.i - b.i)
+      .map(({ d }) => d);
   }
 
   /** Complete a whole shopping trip: check off every open item (syncs to source). */
@@ -400,17 +520,19 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </button>`;
   }
 
-  private _kidTask(owned: OwnedItem, color: string) {
-    const { entity, item } = owned;
-    const emoji = emojiFor(item.summary);
+  private _kidTask(owned: DecoratedItem, color: string) {
+    const { entity, item, flag, label } = owned;
+    const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
     return html`
       <button
-        class="kid-task"
+        class="kid-task ${flag}"
         style="--pc:${color}"
         @click=${() => this._kidComplete(entity, item)}
       >
         <span class="kid-emoji">${emoji}</span>
-        <span class="kid-task-title">${item.summary}</span>
+        <span class="kid-task-title">
+          ${item.summary}${label ? html`<span class="kid-sub">${label}</span>` : nothing}
+        </span>
         <span class="kid-check">◯</span>
       </button>
     `;
@@ -509,7 +631,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <div class="tiles">
           ${isEmpty ? html`<div class="empty">Alles erledigt 🎉</div>` : nothing}
           ${view.shopOpen.map((s) => this._shoppingTile(s, color))}
-          ${view.tasksOpen.map((o) => this._tile(o, color, false))}
+          ${view.tasksOpen.map((o) => this._tile(o, color, false, o.flag, o.label))}
           ${showDone ? view.tasksDone.map((o) => this._tile(o, color, true)) : nothing}
         </div>
       </div>
@@ -552,12 +674,18 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _tile(owned: OwnedItem, color: string, completed: boolean) {
+  private _tile(
+    owned: OwnedItem,
+    color: string,
+    completed: boolean,
+    flag: ContextFlag = "none",
+    label?: string,
+  ) {
     const { entity, item } = owned;
-    const emoji = emojiFor(item.summary);
+    const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
     return html`
       <div
-        class="tile ${completed ? "done" : ""}"
+        class="tile ${completed ? "done" : flag}"
         style="--pc:${color}"
         role="button"
         tabindex="0"
@@ -573,7 +701,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <div class="tile-emoji">${emoji}</div>
         <div class="tile-text">
           <div class="tile-title">${item.summary}</div>
-          ${item.due ? html`<div class="tile-due">${this._formatDue(item.due)}</div>` : nothing}
+          ${
+            label
+              ? html`<div class="tile-flag">${label}</div>`
+              : item.due
+                ? html`<div class="tile-due">${this._formatDue(item.due)}</div>`
+                : nothing
+          }
         </div>
       </div>
     `;
@@ -750,6 +884,32 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     .tile.done .tile-title {
       text-decoration: line-through;
     }
+    .tile.highlight {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--pc) 55%, transparent);
+    }
+    .tile.urgent {
+      background: color-mix(
+        in srgb,
+        var(--error-color, #db4437) 16%,
+        var(--card-background-color, #fff)
+      );
+      border-left-color: var(--error-color, #db4437);
+    }
+    .tile.urgent .check {
+      border-color: var(--error-color, #db4437);
+    }
+    .tile-flag {
+      display: inline-block;
+      margin-top: 3px;
+      font-size: 0.72em;
+      font-weight: 700;
+      color: var(--error-color, #db4437);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .tile.highlight .tile-flag {
+      color: color-mix(in srgb, var(--pc) 80%, var(--primary-text-color));
+    }
     .check {
       width: 22px;
       height: 22px;
@@ -900,6 +1060,20 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     }
     .kid-task:active {
       transform: scale(0.98);
+    }
+    .kid-task.highlight {
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc) 60%, transparent);
+    }
+    .kid-task.urgent {
+      background: color-mix(
+        in srgb,
+        var(--error-color, #db4437) 20%,
+        var(--card-background-color, #fff)
+      );
+      border-left-color: var(--error-color, #db4437);
+    }
+    .kid-task.urgent .kid-sub {
+      color: var(--error-color, #db4437);
     }
     .kid-emoji {
       font-size: 34px;
