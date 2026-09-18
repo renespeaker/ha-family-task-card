@@ -48,7 +48,7 @@ eine Bedienung.
 
 ## Installation (HACS)
 
-1. HACS → ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-news-card`,
+1. HACS → ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
    Typ **Integration**.
 2. „Family Task Card" installieren und **Home Assistant neu starten**.
 3. Einstellungen → **Geräte & Dienste → Integration hinzufügen → „Family Task Card"**.
@@ -74,7 +74,7 @@ examples/dashboard-card.yaml
 ## Mitwirken
 
 Frühe Phase – Ideen und Feedback willkommen über die
-[Issues](https://github.com/renespeaker/ha-news-card/issues).
+[Issues](https://github.com/renespeaker/ha-family-task-card/issues).
 
 ## Lizenz
 

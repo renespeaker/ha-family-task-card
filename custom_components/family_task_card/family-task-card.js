@@ -11,7 +11,7 @@
   "use strict";
 
   const CARD_NAME = "Family Task Card";
-  const REPO = "https://github.com/renespeaker/ha-news-card";
+  const REPO = "https://github.com/renespeaker/ha-family-task-card";
 
   class FamilyTaskCard extends HTMLElement {
     static getStubConfig() {
