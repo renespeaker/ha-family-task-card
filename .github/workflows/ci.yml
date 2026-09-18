@@ -30,4 +30,4 @@ jobs:
         run: npm run build
 
       - name: Verify built card is committed
-        run: git diff --exit-code -- custom_components/family_task_card/family-task-card.js
+        run: git diff --exit-code -- family-task-card.js

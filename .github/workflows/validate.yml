@@ -15,8 +15,4 @@ jobs:
       - uses: actions/checkout@v7
       - uses: hacs/action@main
         with:
-          category: integration
-          # 'brands' requires the domain to be added to home-assistant/brands,
-          # a publishing step. Ignore it until this integration is submitted to
-          # the HACS default store; custom-repository installs don't need it.
-          ignore: brands
+          category: plugin
