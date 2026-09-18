@@ -1,50 +1,11 @@
-# News Card (custom:news-card)
-# Tip: the card ships a visual editor – you can configure everything via the
-# gear icon without touching YAML. This file is the equivalent in code.
-# Requires dist/news-card.js added as a dashboard resource (see README).
+# Family Task Card — minimal dashboard usage
 #
-# Each entry in "sections" gets its source one of five ways:
-#   preset:  built-in standard feed (see README for the list)
-#   region:  federal state, automatic (auto = HA location/GPS) or fixed
-#   google:  Google News search feed for a term or place (local news!)
-#   url:     custom RSS/Atom link
-#   entity:  existing sensor with an "entries" attribute (e.g. Feedparser)
+# The Family Task Card integration serves and registers the card automatically
+# (see README) — no manual dashboard resource needed. Add it to a dashboard:
+# Edit dashboard → Add card → "Family Task Card".
 #
-# language: en | de  (optional – defaults to the Home Assistant language)
+# Configuration options (family members, task lists / providers, points and
+# rewards) are on the roadmap; see ROADMAP.md. For now:
 
-type: custom:news-card
-title: News Card
-max_items: 5
-sections:
-  # Standard feed (preset). Uses sensor.news_tagesschau automatically if it
-  # exists – otherwise fetches the feed directly.
-  - preset: tagesschau
-
-  # Automatic region: federal state from the Home Assistant location.
-  - region: auto
-
-  # Variants:
-  # …follow a person's GPS position (away = news from there):
-  # - region: auto
-  #   tracker: person.rene
-  # …or set the state explicitly (overrides the automatic detection):
-  # - region: bayern
-  # …or pick a regional preset directly: wdr, ndr_niedersachsen,
-  #   ndr_sh, ndr_hamburg, ndr_mv, hessenschau, mdr, rbb24
-  # - preset: wdr
-  #   title: My region
-
-  # Google News: top headlines as a preset …
-  # - preset: google_news
-  # … or a search feed for a place/term (great for local news):
-  # - title: Local
-  #   google: "Münster"
-
-  # Custom RSS link (title is free):
-  # - title: Tech
-  #   url: https://www.heise.de/rss/heise-atom.xml
-
-  # Existing sensor, if you already use RSS in HA:
-  # - title: Local
-  #   entity: sensor.my_existing_feed
-  #   max_items: 3
+type: custom:family-task-card
+title: Familien-Aufgaben
