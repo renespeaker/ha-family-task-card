@@ -1,7 +1,7 @@
 """Constants for the Family Task Card integration."""
 
 DOMAIN = "family_task_card"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 # URL under which the bundled card JavaScript is served.
 CARD_URL = "/family_task_card/family-task-card.js"

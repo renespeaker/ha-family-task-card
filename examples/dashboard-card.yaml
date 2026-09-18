@@ -42,3 +42,17 @@ persons:
 #   - name: Ben
 #     person: person.ben
 #     lists: todo.ben_aemtli
+
+# --- Optional: context rules — tasks react to your home's state ---
+# Overdue tasks (past their due date) are marked urgent automatically
+# (turn off with highlight_overdue: false). context_rules add your own:
+# context_rules:
+#   - match: "gieß|blumen|pflanze"   # skip watering when it's raining
+#     entity: weather.home
+#     state: rainy
+#     effect: hide
+#   - match: "müll|tonne"            # bins urgent the evening before pickup
+#     entity: binary_sensor.muellabfuhr_morgen
+#     state: "on"
+#     effect: urgent
+#     label: "Morgen Abfuhr!"
