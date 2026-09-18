@@ -3,29 +3,11 @@
     "step": {
       "user": {
         "title": "Family Task Card",
-        "description": "Wähle die Feeds, die Home Assistant serverseitig laden soll. Sie erscheinen als sensor.family_task_<key> und werden von der Family Task Card automatisch erkannt.",
-        "data": {
-          "presets": "Standard-Feeds",
-          "custom": "Eigene Feeds (eine pro Zeile: Name | https://…/feed.xml)",
-          "scan_interval": "Aktualisierungsintervall (Minuten)"
-        }
+        "description": "Family Task Card hinzufügen. Damit wird die Lovelace-Karte installiert und registriert. Familienmitglieder, Aufgabenlisten und Belohnungen werden später eingerichtet (siehe ROADMAP)."
       }
     },
     "abort": {
-      "single_instance_allowed": "Family Task Card ist bereits eingerichtet. Ändere die Feeds über die Optionen."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Family-Task-Card-Feeds",
-        "description": "Ändere, welche Feeds geladen werden und wie oft.",
-        "data": {
-          "presets": "Standard-Feeds",
-          "custom": "Eigene Feeds (eine pro Zeile: Name | https://…/feed.xml)",
-          "scan_interval": "Aktualisierungsintervall (Minuten)"
-        }
-      }
+      "single_instance_allowed": "Family Task Card ist bereits eingerichtet."
     }
   }
 }
