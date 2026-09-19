@@ -135,6 +135,13 @@ die Eltern bleibt.
 
 ### Einkaufen mit Bring!
 
+> **Voraussetzung:** Für die Bring!-Nutzung brauchst du die
+> [**Bring!-Integration**](https://www.home-assistant.io/integrations/bring/) in
+> Home Assistant und einen **Bring!-Account** beim Anbieter (die kostenlose
+> Bring!-App). Die Integration stellt deine Bring!-Liste als `todo.*`-Entity
+> bereit – die diese Karte dann verwendet. Ohne Bring! funktioniert die Karte
+> normal mit allen anderen `todo.*`-Listen.
+
 Listen unter `shopping_lists` (z. B. eine Bring!-Liste aus der HA-Bring-
 Integration) werden **als eine „Einkauf"-Kachel** dargestellt: 🛒 + Anzahl der
 Artikel + ein **„In Bring! öffnen"**-Button. Antippen der Kachel erledigt den
