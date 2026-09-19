@@ -2,10 +2,11 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.4.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.4.1).** Personen-Board, visueller Editor, Kinder-Modus,
 > Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop und Feier-Aktionen (Erfolg
-> über Licht/Sound/TTS/Push fühlbar machen) sind da. Die Karte liest `todo.*`-
-> Listen live und schreibt beim Abhaken zurück – siehe [ROADMAP.md](ROADMAP.md).
+> über Licht/Sound/TTS/Push fühlbar machen) sind da – responsiv für iOS/Android.
+> Die Karte liest `todo.*`-Listen live und schreibt beim Abhaken zurück – siehe
+> [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
 [Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
@@ -48,6 +49,35 @@ Zuweisung, Geofence, Level/Avatare …) in [ROADMAP.md](ROADMAP.md).
 Gleiche Design-Sprache und dieselben `person.*`-Entities: die Aufgaben können
 neben – oder perspektivisch in – der Family Board Card erscheinen. Ein Look,
 eine Bedienung.
+
+## Plattformen & Provider (iOS / Android)
+
+Die Karte läuft überall, wo Home Assistant läuft – im Browser und **in der HA-
+Companion-App auf iPhone/iPad und Android**. Das Layout ist **responsiv**: auf
+dem Handy stapeln sich die Personen-Spalten, Bedien­elemente sind touch-groß, der
+Kinder-Modus ist fürs Wandtablet gemacht.
+
+Weil die Karte auf `todo.*`-Entities aufsetzt, ist sie **provider- und plattform-
+übergreifend** – die jeweilige HA-Integration liefert die Liste:
+
+| Provider | HA-Integration | Hinweis |
+|---|---|---|
+| 🍎 **Apple Erinnerungen** | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (iCloud) | iCloud-**App-spezifisches Passwort** nötig; die Erinnerungs-Liste erscheint als `todo.*`. |
+| 🤖 **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) | über Google-Konto. |
+| ✅ **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) | offizielle Integration. |
+| 🛒 **Bring!** | [Bring!](https://www.home-assistant.io/integrations/bring/) | Bring!-Account nötig (siehe unten). |
+| 📝 **Lokale To-do-Liste** | HA-nativ | kein Konto nötig. |
+
+**Apple Erinnerungen einrichten (Kurz):** In der HA-CalDAV-Integration die
+iCloud-CalDAV-URL + Apple-ID und ein **app-spezifisches Passwort**
+([appleid.apple.com](https://appleid.apple.com) → Anmeldung & Sicherheit)
+angeben; die Erinnerungslisten tauchen dann als `todo.*`-Entities auf und lassen
+sich hier pro Person zuordnen. Abhaken in der Karte hakt die Erinnerung auch auf
+dem iPhone ab.
+
+**Push/Deep-Links:** Benachrichtigungen (z. B. „Einkauf steht an", „X ist
+fertig") verschickst du über `notify.mobile_app_*`; zum Öffnen einer App/URL
+nutzt iOS `url`, Android `clickAction` (Beispiel: `examples/bring-push-automation.yaml`).
 
 ## Installation
 

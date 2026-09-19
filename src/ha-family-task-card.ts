@@ -1075,7 +1075,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     .board {
       margin-top: 16px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px;
     }
     .col {
@@ -1224,7 +1224,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     .bring-open {
       flex: none;
       align-self: center;
-      padding: 5px 10px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 12px;
       border-radius: 999px;
       font-size: 0.78em;
       font-weight: 700;
@@ -1422,6 +1425,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       border-radius: 10px;
       font-size: 16px;
       line-height: 1;
+      min-width: 38px;
+      min-height: 38px;
       padding: 6px 8px;
     }
     .kid-shop-btn {
@@ -1492,7 +1497,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       flex: none;
       border: none;
       border-radius: 999px;
-      padding: 6px 12px;
+      min-height: 36px;
+      padding: 6px 14px;
       font: inherit;
       font-weight: 700;
       font-size: 0.82em;
@@ -1550,6 +1556,39 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       font-size: 0.8em;
       font-weight: 700;
       color: var(--error-color, #db4437);
+    }
+
+    /* ---- phones: tighten spacing, let the header wrap ---- */
+    @media (max-width: 480px) {
+      ha-card {
+        padding: 12px;
+      }
+      ha-card.kid {
+        padding: 14px;
+      }
+      .head {
+        flex-wrap: wrap;
+        gap: 8px 10px;
+      }
+      /* points / goal drop to their own full-width line under the title */
+      .goal,
+      .fam-pts {
+        flex: 1 1 100%;
+        width: auto;
+      }
+      .board {
+        margin-top: 12px;
+        gap: 10px;
+      }
+      .kid-hero {
+        flex-wrap: wrap;
+      }
+      .kid-shop-btn {
+        margin-left: 0;
+      }
+      .kid-name {
+        font-size: 1.45em;
+      }
     }
   `;
 }

@@ -281,7 +281,7 @@ function t(t,e,i,s){var n,o=arguments.length,r=o<3?e:null===s?s=Object.getOwnPro
     .board {
       margin-top: 16px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px;
     }
     .col {
@@ -430,7 +430,10 @@ function t(t,e,i,s){var n,o=arguments.length,r=o<3?e:null===s?s=Object.getOwnPro
     .bring-open {
       flex: none;
       align-self: center;
-      padding: 5px 10px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 12px;
       border-radius: 999px;
       font-size: 0.78em;
       font-weight: 700;
@@ -628,6 +631,8 @@ function t(t,e,i,s){var n,o=arguments.length,r=o<3?e:null===s?s=Object.getOwnPro
       border-radius: 10px;
       font-size: 16px;
       line-height: 1;
+      min-width: 38px;
+      min-height: 38px;
       padding: 6px 8px;
     }
     .kid-shop-btn {
@@ -698,7 +703,8 @@ function t(t,e,i,s){var n,o=arguments.length,r=o<3?e:null===s?s=Object.getOwnPro
       flex: none;
       border: none;
       border-radius: 999px;
-      padding: 6px 12px;
+      min-height: 36px;
+      padding: 6px 14px;
       font: inherit;
       font-weight: 700;
       font-size: 0.82em;
@@ -756,6 +762,39 @@ function t(t,e,i,s){var n,o=arguments.length,r=o<3?e:null===s?s=Object.getOwnPro
       font-size: 0.8em;
       font-weight: 700;
       color: var(--error-color, #db4437);
+    }
+
+    /* ---- phones: tighten spacing, let the header wrap ---- */
+    @media (max-width: 480px) {
+      ha-card {
+        padding: 12px;
+      }
+      ha-card.kid {
+        padding: 14px;
+      }
+      .head {
+        flex-wrap: wrap;
+        gap: 8px 10px;
+      }
+      /* points / goal drop to their own full-width line under the title */
+      .goal,
+      .fam-pts {
+        flex: 1 1 100%;
+        width: auto;
+      }
+      .board {
+        margin-top: 12px;
+        gap: 10px;
+      }
+      .kid-hero {
+        flex-wrap: wrap;
+      }
+      .kid-shop-btn {
+        margin-left: 0;
+      }
+      .kid-name {
+        font-size: 1.45em;
+      }
     }
   `,t([pt({attribute:!1})],kt.prototype,"hass",void 0),t([ht()],kt.prototype,"_config",void 0),t([ht()],kt.prototype,"_items",void 0),t([ht()],kt.prototype,"_activeKid",void 0),t([ht()],kt.prototype,"_burst",void 0),t([ht()],kt.prototype,"_shopPerson",void 0),t([ht()],kt.prototype,"_kidShopOpen",void 0),t([ht()],kt.prototype,"_pending",void 0),t([ht()],kt.prototype,"_pin",void 0),t([ht()],kt.prototype,"_pinError",void 0),customElements.get("family-task-card")||customElements.define("family-task-card",kt),window.customCards=window.customCards||[],window.customCards.push({type:"family-task-card",name:ut,description:"Gamified family task / chore card for Home Assistant — per-person tasks, points, kid mode and rewards, provider-agnostic via todo entities (Apple Reminders, Todoist, Google Tasks, Bring!).",preview:!0,documentationURL:"https://github.com/renespeaker/ha-family-task-card"});const wt=["#8B7CF6","#34D399","#FBBF24","#FB7185","#22D3EE","#C084FC","#A3E635","#FB923C","#F472B6","#60A5FA"],At=[{name:"title",selector:{text:{}}},{name:"points_per_task",selector:{number:{min:0,max:1e3,mode:"box",step:1}}},{name:"goal",selector:{number:{min:0,max:1e5,mode:"box",step:1}}},{name:"show_completed",selector:{boolean:{}}},{name:"kid_mode",selector:{boolean:{}}},{name:"highlight_overdue",selector:{boolean:{}}},{name:"shopping_lists",selector:{entity:{filter:{domain:"todo"},multiple:!0}}},{name:"shopping_points",selector:{number:{min:0,max:1e5,mode:"box",step:1}}},{name:"bring_deeplink",selector:{text:{}}},{name:"parent_pin",selector:{text:{}}}],Et=[{name:"name",selector:{text:{}}},{name:"person",selector:{entity:{filter:{domain:"person"}}}},{name:"lists",selector:{entity:{filter:{domain:"todo"},multiple:!0}}},{name:"goal",selector:{number:{min:0,max:1e5,mode:"box",step:1}}},{name:"points_entity",selector:{entity:{filter:{domain:"input_number"}}}}],St={title:"Titel",points_per_task:"Punkte pro Aufgabe",goal:"Ziel (Punkte)",show_completed:"Erledigte anzeigen",kid_mode:"Kinder-Modus",highlight_overdue:"Überfällige hervorheben",shopping_lists:"Einkaufslisten (Bring!)",shopping_points:"Punkte pro Einkauf",bring_deeplink:"Bring!-Link",parent_pin:"Eltern-PIN (Belohnungen)",name:"Name",person:"Person (Avatar)",lists:"Aufgabenlisten (todo.*)",points_entity:"Guthaben-Helfer (input_number)"},Pt={points_per_task:"Punkte je erledigter Aufgabe (Standard 10).",goal:"Familien-Punkteziel für den Fortschrittsbalken. 0 = aus.",show_completed:"Erledigte Aufgaben ausgegraut mitanzeigen.",kid_mode:"Großes, tippbares Layout fürs Kinder-Tablet (Avatar oben zum Wechseln).",highlight_overdue:"Aufgaben mit überschrittenem Fälligkeitsdatum als dringend markieren (Standard an). Weitere Kontext-Regeln per YAML (context_rules).",shopping_lists:"Diese todo.*-Listen (z. B. Bring!) werden als eine 'Einkauf'-Kachel gezeigt; Abhaken erledigt den ganzen Einkauf.",shopping_points:"Punkte für einen erledigten Einkauf (Standard = Punkte pro Aufgabe).",bring_deeplink:"Ziel des 'In Bring! öffnen'-Buttons (Standard web.getbring.com).",parent_pin:"PIN, die zum Einlösen einer Belohnung abgefragt wird (Eltern-Freigabe). Belohnungen selbst per YAML (rewards).",person:"Optional: person.* liefert Avatarbild & Anzeigename.",lists:"Eine oder mehrere todo.*-Listen, die zu dieser Person gehören.",goal_person:"Optionales persönliches Punkteziel.",points_entity:"input_number, das die bereits eingelösten Punkte dieser Person speichert (Guthaben = verdient − eingelöst)."};class Ct extends at{constructor(){super(...arguments),this._label=t=>St[t.name]??t.name,this._helper=t=>Pt[t.name]}setConfig(t){this._config=t}get _persons(){return Array.isArray(this._config.persons)?this._config.persons:[]}get _settingsData(){const t=this._config.shopping_lists,e=Array.isArray(t)?t:t?[t]:[],i=!1!==this._config.highlight_overdue;return{...this._config,shopping_lists:e,highlight_overdue:i}}_emit(t){this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:t}}))}_settingsChanged(t){t.stopPropagation();const e={...t.detail.value};e.title||delete e.title,e.goal||delete e.goal,e.show_completed||delete e.show_completed,e.kid_mode||delete e.kid_mode,e.shopping_points||delete e.shopping_points,e.bring_deeplink||delete e.bring_deeplink,e.parent_pin||delete e.parent_pin,e.highlight_overdue&&delete e.highlight_overdue,Array.isArray(e.shopping_lists)&&(0===e.shopping_lists.length?delete e.shopping_lists:1===e.shopping_lists.length&&(e.shopping_lists=e.shopping_lists[0])),this._emit({...this._config,...e,persons:this._persons})}_personChanged(t,e){e.stopPropagation();const i={...e.detail.value};i.color||delete i.color,i.goal||delete i.goal,i.points_entity||delete i.points_entity,Array.isArray(i.lists)&&(0===i.lists.length?delete i.lists:1===i.lists.length&&(i.lists=i.lists[0]));const s=this._persons.map((e,s)=>s===t?i:e);this._emit({...this._config,persons:s})}_personData(t){const e=Array.isArray(t.lists)?t.lists:t.lists?[t.lists]:[];return{...t,lists:e}}_setPersonColor(t,e){const i=this._persons.map((i,s)=>{if(s!==t)return i;const n={...i};return e?n.color=e:delete n.color,n});this._emit({...this._config,persons:i})}_addPerson(){const t=[...this._persons,{name:"",person:"",lists:""}];this._emit({...this._config,persons:t})}_removePerson(t){const e=this._persons.filter((e,i)=>i!==t);this._emit({...this._config,persons:e})}_movePerson(t,e){const i=[...this._persons],s=t+e;s<0||s>=i.length||([i[t],i[s]]=[i[s],i[t]],this._emit({...this._config,persons:i}))}_autoDetect(){const t=new Set(this._persons.map(t=>t.person).filter(Boolean)),e=Object.keys(this.hass.states).filter(t=>t.startsWith("person.")).filter(e=>!t.has(e)).map(t=>({name:this.hass.states[t].attributes?.friendly_name||"",person:t,lists:""}));if(0===e.length)return;const i=this._persons.filter(t=>t.name||t.person||t.lists&&t.lists.length);this._emit({...this._config,persons:[...i,...e]})}_personColor(t,e){return t.color||wt[e%wt.length]}render(){return this._config&&this.hass?I`
       <div class="editor">
