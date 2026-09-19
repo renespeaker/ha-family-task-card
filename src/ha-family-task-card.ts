@@ -13,8 +13,9 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
  * tile, context rules that react to Home Assistant state (hide / highlight /
  * mark urgent), a reward shop (redeem points, parent PIN), celebrate actions
  * that fire HA services (light / sound / TTS / push) on success, and levels /
- * badges / a leaderboard derived from earned points. See ROADMAP.md for what
- * remains (kiosk layout, person switch by NFC/presence).
+ * badges / a leaderboard derived from earned points. It adapts to each todo
+ * integration's `supported_features` (read-only lists show 🔒 instead of a dead
+ * tap). See ROADMAP.md for what remains (kiosk layout, person switch).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -23,6 +24,8 @@ const DEFAULT_POINTS = 10;
 const DEFAULT_BRING_LINK = "https://web.getbring.com";
 const DEFAULT_LEVEL_SIZE = 100;
 const DEFAULT_LEVEL_EMOJIS = ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"];
+// HA TodoListEntityFeature.UPDATE_TODO_ITEM — needed to check items off / reopen.
+const TODO_UPDATE_ITEM = 4;
 
 /* Same person palette as the Family Board Card, for one shared look. */
 const FALLBACK_COLORS = [
@@ -377,6 +380,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return levelInfo(earned, size, emojis);
   }
 
+  /** Can this todo list's items be checked off? (UPDATE_TODO_ITEM capability.) */
+  private _canToggle(entity: string): boolean {
+    const sf = this.hass?.states[entity]?.attributes?.supported_features;
+    if (typeof sf !== "number") return true; // unknown -> assume editable
+    return (sf & TODO_UPDATE_ITEM) !== 0;
+  }
+
   /** Split a person's lists into tasks + shopping trips and tally points. */
   private _personView(p: PersonConfig): PersonView {
     const cfg = this._config!;
@@ -721,17 +731,20 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private _kidTask(owned: DecoratedItem, color: string) {
     const { entity, item, flag, label } = owned;
     const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
+    const editable = this._canToggle(entity);
     return html`
       <button
         class="kid-task ${flag}"
         style="--pc:${color}"
+        ?disabled=${!editable}
+        title=${editable ? "" : "Diese Liste unterstützt kein Abhaken"}
         @click=${() => this._kidComplete(entity, item)}
       >
         <span class="kid-emoji">${emoji}</span>
         <span class="kid-task-title">
           ${item.summary}${label ? html`<span class="kid-sub">${label}</span>` : nothing}
         </span>
-        <span class="kid-check">◯</span>
+        <span class="kid-check">${editable ? "◯" : "🔒"}</span>
       </button>
     `;
   }
@@ -975,21 +988,26 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   private _shoppingTile(entry: ShoppingEntry, color: string) {
     const count = entry.open.length;
+    const editable = this._canToggle(entry.entity);
     return html`
       <div
-        class="tile shopping"
+        class="tile shopping ${editable ? "" : "readonly"}"
         style="--pc:${color}"
-        role="button"
-        tabindex="0"
-        @click=${() => this._completeShopping(entry)}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            this._completeShopping(entry);
-          }
-        }}
+        role=${editable ? "button" : "listitem"}
+        tabindex=${editable ? 0 : -1}
+        @click=${editable ? () => this._completeShopping(entry) : nothing}
+        @keydown=${
+          editable
+            ? (e: KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  this._completeShopping(entry);
+                }
+              }
+            : nothing
+        }
       >
-        <div class="check"></div>
+        <div class="check">${editable ? "" : "🔒"}</div>
         <div class="tile-emoji">🛒</div>
         <div class="tile-text">
           <div class="tile-title">${entry.name}</div>
@@ -1018,21 +1036,27 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   ) {
     const { entity, item } = owned;
     const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
+    const editable = this._canToggle(entity);
     return html`
       <div
-        class="tile ${completed ? "done" : flag}"
+        class="tile ${completed ? "done" : flag} ${editable ? "" : "readonly"}"
         style="--pc:${color}"
-        role="button"
-        tabindex="0"
-        @click=${() => this._toggle(entity, item)}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            this._toggle(entity, item);
-          }
-        }}
+        title=${editable ? "" : "Diese Liste unterstützt kein Abhaken"}
+        role=${editable ? "button" : "listitem"}
+        tabindex=${editable ? 0 : -1}
+        @click=${editable ? () => this._toggle(entity, item) : nothing}
+        @keydown=${
+          editable
+            ? (e: KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  this._toggle(entity, item);
+                }
+              }
+            : nothing
+        }
       >
-        <div class="check">${completed ? "✓" : ""}</div>
+        <div class="check">${completed ? "✓" : editable ? "" : "🔒"}</div>
         <div class="tile-emoji">${emoji}</div>
         <div class="tile-text">
           <div class="tile-title">${item.summary}</div>
@@ -1234,6 +1258,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     }
     .tile.done .tile-title {
       text-decoration: line-through;
+    }
+    .tile.readonly {
+      cursor: default;
+    }
+    .tile.readonly:hover {
+      transform: none;
+    }
+    .tile.readonly .check {
+      border-color: var(--divider-color);
+      font-size: 12px;
     }
     .tile.highlight {
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--pc) 55%, transparent);

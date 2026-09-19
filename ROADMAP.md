@@ -93,15 +93,26 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       Statistik/Verlauf.
 - [ ] Vorlese-/Symbolmodus für Nicht-Leser; Ämtli-Pakete nach Alter.
 - [ ] Rendering direkt in / neben der Family Board Card.
+- [x] **Fähigkeits-Erkennung** – Karte liest `supported_features` der `todo`-
+      Entity; nicht abhakbare Listen werden schreibgeschützt (🔒) statt Leertipp.
+- [ ] **Microsoft To Do** – keine native HA-`todo`-Integration; Optionen:
+      Community-Custom-Component (Microsoft Graph) empfehlen, Bridge in eine
+      lokale HA-Liste, oder eigene Graph-Integration (Backend-Projekt).
 
-## Provider-Matrix (Ziel)
+## Provider-Matrix
 
-| Provider              | Lesen | Abhaken | Hinzufügen | Anmerkung                          |
-|-----------------------|:-----:|:-------:|:----------:|------------------------------------|
-| Lokale To-do-Liste    |  ✅   |   ✅    |    ✅      | HA-nativ                           |
-| Apple Erinnerungen    |  ✅   |   ✅    |    ✅      | via CalDAV/iCloud-`todo`           |
-| Todoist               |  ✅   |   ✅    |    ✅      | offizielle Integration             |
-| Google Tasks          |  ✅   |   ✅    |    ✅      | über `todo`-Entity                 |
-| Bring!                |  ✅   |   ✅    |    ✅      | geteilte Liste; Zuweisung in Karte |
+Die Karte funktioniert mit **jeder** HA-`todo`-Integration und passt sich deren
+Fähigkeiten an. Beliebte Anbieter:
 
-Legende: geplant über die jeweilige HA-`todo`-Integration.
+| Provider              | Lesen | Abhaken | Anmerkung                          |
+|-----------------------|:-----:|:-------:|------------------------------------|
+| Lokale To-do-Liste    |  ✅   |   ✅    | HA-nativ                           |
+| Apple Erinnerungen    |  ✅   |   ✅    | via CalDAV/iCloud-`todo`           |
+| Todoist               |  ✅   |   ✅    | offizielle Integration             |
+| Google Tasks          |  ✅   |   ✅    | offizielle Integration             |
+| Bring!                |  ✅   |   ✅    | geteilte Liste; Zuweisung in Karte |
+| Microsoft To Do       |  ⚠️   |   ⚠️    | keine native HA-Integration; Custom/Bridge |
+| Google Keep           |  ⚠️   |   ⚠️    | keine offizielle Integration       |
+
+Legende: ✅ über die jeweilige HA-`todo`-Integration; ⚠️ nur über Community-
+Lösungen/Bridge.
