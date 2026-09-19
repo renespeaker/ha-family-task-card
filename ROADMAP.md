@@ -76,8 +76,12 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       Einlösen mit **Eltern-PIN** direkt in der Karte (Board & Kinder-Modus).
       Offen (Backend): asynchrone Freigabe per Push, Foto-Beweis, Taschengeld-
       Automatik.
-- [ ] **Kiosk-Moment** – Erfolg über HA fühlbar machen (Licht/Sound/TTS/Push),
-      Kiosk-Layout fürs Wandtablet, Personenwechsel per NFC/Anwesenheit.
+- [x] **Feier-Aktionen** – Erfolg über HA fühlbar machen: `celebrate.actions`
+      ruft beliebige HA-Services (Licht/Sound/TTS/Push) bei `all_done` / `task` /
+      `reward`, mit `{name}`/`{task}`-Platzhaltern.
+- [ ] **Kiosk-Moment (Rest)** – dediziertes Kiosk-Layout fürs Wandtablet
+      (auto-Rückkehr) und Personenwechsel per NFC/Anwesenheit (`active_person`-
+      Entität).
 
 ## Später / Roadmap
 
