@@ -88,7 +88,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [ ] Einzel-Item einer Person zuweisen (statt „ganzer Einkauf").
 - [ ] Standort-Erinnerung (Geofence) & Auto-Zuweisung „wer unterwegs ist".
 - [ ] Faire Auto-Rotation wiederkehrender Ämtli („reihum").
-- [ ] Level, Avatare, Abzeichen; Familien-Leaderboard & Statistik.
+- [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
+      (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
+      Statistik/Verlauf.
 - [ ] Vorlese-/Symbolmodus für Nicht-Leser; Ämtli-Pakete nach Alter.
 - [ ] Rendering direkt in / neben der Family Board Card.
 

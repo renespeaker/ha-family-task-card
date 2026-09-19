@@ -2,10 +2,10 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.4.1).** Personen-Board, visueller Editor, Kinder-Modus,
-> Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop und Feier-Aktionen (Erfolg
-> über Licht/Sound/TTS/Push fühlbar machen) sind da – responsiv für iOS/Android.
-> Die Karte liest `todo.*`-Listen live und schreibt beim Abhaken zurück – siehe
+> **Status: nutzbar (v0.5.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
+> Level/Abzeichen + Rangliste sind da – responsiv für iOS/Android. Die Karte
+> liest `todo.*`-Listen live und schreibt beim Abhaken zurück – siehe
 > [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
@@ -154,6 +154,9 @@ persons:
 | `rewards`         | Liste              | Belohnungen für den Shop (`name`, `cost`, `emoji`).     |
 | `parent_pin`      | Text/Zahl          | PIN für die Eltern-Freigabe beim Einlösen.              |
 | `celebrate`       | Objekt             | HA-Services bei Erfolg (Licht/Sound/TTS/Push, siehe unten). |
+| `level_size`      | Zahl               | Punkte pro Level (Std. 100, 0 = aus).                   |
+| `level_emojis`    | Liste              | Abzeichen je Level-Stufe (optional).                    |
+| `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
 
 ### Kinder-Modus
 
@@ -316,6 +319,26 @@ persons:
 > Die Konfetti-Animation auf dem Bildschirm läuft ohnehin. Ein spezielles
 > Kiosk-Layout und Personenwechsel per NFC/Anwesenheit stehen noch auf der
 > Roadmap.
+
+### Level, Abzeichen & Rangliste
+
+Jede Person sammelt mit erledigten Aufgaben **Level** – rein aus den verdienten
+Punkten berechnet, ohne zusätzliche Einrichtung. Neben dem Namen erscheint ein
+**Abzeichen-Chip** (z. B. „🏅 L3"). Mit `show_leaderboard: true` gibt es zusätzlich
+eine **Rangliste** unter dem Board (🥇🥈🥉).
+
+```yaml
+type: custom:family-task-card
+level_size: 100                       # Punkte pro Level (Standard 100, 0 = aus)
+level_emojis: ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"]   # optional, je Stufe
+show_leaderboard: true
+persons:
+  - { name: Lina, lists: todo.lina_aemtli }
+  - { name: Ben, lists: todo.ben_aemtli }
+```
+
+> Level & Rangliste nutzen die **verdienten** Punkte (nicht das Shop-Guthaben) –
+> beides ist stateless aus den `todo`-Listen abgeleitet.
 
 Ein vollständiges Beispiel liegt unter
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).

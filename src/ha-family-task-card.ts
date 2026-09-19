@@ -11,15 +11,18 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
  * task writes back to the source list. On top: a points / family-goal layer, a
  * big tappable kid mode, Bring!/shopping lists shown as one aggregated "Einkauf"
  * tile, context rules that react to Home Assistant state (hide / highlight /
- * mark urgent), a reward shop (redeem points, parent PIN), and celebrate actions
- * that fire HA services (light / sound / TTS / push) on success. See ROADMAP.md
- * for what remains (kiosk layout, person switch by NFC/presence).
+ * mark urgent), a reward shop (redeem points, parent PIN), celebrate actions
+ * that fire HA services (light / sound / TTS / push) on success, and levels /
+ * badges / a leaderboard derived from earned points. See ROADMAP.md for what
+ * remains (kiosk layout, person switch by NFC/presence).
  */
 
 const CARD_NAME = "Family Task Card";
 const REPO = "https://github.com/renespeaker/ha-family-task-card";
 const DEFAULT_POINTS = 10;
 const DEFAULT_BRING_LINK = "https://web.getbring.com";
+const DEFAULT_LEVEL_SIZE = 100;
+const DEFAULT_LEVEL_EMOJIS = ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"];
 
 /* Same person palette as the Family Board Card, for one shared look. */
 const FALLBACK_COLORS = [
@@ -100,6 +103,24 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rewards?: Reward[]; // reward shop: things to redeem points for
   parent_pin?: string | number; // PIN required to redeem a reward (parent approval)
   celebrate?: CelebrateConfig; // fire HA services on success (light/sound/TTS/push)
+  level_size?: number; // points per level (from earned). default 100. 0 disables levels
+  level_emojis?: string[]; // badge per level tier (cycled/clamped)
+  show_leaderboard?: boolean; // show a ranking of persons by earned points
+}
+
+interface LevelInfo {
+  level: number; // 1-based level
+  pct: number; // progress into the current level (0-100)
+  emoji: string; // badge for this level tier
+}
+
+/** Level derived purely from earned points (no persistence needed). */
+function levelInfo(earned: number, size: number, emojis: string[]): LevelInfo | null {
+  if (!size || size <= 0) return null;
+  const level = Math.floor(earned / size) + 1;
+  const pct = Math.round(((earned % size) / size) * 100);
+  const emoji = emojis[Math.min(level - 1, emojis.length - 1)] ?? "⭐";
+  return { level, pct, emoji };
 }
 
 /**
@@ -350,6 +371,12 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return this._config?.bring_deeplink || DEFAULT_BRING_LINK;
   }
 
+  private _levelInfo(earned: number): LevelInfo | null {
+    const size = this._config?.level_size ?? DEFAULT_LEVEL_SIZE;
+    const emojis = this._config?.level_emojis ?? DEFAULT_LEVEL_EMOJIS;
+    return levelInfo(earned, size, emojis);
+  }
+
   /** Split a person's lists into tasks + shopping trips and tally points. */
   private _personView(p: PersonConfig): PersonView {
     const cfg = this._config!;
@@ -561,7 +588,29 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </div>
 
         <div class="board">${columns.map((c) => this._column(c.p, c.idx, c.view))}</div>
+        ${this._leaderboard(columns)}
       </ha-card>
+    `;
+  }
+
+  private _leaderboard(columns: { p: PersonConfig; idx: number; view: PersonView }[]) {
+    if (!this._config?.show_leaderboard || columns.length < 2) return nothing;
+    const medals = ["🥇", "🥈", "🥉"];
+    const ranked = [...columns].sort((a, b) => b.view.earned - a.view.earned);
+    return html`
+      <div class="leaderboard">
+        <div class="lb-title">🏆 Rangliste</div>
+        ${ranked.map(
+          (r, i) => html`
+            <div class="lb-row">
+              <span class="lb-rank">${medals[i] ?? `${i + 1}.`}</span>
+              <span class="lb-dot" style="background:${personColor(r.p, r.idx)}"></span>
+              <span class="lb-name">${this._personName(r.p, r.idx)}</span>
+              <span class="lb-pts">⭐ ${r.view.earned}</span>
+            </div>
+          `,
+        )}
+      </div>
     `;
   }
 
@@ -582,6 +631,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const allDone = openCount === 0;
     const hasShop = this._rewards().length > 0;
     const points = view.hasWallet ? view.balance : earned;
+    const lvl = this._levelInfo(earned);
 
     return html`
       <ha-card class="kid" style="--pc:${color}">
@@ -596,7 +646,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <div class="kid-hero">
           ${this._kidAvatar(p, idx, false, true)}
           <div class="kid-hero-text">
-            <div class="kid-name">${name}</div>
+            <div class="kid-name">
+              ${name}${lvl ? html`<span class="lvl kid-lvl">${lvl.emoji} L${lvl.level}</span>` : nothing}
+            </div>
             <div class="kid-stars">
               ${view.hasWallet ? "💰" : "⭐"}
               ${points}${openCount ? html` · ${openCount} offen` : nothing}
@@ -800,6 +852,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const hasShop = this._rewards().length > 0;
     const shopOpen = this._shopPerson === idx;
     const points = view.hasWallet ? view.balance : view.earned;
+    const lvl = this._levelInfo(view.earned);
 
     return html`
       <div class="col" style="--pc:${color}">
@@ -813,7 +866,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
               : html`<div class="avatar initials" style="background:${color}">${initials}</div>`
           }
           <div class="col-meta">
-            <div class="pname">${name}</div>
+            <div class="pname">
+              <span class="pname-txt">${name}</span>
+              ${
+                lvl
+                  ? html`<span class="lvl" title="Level ${lvl.level} · ${lvl.pct}% zum nächsten"
+                      >${lvl.emoji} L${lvl.level}</span
+                    >`
+                  : nothing
+              }
+            </div>
             <div class="pstatus">
               ${view.openCount} offen · ${view.hasWallet ? "💰" : "⭐"} ${points}
             </div>
@@ -1113,9 +1175,25 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     .pname {
       font-weight: 600;
       font-size: 0.98em;
-      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .pname-txt {
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lvl {
+      flex: none;
+      font-size: 0.72em;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 999px;
+      white-space: nowrap;
+      color: var(--pc, var(--primary-color));
+      background: color-mix(in srgb, var(--pc) 16%, var(--card-background-color, #fff));
     }
     .pstatus {
       font-size: 0.78em;
@@ -1288,6 +1366,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       font-size: 1.7em;
       font-weight: 800;
       line-height: 1.1;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .kid-lvl {
+      font-size: 0.5em;
     }
     .kid-stars {
       font-size: 1.05em;
@@ -1556,6 +1641,49 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       font-size: 0.8em;
       font-weight: 700;
       color: var(--error-color, #db4437);
+    }
+
+    /* ---- leaderboard ---- */
+    .leaderboard {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--primary-color) 5%, var(--card-background-color, #fff));
+      border: 1px solid var(--divider-color);
+    }
+    .lb-title {
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 0;
+    }
+    .lb-rank {
+      flex: none;
+      width: 26px;
+      text-align: center;
+      font-weight: 700;
+    }
+    .lb-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex: none;
+    }
+    .lb-name {
+      flex: 1 1 auto;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lb-pts {
+      flex: none;
+      font-weight: 700;
+      color: var(--secondary-text-color);
     }
 
     /* ---- phones: tighten spacing, let the header wrap ---- */

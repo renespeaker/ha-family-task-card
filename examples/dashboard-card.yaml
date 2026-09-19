@@ -68,6 +68,10 @@ persons:
 #     lists: todo.lina_aemtli
 #     points_entity: input_number.lina_eingeloest
 
+# --- Optional: levels, badges & leaderboard (from earned points, no setup) ---
+# level_size: 100                 # points per level (0 = off); badge chip next to the name
+# show_leaderboard: true          # ranking of persons by earned points under the board
+
 # --- Optional: celebrate actions (make success tangible) ---
 # Fire any HA services when a person finishes ("all_done"), on each task, or on
 # a redeemed reward. {name} and {task} are substituted in text values.
