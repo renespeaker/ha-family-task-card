@@ -47,6 +47,11 @@ const SETTINGS_SCHEMA = [
   },
   { name: "bring_deeplink", selector: { text: {} } },
   { name: "parent_pin", selector: { text: {} } },
+  {
+    name: "level_size",
+    selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } },
+  },
+  { name: "show_leaderboard", selector: { boolean: {} } },
 ];
 
 /** One ha-form per person, with entity pickers filtered by domain. */
@@ -73,6 +78,8 @@ const LABELS: Record<string, string> = {
   shopping_points: "Punkte pro Einkauf",
   bring_deeplink: "Bring!-Link",
   parent_pin: "Eltern-PIN (Belohnungen)",
+  level_size: "Punkte pro Level",
+  show_leaderboard: "Rangliste anzeigen",
   name: "Name",
   person: "Person (Avatar)",
   lists: "Aufgabenlisten (todo.*)",
@@ -91,6 +98,9 @@ const HELPERS: Record<string, string> = {
   bring_deeplink: "Ziel des 'In Bring! öffnen'-Buttons (Standard web.getbring.com).",
   parent_pin:
     "PIN, die zum Einlösen einer Belohnung abgefragt wird (Eltern-Freigabe). Belohnungen selbst per YAML (rewards).",
+  level_size:
+    "Punkte pro Level (aus verdienten Punkten). Standard 100, 0 = keine Level. Abzeichen optional per YAML (level_emojis).",
+  show_leaderboard: "Rangliste der Personen nach verdienten Punkten unter dem Board anzeigen.",
   person: "Optional: person.* liefert Avatarbild & Anzeigename.",
   lists: "Eine oder mehrere todo.*-Listen, die zu dieser Person gehören.",
   goal_person: "Optionales persönliches Punkteziel.",
@@ -137,6 +147,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.shopping_points) delete next.shopping_points;
     if (!next.bring_deeplink) delete next.bring_deeplink;
     if (!next.parent_pin) delete next.parent_pin;
+    if (!next.show_leaderboard) delete next.show_leaderboard;
     // Default is on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (Array.isArray(next.shopping_lists)) {
