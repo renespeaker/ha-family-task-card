@@ -71,8 +71,11 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       markiert; `context_rules` reagieren auf beliebige HA-Entities (Wetter,
       Anwesenheit, Kalender, Sensoren) und blenden Aufgaben aus, heben sie hervor
       oder markieren sie als dringend. Eskalations-Push bleibt HA-Automation.
-- [ ] **Belohnungs-Shop mit Eltern-Freigabe** – Einlösen → Freigabe-Push an
-      Eltern (optional Foto-Beweis); Punkte→Taschengeld-Automatik.
+- [x] **Belohnungs-Shop mit Eltern-Freigabe** – `rewards` in der Config, Guthaben
+      = verdient − eingelöst (eingelöst in einem `input_number` je Person),
+      Einlösen mit **Eltern-PIN** direkt in der Karte (Board & Kinder-Modus).
+      Offen (Backend): asynchrone Freigabe per Push, Foto-Beweis, Taschengeld-
+      Automatik.
 - [ ] **Kiosk-Moment** – Erfolg über HA fühlbar machen (Licht/Sound/TTS/Push),
       Kiosk-Layout fürs Wandtablet, Personenwechsel per NFC/Anwesenheit.
 

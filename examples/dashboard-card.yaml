@@ -55,3 +55,15 @@ persons:
 #     state: "on"
 #     effect: urgent
 #     label: "Morgen Abfuhr!"
+
+# --- Optional: reward shop (redeem points, parent PIN) ---
+# Create one input_number helper per child for the redeemed points; balance =
+# earned - redeemed. Tapping the 🎁 button opens the shop.
+# parent_pin: "1234"
+# rewards:
+#   - { name: "30 Min Tablet", cost: 50, emoji: "📱" }
+#   - { name: "Eis", cost: 30, emoji: "🍦" }
+# persons:
+#   - name: Lina
+#     lists: todo.lina_aemtli
+#     points_entity: input_number.lina_eingeloest

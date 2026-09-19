@@ -10,8 +10,9 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
  * lists all expose these), renders tinted task tiles per person, and checking a
  * task writes back to the source list. On top: a points / family-goal layer, a
  * big tappable kid mode, Bring!/shopping lists shown as one aggregated "Einkauf"
- * tile, and context rules that react to Home Assistant state (hide / highlight /
- * mark urgent). See ROADMAP.md for what comes next (rewards, kiosk moment).
+ * tile, context rules that react to Home Assistant state (hide / highlight /
+ * mark urgent), and a reward shop (redeem points, parent PIN). See ROADMAP.md
+ * for what comes next (kiosk moment).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -58,6 +59,14 @@ interface PersonConfig {
   color?: string; // optional override; default falls back to the palette
   lists?: string | string[]; // todo.* entity/entities that belong to this person
   goal?: number; // optional per-person points goal
+  points_entity?: string; // input_number holding this person's SPENT points (reward shop)
+}
+
+/** A reward that can be redeemed in the shop for points. */
+interface Reward {
+  name: string;
+  cost: number;
+  emoji?: string;
 }
 
 export interface FamilyTaskConfig extends LovelaceCardConfig {
@@ -72,6 +81,8 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   bring_deeplink?: string; // URL for the "In Bring! öffnen" button. default web.getbring.com
   context_rules?: ContextRule[]; // react to HA state: hide / highlight / mark urgent
   highlight_overdue?: boolean; // mark tasks past their due date as urgent. default true
+  rewards?: Reward[]; // reward shop: things to redeem points for
+  parent_pin?: string | number; // PIN required to redeem a reward (parent approval)
 }
 
 /**
@@ -127,6 +138,9 @@ interface PersonView {
   shopOpen: ShoppingEntry[];
   earned: number;
   openCount: number;
+  spent: number; // points already redeemed (from points_entity), 0 if none
+  balance: number; // earned - spent, the spendable total
+  hasWallet: boolean; // true when a points_entity is configured for this person
 }
 
 function personColor(p: PersonConfig, idx: number): string {
@@ -206,6 +220,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   @state() private _activeKid = 0;
   @state() private _burst = false;
   private _burstTimer?: number;
+
+  /** Reward shop: which person's shop is open (board), PIN entry + feedback. */
+  @state() private _shopPerson: number | null = null;
+  @state() private _kidShopOpen = false;
+  @state() private _pending: { personIdx: number; reward: Reward } | null = null;
+  @state() private _pin = "";
+  @state() private _pinError = false;
 
   public static async getConfigElement() {
     await import("./editor");
@@ -323,13 +344,26 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     // Context rules can hide, highlight or flag open tasks as urgent.
     const tasksOpen = this._decorate(rawOpen);
     earned += tasksDone.length * pts;
+
+    const hasWallet = !!p.points_entity;
+    const spent = hasWallet ? this._spent(p) : 0;
     return {
       tasksOpen,
       tasksDone,
       shopOpen,
       earned,
       openCount: tasksOpen.length + shopOpen.length,
+      spent,
+      balance: earned - spent,
+      hasWallet,
     };
+  }
+
+  /** Points already redeemed, read from the person's input_number (0 if unset). */
+  private _spent(p: PersonConfig): number {
+    if (!p.points_entity) return 0;
+    const n = Number(this.hass?.states[p.points_entity]?.state);
+    return isNaN(n) ? 0 : n;
   }
 
   /** Apply context rules + overdue detection to open tasks; drop hidden ones. */
@@ -378,6 +412,60 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** Complete a whole shopping trip: check off every open item (syncs to source). */
   private async _completeShopping(entry: ShoppingEntry): Promise<void> {
     await Promise.all(entry.open.map((o) => this._toggle(o.entity, o.item)));
+  }
+
+  /* ---- reward shop ------------------------------------------------ */
+
+  private _rewards(): Reward[] {
+    return this._config?.rewards ?? [];
+  }
+
+  /** Start redeeming: ask for the parent PIN, or redeem directly if none set. */
+  private _startRedeem(personIdx: number, reward: Reward): void {
+    const pin = this._config?.parent_pin;
+    if (pin === undefined || pin === null || pin === "") {
+      this._doRedeem(personIdx, reward);
+      return;
+    }
+    this._pending = { personIdx, reward };
+    this._pin = "";
+    this._pinError = false;
+  }
+
+  private _confirmRedeem(): void {
+    if (!this._pending) return;
+    if (this._pin === String(this._config?.parent_pin ?? "")) {
+      const { personIdx, reward } = this._pending;
+      this._doRedeem(personIdx, reward);
+    } else {
+      this._pinError = true;
+    }
+  }
+
+  private _cancelRedeem(): void {
+    this._pending = null;
+    this._pin = "";
+    this._pinError = false;
+  }
+
+  /** Deduct the reward's cost by raising the person's SPENT input_number. */
+  private async _doRedeem(personIdx: number, reward: Reward): Promise<void> {
+    const p = this._config?.persons[personIdx];
+    if (!p?.points_entity || !this.hass) return;
+    const newSpent = this._spent(p) + reward.cost;
+    this._pending = null;
+    this._pin = "";
+    this._pinError = false;
+    this._celebrate();
+    try {
+      await this.hass.callService("input_number", "set_value", {
+        entity_id: p.points_entity,
+        value: newSpent,
+      });
+    } catch (err) {
+      // Leave the shop open so the parent can retry.
+      this._shopPerson = personIdx;
+    }
   }
 
   private _personName(p: PersonConfig, idx: number): string {
@@ -453,6 +541,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const goal = p.goal ?? cfg.goal;
     const pct = goal && goal > 0 ? Math.min(100, Math.round((earned / goal) * 100)) : 0;
     const allDone = openCount === 0;
+    const hasShop = this._rewards().length > 0;
+    const points = view.hasWallet ? view.balance : earned;
 
     return html`
       <ha-card class="kid" style="--pc:${color}">
@@ -469,9 +559,24 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           <div class="kid-hero-text">
             <div class="kid-name">${name}</div>
             <div class="kid-stars">
-              ⭐ ${earned}${openCount ? html` · ${openCount} offen` : nothing}
+              ${view.hasWallet ? "💰" : "⭐"}
+              ${points}${openCount ? html` · ${openCount} offen` : nothing}
             </div>
           </div>
+          ${
+            hasShop
+              ? html`<button
+                  class="kid-shop-btn ${this._kidShopOpen ? "active" : ""}"
+                  title="Belohnungen"
+                  @click=${() => {
+                    this._kidShopOpen = !this._kidShopOpen;
+                    this._cancelRedeem();
+                  }}
+                >
+                  🎁
+                </button>`
+              : nothing
+          }
         </div>
 
         ${
@@ -479,19 +584,21 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
             ? html`<div class="kid-bar"><div class="kid-fill" style="width:${pct}%"></div></div>`
             : nothing
         }
-
-        <div class="kid-tasks">
-          ${
-            allDone
-              ? html`<div class="kid-alldone">
-                  🎉
-                  <div>Alles geschafft!</div>
-                </div>`
-              : html`${view.shopOpen.map((s) => this._kidShopping(s, color))}
-                ${view.tasksOpen.map((o) => this._kidTask(o, color))}`
-          }
-        </div>
-
+        ${
+          hasShop && this._kidShopOpen
+            ? this._shopPanel(idx, view.balance, view.hasWallet)
+            : html`<div class="kid-tasks">
+                ${
+                  allDone
+                    ? html`<div class="kid-alldone">
+                        🎉
+                        <div>Alles geschafft!</div>
+                      </div>`
+                    : html`${view.shopOpen.map((s) => this._kidShopping(s, color))}
+                      ${view.tasksOpen.map((o) => this._kidTask(o, color))}`
+                }
+              </div>`
+        }
         ${this._burst ? html`<div class="burst">⭐</div>` : nothing}
       </ha-card>
     `;
@@ -610,6 +717,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const initials = name.slice(0, 2).toUpperCase();
     const showDone = this._config?.show_completed;
     const isEmpty = view.openCount === 0 && (!showDone || view.tasksDone.length === 0);
+    const hasShop = this._rewards().length > 0;
+    const shopOpen = this._shopPerson === idx;
+    const points = view.hasWallet ? view.balance : view.earned;
 
     return html`
       <div class="col" style="--pc:${color}">
@@ -624,8 +734,24 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           }
           <div class="col-meta">
             <div class="pname">${name}</div>
-            <div class="pstatus">${view.openCount} offen · ⭐ ${view.earned}</div>
+            <div class="pstatus">
+              ${view.openCount} offen · ${view.hasWallet ? "💰" : "⭐"} ${points}
+            </div>
           </div>
+          ${
+            hasShop
+              ? html`<button
+                  class="shop-toggle ${shopOpen ? "active" : ""}"
+                  title="Belohnungen"
+                  @click=${() => {
+                    this._shopPerson = shopOpen ? null : idx;
+                    this._cancelRedeem();
+                  }}
+                >
+                  🎁
+                </button>`
+              : nothing
+          }
         </div>
 
         <div class="tiles">
@@ -634,6 +760,73 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           ${view.tasksOpen.map((o) => this._tile(o, color, false, o.flag, o.label))}
           ${showDone ? view.tasksDone.map((o) => this._tile(o, color, true)) : nothing}
         </div>
+
+        ${shopOpen ? this._shopPanel(idx, view.balance, view.hasWallet) : nothing}
+      </div>
+    `;
+  }
+
+  private _shopPanel(personIdx: number, balance: number, hasWallet: boolean) {
+    const rewards = this._rewards();
+    const pending = this._pending?.personIdx === personIdx ? this._pending : null;
+    return html`
+      <div class="shop">
+        <div class="shop-head">
+          <span>🎁 Belohnungen</span>
+          <span class="shop-balance">Guthaben ${hasWallet ? "💰" : "⭐"} ${balance}</span>
+        </div>
+        ${
+          hasWallet
+            ? nothing
+            : html`<div class="shop-note">
+                Kein Guthaben-Helfer (<code>points_entity</code>, ein
+                <code>input_number</code>) gesetzt – Einlösen ist deaktiviert.
+              </div>`
+        }
+        ${rewards.map((r) => {
+          const affordable = hasWallet && balance >= r.cost;
+          return html`
+            <div class="reward ${affordable ? "" : "locked"}">
+              <span class="reward-emoji">${r.emoji || "🎁"}</span>
+              <span class="reward-name">${r.name}</span>
+              <span class="reward-cost">⭐ ${r.cost}</span>
+              <button
+                class="reward-btn"
+                ?disabled=${!affordable}
+                @click=${() => this._startRedeem(personIdx, r)}
+              >
+                Einlösen
+              </button>
+            </div>
+          `;
+        })}
+        ${pending ? this._pinRow() : nothing}
+      </div>
+    `;
+  }
+
+  private _pinRow() {
+    return html`
+      <div class="pin ${this._pinError ? "err" : ""}">
+        <span class="pin-label">Eltern-PIN:</span>
+        <input
+          class="pin-input"
+          type="password"
+          inputmode="numeric"
+          autocomplete="off"
+          .value=${this._pin}
+          @input=${(e: Event) => {
+            this._pin = (e.target as HTMLInputElement).value;
+            this._pinError = false;
+          }}
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === "Enter") this._confirmRedeem();
+            if (e.key === "Escape") this._cancelRedeem();
+          }}
+        />
+        <button class="pin-ok" @click=${this._confirmRedeem}>OK</button>
+        <button class="pin-cancel" title="Abbrechen" @click=${this._cancelRedeem}>✕</button>
+        ${this._pinError ? html`<span class="pin-msg">Falsche PIN</span>` : nothing}
       </div>
     `;
   }
@@ -1137,6 +1330,146 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         animation: none;
         display: none;
       }
+    }
+
+    /* ---- reward shop ---- */
+    .shop-toggle,
+    .kid-shop-btn {
+      flex: none;
+      border: none;
+      cursor: pointer;
+      background: color-mix(in srgb, var(--pc) 16%, var(--card-background-color, #fff));
+      border-radius: 10px;
+      font-size: 16px;
+      line-height: 1;
+      padding: 6px 8px;
+    }
+    .kid-shop-btn {
+      font-size: 26px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      margin-left: auto;
+    }
+    .shop-toggle.active,
+    .kid-shop-btn.active {
+      box-shadow: 0 0 0 2px var(--pc);
+    }
+    .shop {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      background: var(--secondary-background-color);
+      border: 1px solid var(--divider-color);
+    }
+    .shop-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .shop-balance {
+      font-size: 0.9em;
+    }
+    .shop-note {
+      font-size: 0.8em;
+      color: var(--secondary-text-color);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .shop code {
+      font-size: 0.9em;
+      background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+    .reward {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 6px;
+      border-top: 1px solid var(--divider-color);
+    }
+    .reward.locked {
+      opacity: 0.55;
+    }
+    .reward-emoji {
+      font-size: 20px;
+      flex: none;
+    }
+    .reward-name {
+      flex: 1 1 auto;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+    .reward-cost {
+      flex: none;
+      font-size: 0.85em;
+      font-weight: 700;
+      color: var(--secondary-text-color);
+    }
+    .reward-btn {
+      flex: none;
+      border: none;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font: inherit;
+      font-weight: 700;
+      font-size: 0.82em;
+      color: #fff;
+      background: var(--pc, var(--primary-color));
+      cursor: pointer;
+    }
+    .reward-btn:disabled {
+      background: var(--disabled-text-color, #9aa0a6);
+      cursor: default;
+    }
+    .pin {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--divider-color);
+    }
+    .pin-label {
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+    .pin-input {
+      width: 84px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--divider-color);
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color);
+      font: inherit;
+    }
+    .pin.err .pin-input {
+      border-color: var(--error-color, #db4437);
+    }
+    .pin-ok,
+    .pin-cancel {
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .pin-ok {
+      color: #fff;
+      background: var(--pc, var(--primary-color));
+    }
+    .pin-cancel {
+      background: var(--secondary-background-color);
+      color: var(--primary-text-color);
+    }
+    .pin-msg {
+      font-size: 0.8em;
+      font-weight: 700;
+      color: var(--error-color, #db4437);
     }
   `;
 }
