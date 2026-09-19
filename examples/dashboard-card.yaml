@@ -72,6 +72,13 @@ persons:
 # level_size: 100                 # points per level (0 = off); badge chip next to the name
 # show_leaderboard: true          # ranking of persons by earned points under the board
 
+# --- Optional: add-task, sorting & filters ---
+# allow_add: true                 # "+ add task" field per person (default on)
+# sort: due                       # manual (default) | due | alpha
+# hide_empty: true                # hide persons with no open tasks
+# due_soon: 2                     # mark tasks due within 2 days as "due soon"
+# The card follows the Home Assistant UI language (German / English).
+
 # --- Optional: celebrate actions (make success tangible) ---
 # Fire any HA services when a person finishes ("all_done"), on each task, or on
 # a redeemed reward. {name} and {task} are substituted in text values.

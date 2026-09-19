@@ -91,8 +91,13 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
       Statistik/Verlauf.
+- [x] **Aufgabe hinzufügen** direkt in der Karte (`todo.add_item`, wo die Liste
+      CREATE unterstützt; `allow_add`).
+- [x] **Sortierung & Filter** offener Aufgaben (`sort`, `hide_empty`, `due_soon`).
+- [x] **Zweisprachig (DE/EN)** – Sprache aus der HA-Oberfläche (`localize.ts`).
 - [ ] Vorlese-/Symbolmodus für Nicht-Leser; Ämtli-Pakete nach Alter.
 - [ ] Rendering direkt in / neben der Family Board Card.
+- [ ] Weitere Sprachen (aktuell DE/EN).
 - [x] **Fähigkeits-Erkennung** – Karte liest `supported_features` der `todo`-
       Entity; nicht abhakbare Listen werden schreibgeschützt (🔒) statt Leertipp.
 - [ ] **Microsoft To Do** – keine native HA-`todo`-Integration; Optionen:

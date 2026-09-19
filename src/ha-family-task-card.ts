@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing, PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
 import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-card-helpers";
+import { t } from "./localize";
 
 /**
  * Family Task Card — a gamified family task / chore card for Home Assistant.
@@ -14,8 +15,10 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
  * mark urgent), a reward shop (redeem points, parent PIN), celebrate actions
  * that fire HA services (light / sound / TTS / push) on success, and levels /
  * badges / a leaderboard derived from earned points. It adapts to each todo
- * integration's `supported_features` (read-only lists show 🔒 instead of a dead
- * tap). See ROADMAP.md for what remains (kiosk layout, person switch).
+ * integration's `supported_features` (read-only lists show 🔒, creatable lists
+ * get an add-task field), sorts/filters open tasks, and is bilingual (DE/EN via
+ * the HA UI language). See ROADMAP.md for what remains (kiosk layout, person
+ * switch).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -24,8 +27,9 @@ const DEFAULT_POINTS = 10;
 const DEFAULT_BRING_LINK = "https://web.getbring.com";
 const DEFAULT_LEVEL_SIZE = 100;
 const DEFAULT_LEVEL_EMOJIS = ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"];
-// HA TodoListEntityFeature.UPDATE_TODO_ITEM — needed to check items off / reopen.
-const TODO_UPDATE_ITEM = 4;
+// HA TodoListEntityFeature flags.
+const TODO_CREATE_ITEM = 1; // add new items
+const TODO_UPDATE_ITEM = 4; // check off / reopen items
 
 /* Same person palette as the Family Board Card, for one shared look. */
 const FALLBACK_COLORS = [
@@ -109,6 +113,10 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   level_size?: number; // points per level (from earned). default 100. 0 disables levels
   level_emojis?: string[]; // badge per level tier (cycled/clamped)
   show_leaderboard?: boolean; // show a ranking of persons by earned points
+  sort?: "manual" | "due" | "alpha"; // order of open tasks within a person. default manual
+  hide_empty?: boolean; // hide persons with no open tasks (and nothing to show)
+  due_soon?: number; // mark tasks due within N days as "due soon" (highlight)
+  allow_add?: boolean; // show an "add task" field per person (needs a creatable list). default true
 }
 
 interface LevelInfo {
@@ -218,6 +226,15 @@ function isOverdue(item: TodoItem): boolean {
   // Date-only due -> overdue after end of that day; datetime -> exact moment.
   const d = new Date(item.due.length <= 10 ? `${item.due}T23:59:59` : item.due);
   return !isNaN(d.getTime()) && d.getTime() < Date.now();
+}
+
+/** A task is "due soon" when its due date is within the next `days` (not past). */
+function dueSoon(item: TodoItem, days: number): boolean {
+  if (!item.due || days <= 0) return false;
+  const d = new Date(item.due.length <= 10 ? `${item.due}T23:59:59` : item.due);
+  if (isNaN(d.getTime())) return false;
+  const now = Date.now();
+  return d.getTime() >= now && d.getTime() <= now + days * 86400000;
 }
 
 /** Does a rule target this task (by title regex and/or list)? */
@@ -367,7 +384,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   }
 
   private _listName(entity: string): string {
-    return (this.hass?.states[entity]?.attributes?.friendly_name as string) || "Einkauf";
+    return (this.hass?.states[entity]?.attributes?.friendly_name as string) || this._t("shopping");
   }
 
   private _bringLink(): string {
@@ -380,11 +397,42 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return levelInfo(earned, size, emojis);
   }
 
+  private _t(key: string): string {
+    return t(this.hass, key);
+  }
+
   /** Can this todo list's items be checked off? (UPDATE_TODO_ITEM capability.) */
   private _canToggle(entity: string): boolean {
     const sf = this.hass?.states[entity]?.attributes?.supported_features;
     if (typeof sf !== "number") return true; // unknown -> assume editable
     return (sf & TODO_UPDATE_ITEM) !== 0;
+  }
+
+  /** Can new items be added to this list? (CREATE_TODO_ITEM capability.) */
+  private _canCreate(entity: string): boolean {
+    const sf = this.hass?.states[entity]?.attributes?.supported_features;
+    if (typeof sf !== "number") return true;
+    return (sf & TODO_CREATE_ITEM) !== 0;
+  }
+
+  /** First non-shopping list of a person that supports adding items. */
+  private _addEntityFor(p: PersonConfig): string | undefined {
+    const shopping = this._shoppingSet();
+    return listsOf(p).find((e) => !shopping.has(e) && this._canCreate(e));
+  }
+
+  private async _addTask(entity: string, input: HTMLInputElement): Promise<void> {
+    if (!this.hass) return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    try {
+      await this.hass.callService("todo", "add_item", { entity_id: entity, item: text });
+      this._sig[entity] = ""; // force a refetch so the new item appears
+      this._refresh();
+    } catch (err) {
+      input.value = text; // restore on failure
+    }
   }
 
   /** Split a person's lists into tasks + shopping trips and tally points. */
@@ -412,8 +460,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         for (const o of items) (o.item.status === "completed" ? tasksDone : rawOpen).push(o);
       }
     }
-    // Context rules can hide, highlight or flag open tasks as urgent.
-    const tasksOpen = this._decorate(rawOpen);
+    // Sort, then context rules can hide, highlight or flag open tasks as urgent.
+    const tasksOpen = this._decorate(this._sortOpen(rawOpen));
     earned += tasksDone.length * pts;
 
     const hasWallet = !!p.points_entity;
@@ -437,10 +485,26 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return isNaN(n) ? 0 : n;
   }
 
-  /** Apply context rules + overdue detection to open tasks; drop hidden ones. */
+  /** Order open items by the configured sort (before flag-ranking). */
+  private _sortOpen(items: OwnedItem[]): OwnedItem[] {
+    const mode = this._config?.sort ?? "manual";
+    if (mode === "manual") return items;
+    const dueKey = (it: TodoItem) => {
+      if (!it.due) return Infinity;
+      const d = new Date(it.due.length <= 10 ? `${it.due}T00:00:00` : it.due);
+      return isNaN(d.getTime()) ? Infinity : d.getTime();
+    };
+    const arr = [...items];
+    if (mode === "alpha") arr.sort((a, b) => a.item.summary.localeCompare(b.item.summary));
+    else if (mode === "due") arr.sort((a, b) => dueKey(a.item) - dueKey(b.item));
+    return arr;
+  }
+
+  /** Apply context rules + overdue/due-soon detection to open tasks; drop hidden ones. */
   private _decorate(open: OwnedItem[]): DecoratedItem[] {
     const rules = this._config?.context_rules ?? [];
     const overdueOn = this._config?.highlight_overdue !== false;
+    const dueSoonDays = this._config?.due_soon;
     const out: DecoratedItem[] = [];
 
     for (const o of open) {
@@ -465,9 +529,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       }
       if (hidden) continue;
 
+      if (flag === "none" && dueSoonDays && dueSoon(o.item, dueSoonDays)) {
+        flag = "highlight";
+        label = label ?? this._t("due_soon");
+      }
       if (overdueOn && isOverdue(o.item)) {
         flag = "urgent";
-        label = label ?? "Überfällig";
+        label = label ?? this._t("overdue");
       }
       out.push({ ...o, flag, label });
     }
@@ -545,7 +613,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return (
       p.name ||
       (p.person ? (this.hass?.states[p.person]?.attributes?.friendly_name as string) : "") ||
-      `Person ${idx + 1}`
+      `${this._t("person_fallback")} ${idx + 1}`
     );
   }
 
@@ -585,6 +653,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       familyEarned += view.earned;
       return { p, idx, view };
     });
+    const showDone = cfg.show_completed;
+    const visible = cfg.hide_empty
+      ? columns.filter((c) => c.view.openCount > 0 || (showDone && c.view.tasksDone.length > 0))
+      : columns;
 
     return html`
       <ha-card>
@@ -592,12 +664,12 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           <div class="badge">🧹</div>
           <div class="head-text">
             <div class="title">${cfg.title || CARD_NAME}</div>
-            <div class="sub">Familien-Aufgaben</div>
+            <div class="sub">${this._t("subtitle")}</div>
           </div>
           ${this._goalBar(familyEarned)}
         </div>
 
-        <div class="board">${columns.map((c) => this._column(c.p, c.idx, c.view))}</div>
+        <div class="board">${visible.map((c) => this._column(c.p, c.idx, c.view))}</div>
         ${this._leaderboard(columns)}
       </ha-card>
     `;
@@ -609,7 +681,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const ranked = [...columns].sort((a, b) => b.view.earned - a.view.earned);
     return html`
       <div class="leaderboard">
-        <div class="lb-title">🏆 Rangliste</div>
+        <div class="lb-title">${this._t("leaderboard")}</div>
         ${ranked.map(
           (r, i) => html`
             <div class="lb-row">
@@ -693,7 +765,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                   allDone
                     ? html`<div class="kid-alldone">
                         🎉
-                        <div>Alles geschafft!</div>
+                        <div>${this._t("all_done_kid")}</div>
                       </div>`
                     : html`${view.shopOpen.map((s) => this._kidShopping(s, color))}
                       ${view.tasksOpen.map((o) => this._kidTask(o, color))}`
@@ -737,7 +809,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         class="kid-task ${flag}"
         style="--pc:${color}"
         ?disabled=${!editable}
-        title=${editable ? "" : "Diese Liste unterstützt kein Abhaken"}
+        title=${editable ? "" : this._t("no_toggle")}
         @click=${() => this._kidComplete(entity, item)}
       >
         <span class="kid-emoji">${emoji}</span>
@@ -847,7 +919,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return html`
       <div class="goal">
         <div class="goal-top">
-          <span>⭐ ${earned}</span><span class="goal-target">Ziel ${goal}</span>
+          <span>⭐ ${earned}</span><span class="goal-target">${this._t("goal")} ${goal}</span>
         </div>
         <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
       </div>
@@ -866,6 +938,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const shopOpen = this._shopPerson === idx;
     const points = view.hasWallet ? view.balance : view.earned;
     const lvl = this._levelInfo(view.earned);
+    const addEntity = this._config?.allow_add === false ? undefined : this._addEntityFor(p);
 
     return html`
       <div class="col" style="--pc:${color}">
@@ -883,21 +956,23 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
               <span class="pname-txt">${name}</span>
               ${
                 lvl
-                  ? html`<span class="lvl" title="Level ${lvl.level} · ${lvl.pct}% zum nächsten"
+                  ? html`<span
+                      class="lvl"
+                      title="${this._t("level")} ${lvl.level} · ${lvl.pct}% ${this._t("to_next")}"
                       >${lvl.emoji} L${lvl.level}</span
                     >`
                   : nothing
               }
             </div>
             <div class="pstatus">
-              ${view.openCount} offen · ${view.hasWallet ? "💰" : "⭐"} ${points}
+              ${view.openCount} ${this._t("open")} · ${view.hasWallet ? "💰" : "⭐"} ${points}
             </div>
           </div>
           ${
             hasShop
               ? html`<button
                   class="shop-toggle ${shopOpen ? "active" : ""}"
-                  title="Belohnungen"
+                  title=${this._t("rewards")}
                   @click=${() => {
                     this._shopPerson = shopOpen ? null : idx;
                     this._cancelRedeem();
@@ -910,12 +985,26 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </div>
 
         <div class="tiles">
-          ${isEmpty ? html`<div class="empty">Alles erledigt 🎉</div>` : nothing}
+          ${isEmpty ? html`<div class="empty">${this._t("all_done_board")}</div>` : nothing}
           ${view.shopOpen.map((s) => this._shoppingTile(s, color))}
           ${view.tasksOpen.map((o) => this._tile(o, color, false, o.flag, o.label))}
           ${showDone ? view.tasksDone.map((o) => this._tile(o, color, true)) : nothing}
         </div>
 
+        ${
+          addEntity
+            ? html`<div class="add-row">
+                <input
+                  class="add-input"
+                  type="text"
+                  placeholder=${this._t("add_task")}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === "Enter") this._addTask(addEntity, e.target as HTMLInputElement);
+                  }}
+                />
+              </div>`
+            : nothing
+        }
         ${shopOpen ? this._shopPanel(idx, view.balance, view.hasWallet) : nothing}
       </div>
     `;
@@ -927,15 +1016,17 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return html`
       <div class="shop">
         <div class="shop-head">
-          <span>🎁 Belohnungen</span>
-          <span class="shop-balance">Guthaben ${hasWallet ? "💰" : "⭐"} ${balance}</span>
+          <span>🎁 ${this._t("rewards")}</span>
+          <span class="shop-balance"
+            >${this._t("balance")} ${hasWallet ? "💰" : "⭐"} ${balance}</span
+          >
         </div>
         ${
           hasWallet
             ? nothing
             : html`<div class="shop-note">
-                Kein Guthaben-Helfer (<code>points_entity</code>, ein
-                <code>input_number</code>) gesetzt – Einlösen ist deaktiviert.
+                ${this._t("no_wallet_1")}<code>points_entity</code>,
+                <code>input_number</code>${this._t("no_wallet_2")}
               </div>`
         }
         ${rewards.map((r) => {
@@ -950,7 +1041,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                 ?disabled=${!affordable}
                 @click=${() => this._startRedeem(personIdx, r)}
               >
-                Einlösen
+                ${this._t("redeem")}
               </button>
             </div>
           `;
@@ -963,7 +1054,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private _pinRow() {
     return html`
       <div class="pin ${this._pinError ? "err" : ""}">
-        <span class="pin-label">Eltern-PIN:</span>
+        <span class="pin-label">${this._t("parent_pin")}</span>
         <input
           class="pin-input"
           type="password"
@@ -980,8 +1071,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           }}
         />
         <button class="pin-ok" @click=${this._confirmRedeem}>OK</button>
-        <button class="pin-cancel" title="Abbrechen" @click=${this._cancelRedeem}>✕</button>
-        ${this._pinError ? html`<span class="pin-msg">Falsche PIN</span>` : nothing}
+        <button class="pin-cancel" title=${this._t("cancel")} @click=${this._cancelRedeem}>
+          ✕
+        </button>
+        ${this._pinError ? html`<span class="pin-msg">${this._t("wrong_pin")}</span>` : nothing}
       </div>
     `;
   }
@@ -1011,7 +1104,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <div class="tile-emoji">🛒</div>
         <div class="tile-text">
           <div class="tile-title">${entry.name}</div>
-          <div class="tile-due">${count} Artikel</div>
+          <div class="tile-due">${count} ${this._t("items")}</div>
         </div>
         <a
           class="bring-open"
@@ -1021,7 +1114,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           title="In Bring! öffnen"
           @click=${(e: MouseEvent) => e.stopPropagation()}
         >
-          Öffnen
+          ${this._t("open_app")}
         </a>
       </div>
     `;
@@ -1041,7 +1134,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       <div
         class="tile ${completed ? "done" : flag} ${editable ? "" : "readonly"}"
         style="--pc:${color}"
-        title=${editable ? "" : "Diese Liste unterstützt kein Abhaken"}
+        title=${editable ? "" : this._t("no_toggle")}
         role=${editable ? "button" : "listitem"}
         tabindex=${editable ? 0 : -1}
         @click=${editable ? () => this._toggle(entity, item) : nothing}
@@ -1079,7 +1172,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const lang = this.hass?.locale?.language || "de";
     const today = new Date();
     const sameDay = d.toDateString() === today.toDateString();
-    if (sameDay) return "heute";
+    if (sameDay) return this._t("today");
     return new Intl.DateTimeFormat(lang, {
       weekday: "short",
       day: "numeric",
@@ -1232,6 +1325,25 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       font-size: 0.85em;
       color: var(--secondary-text-color);
       padding: 8px 4px;
+    }
+    .add-row {
+      margin-top: 8px;
+    }
+    .add-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px dashed var(--divider-color);
+      background: transparent;
+      color: var(--primary-text-color);
+      font: inherit;
+      font-size: 0.9em;
+    }
+    .add-input:focus {
+      outline: none;
+      border-style: solid;
+      border-color: var(--pc);
     }
     .tile {
       display: flex;

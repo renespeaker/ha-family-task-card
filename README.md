@@ -2,10 +2,11 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.6.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.7.0).** Personen-Board, visueller Editor, Kinder-Modus,
 > Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
-> Level/Abzeichen + Rangliste sind da – responsiv für iOS/Android. Die Karte
-> liest `todo.*`-Listen live, schreibt beim Abhaken zurück und passt sich den
+> Level/Abzeichen + Rangliste sind da – responsiv, **zweisprachig (DE/EN)**,
+> mit **Aufgabe-hinzufügen** und Sortier-/Ausblend-Optionen. Die Karte liest
+> `todo.*`-Listen live, schreibt beim Abhaken zurück und passt sich den
 > Fähigkeiten jeder Integration an – siehe [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
@@ -175,6 +176,10 @@ persons:
 | `level_size`      | Zahl               | Punkte pro Level (Std. 100, 0 = aus).                   |
 | `level_emojis`    | Liste              | Abzeichen je Level-Stufe (optional).                    |
 | `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
+| `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
+| `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
+| `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
+| `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
 
 ### Kinder-Modus
 
@@ -357,6 +362,21 @@ persons:
 
 > Level & Rangliste nutzen die **verdienten** Punkte (nicht das Shop-Guthaben) –
 > beides ist stateless aus den `todo`-Listen abgeleitet.
+
+### Aufgaben hinzufügen, Sortierung & Sprache
+
+- **➕ Aufgabe hinzufügen** — unter jeder Person erscheint ein Eingabefeld; Enter
+  legt die Aufgabe via `todo.add_item` an – aber nur, wo die Liste das
+  unterstützt (die Karte prüft die Fähigkeiten). Abschaltbar mit `allow_add: false`.
+- **🔽 Sortierung** — `sort: due` (nach Fälligkeit) oder `sort: alpha`
+  (alphabetisch); Standard `manual` (Reihenfolge der Liste). Dringende/
+  hervorgehobene Aufgaben stehen immer oben.
+- **🙈 Leere ausblenden** — `hide_empty: true` versteckt Personen ohne offene
+  Aufgaben.
+- **⏰ Bald fällig** — `due_soon: 2` hebt Aufgaben hervor, die in den nächsten 2
+  Tagen fällig sind (überfällige bleiben „dringend").
+- **🌐 Sprache** — die Karte ist **zweisprachig (Deutsch/Englisch)** und richtet
+  sich automatisch nach der HA-Oberflächensprache.
 
 Ein vollständiges Beispiel liegt unter
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).
