@@ -67,3 +67,16 @@ persons:
 #   - name: Lina
 #     lists: todo.lina_aemtli
 #     points_entity: input_number.lina_eingeloest
+
+# --- Optional: celebrate actions (make success tangible) ---
+# Fire any HA services when a person finishes ("all_done"), on each task, or on
+# a redeemed reward. {name} and {task} are substituted in text values.
+# celebrate:
+#   on: all_done
+#   actions:
+#     - service: light.turn_on
+#       data: { entity_id: light.kinderzimmer, rgb_color: [0, 255, 0] }
+#     - service: tts.google_translate_say
+#       data: { entity_id: media_player.kueche, message: "{name} hat alles geschafft!" }
+#     - service: notify.mobile_app_papa
+#       data: { message: "{name} ist fertig 🎉" }

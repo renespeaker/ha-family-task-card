@@ -2,10 +2,10 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.3.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Bring!-Einkauf, Kontext-Aufgaben und Belohnungs-Shop sind da. Die Karte liest
-> `todo.*`-Listen live und schreibt beim Abhaken zurück. Weiteres (Kiosk-Moment)
-> siehe [ROADMAP.md](ROADMAP.md).
+> **Status: nutzbar (v0.4.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop und Feier-Aktionen (Erfolg
+> über Licht/Sound/TTS/Push fühlbar machen) sind da. Die Karte liest `todo.*`-
+> Listen live und schreibt beim Abhaken zurück – siehe [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
 [Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
@@ -123,6 +123,7 @@ persons:
 | `context_rules`   | Liste              | Regeln, die auf HA-Zustände reagieren (siehe unten).    |
 | `rewards`         | Liste              | Belohnungen für den Shop (`name`, `cost`, `emoji`).     |
 | `parent_pin`      | Text/Zahl          | PIN für die Eltern-Freigabe beim Einlösen.              |
+| `celebrate`       | Objekt             | HA-Services bei Erfolg (Licht/Sound/TTS/Push, siehe unten). |
 
 ### Kinder-Modus
 
@@ -244,6 +245,40 @@ die **Eltern-PIN** ab und bucht bei Erfolg vom `input_number` ab.
 > bestätigen später per Push, evtl. mit Foto") kommt laut Roadmap mit einem
 > optionalen Backend. Die verdienten Punkte werden live aus dem Listenzustand
 > berechnet – siehe Hinweis beim Einkauf.
+
+### Feier-Aktionen (Erfolg fühlbar machen)
+
+Die Karte kann bei Erfolg **beliebige Home-Assistant-Services** aufrufen – so
+wird aus einem Häkchen ein kleiner Moment: Licht kurz grün, ein Jingle, eine
+TTS-Ansage oder ein Push an die Eltern. Ideal fürs Wandtablet.
+
+```yaml
+type: custom:family-task-card
+celebrate:
+  on: all_done            # all_done | task | reward  (oder eine Liste)
+  actions:
+    - service: light.turn_on
+      data: { entity_id: light.kinderzimmer, rgb_color: [0, 255, 0], brightness_pct: 100 }
+    - service: tts.google_translate_say
+      data: { entity_id: media_player.kueche, message: "{name} hat alles geschafft!" }
+    - service: notify.mobile_app_papa
+      data: { message: "{name} ist fertig 🎉" }
+persons:
+  - name: Lina
+    lists: todo.lina_aemtli
+```
+
+- **`on`** wählt den Moment: `all_done` (Person hat nichts Offenes mehr –
+  Standard), `task` (jede erledigte Aufgabe) oder `reward` (Belohnung eingelöst).
+  Mehrere gleichzeitig als Liste möglich.
+- **`actions`** ist eine Liste von Service-Aufrufen (`service` + `data`/`target`),
+  genau wie in HA-Automationen.
+- Platzhalter: **`{name}`** (Person) und **`{task}`** (Aufgaben-/Belohnungsname)
+  werden in allen Text-Werten ersetzt.
+
+> Die Konfetti-Animation auf dem Bildschirm läuft ohnehin. Ein spezielles
+> Kiosk-Layout und Personenwechsel per NFC/Anwesenheit stehen noch auf der
+> Roadmap.
 
 Ein vollständiges Beispiel liegt unter
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).

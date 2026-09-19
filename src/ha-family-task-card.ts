@@ -11,8 +11,9 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
  * task writes back to the source list. On top: a points / family-goal layer, a
  * big tappable kid mode, Bring!/shopping lists shown as one aggregated "Einkauf"
  * tile, context rules that react to Home Assistant state (hide / highlight /
- * mark urgent), and a reward shop (redeem points, parent PIN). See ROADMAP.md
- * for what comes next (kiosk moment).
+ * mark urgent), a reward shop (redeem points, parent PIN), and celebrate actions
+ * that fire HA services (light / sound / TTS / push) on success. See ROADMAP.md
+ * for what remains (kiosk layout, person switch by NFC/presence).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -69,6 +70,21 @@ interface Reward {
   emoji?: string;
 }
 
+type CelebrateTrigger = "all_done" | "task" | "reward";
+
+/** One Home Assistant service call fired on a celebrated moment. */
+interface CelebrateAction {
+  service: string; // "domain.service", e.g. "light.turn_on"
+  data?: Record<string, unknown>; // service data; {name}/{task} placeholders substituted
+  target?: Record<string, unknown>; // optional HA target
+}
+
+/** Make success tangible: fire HA services (light/sound/TTS/push) on a moment. */
+interface CelebrateConfig {
+  on?: CelebrateTrigger | CelebrateTrigger[]; // when to fire. default "all_done"
+  actions: CelebrateAction[];
+}
+
 export interface FamilyTaskConfig extends LovelaceCardConfig {
   persons: PersonConfig[];
   title?: string;
@@ -83,6 +99,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   highlight_overdue?: boolean; // mark tasks past their due date as urgent. default true
   rewards?: Reward[]; // reward shop: things to redeem points for
   parent_pin?: string | number; // PIN required to redeem a reward (parent approval)
+  celebrate?: CelebrateConfig; // fire HA services on success (light/sound/TTS/push)
 }
 
 /**
@@ -157,6 +174,20 @@ function emojiFor(summary: string): string {
   return "📝";
 }
 
+/** Recursively replace {name}/{task} placeholders in a service-data value. */
+function substitutePlaceholders(value: unknown, ctx: { name?: string; task?: string }): unknown {
+  if (typeof value === "string") {
+    return value.replace(/\{name\}/g, ctx.name ?? "").replace(/\{task\}/g, ctx.task ?? "");
+  }
+  if (Array.isArray(value)) return value.map((v) => substitutePlaceholders(v, ctx));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = substitutePlaceholders(v, ctx);
+    return out;
+  }
+  return value;
+}
+
 /** A task is overdue once its due date/time has fully passed. */
 function isOverdue(item: TodoItem): boolean {
   if (!item.due) return false;
@@ -227,6 +258,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   @state() private _pending: { personIdx: number; reward: Reward } | null = null;
   @state() private _pin = "";
   @state() private _pinError = false;
+
+  /** Per-person open-count from the last render, to detect "all done" moments. */
+  private _prevOpen: Record<number, number> = {};
 
   public static async getConfigElement() {
     await import("./editor");
@@ -411,7 +445,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** Complete a whole shopping trip: check off every open item (syncs to source). */
   private async _completeShopping(entry: ShoppingEntry): Promise<void> {
-    await Promise.all(entry.open.map((o) => this._toggle(o.entity, o.item)));
+    await Promise.all(entry.open.map((o) => this._toggle(o.entity, o.item, true)));
+    this._fireCelebrate("task", { name: this._ownerName(entry.entity), task: entry.name });
   }
 
   /* ---- reward shop ------------------------------------------------ */
@@ -462,6 +497,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         entity_id: p.points_entity,
         value: newSpent,
       });
+      this._fireCelebrate("reward", { name: this._personName(p, personIdx), task: reward.name });
     } catch (err) {
       // Leave the shop open so the parent can retry.
       this._shopPerson = personIdx;
@@ -476,7 +512,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     );
   }
 
-  private async _toggle(entityId: string, item: TodoItem): Promise<void> {
+  private async _toggle(entityId: string, item: TodoItem, silent = false): Promise<void> {
     if (!this.hass) return;
     const status = item.status === "completed" ? "needs_action" : "completed";
     // Optimistic update for instant feedback; _refresh reconciles on state change.
@@ -492,6 +528,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         item: item.uid,
         status,
       });
+      if (status === "completed" && !silent) {
+        this._fireCelebrate("task", { name: this._ownerName(entityId), task: item.summary });
+      }
     } catch (err) {
       // Revert on failure.
       this._sig[entityId] = "";
@@ -676,6 +715,47 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     this._burstTimer = window.setTimeout(() => {
       this._burst = false;
     }, 900);
+  }
+
+  /* ---- celebrate: fire HA services on a success moment ------------ */
+
+  /** Name of the person whose lists include this todo entity (for {name}). */
+  private _ownerName(entity: string): string | undefined {
+    const persons = this._config?.persons ?? [];
+    for (let i = 0; i < persons.length; i++) {
+      if (listsOf(persons[i]).includes(entity)) return this._personName(persons[i], i);
+    }
+    return undefined;
+  }
+
+  private _fireCelebrate(trigger: CelebrateTrigger, ctx: { name?: string; task?: string }): void {
+    const c = this._config?.celebrate;
+    if (!c || !this.hass || !Array.isArray(c.actions)) return;
+    const on = c.on ? (Array.isArray(c.on) ? c.on : [c.on]) : ["all_done"];
+    if (!on.includes(trigger)) return;
+    for (const a of c.actions) {
+      if (!a?.service || !a.service.includes(".")) continue;
+      const [domain, ...rest] = a.service.split(".");
+      const service = rest.join(".");
+      const data = substitutePlaceholders(a.data ?? {}, ctx) as Record<string, unknown>;
+      const target = a.target
+        ? (substitutePlaceholders(a.target, ctx) as Record<string, unknown>)
+        : undefined;
+      Promise.resolve(this.hass.callService(domain, service, data, target)).catch(() => {});
+    }
+  }
+
+  /** Detect per-person "all done" transitions (open>0 -> 0) and celebrate them. */
+  protected updated(): void {
+    if (!this._config?.celebrate) return;
+    this._config.persons.forEach((p, idx) => {
+      const open = this._personView(p).openCount;
+      const prev = this._prevOpen[idx];
+      this._prevOpen[idx] = open;
+      if (prev !== undefined && prev > 0 && open === 0) {
+        this._fireCelebrate("all_done", { name: this._personName(p, idx) });
+      }
+    });
   }
 
   private async _kidComplete(entity: string, item: TodoItem): Promise<void> {
