@@ -2,10 +2,10 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.2.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Bring!-Einkauf und Kontext-Aufgaben sind da. Die Karte liest `todo.*`-Listen
-> live und schreibt beim Abhaken zurück. Weiteres (Belohnungs-Shop, Kiosk) siehe
-> [ROADMAP.md](ROADMAP.md).
+> **Status: nutzbar (v0.3.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Bring!-Einkauf, Kontext-Aufgaben und Belohnungs-Shop sind da. Die Karte liest
+> `todo.*`-Listen live und schreibt beim Abhaken zurück. Weiteres (Kiosk-Moment)
+> siehe [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
 [Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
@@ -110,6 +110,7 @@ persons:
 | `persons[].lists` | Entität(en)        | `todo.*`-Entität(en), die zu dieser Person gehören.     |
 | `persons[].person`| `person.*`         | optional – liefert Avatar & Anzeigename.                |
 | `persons[].color` | Farbe              | optional – überschreibt die Palette.                    |
+| `persons[].points_entity` | `input_number` | Guthaben-Helfer (eingelöste Punkte) für den Shop.  |
 | `title`           | Text               | Kartentitel.                                             |
 | `points_per_task` | Zahl               | Punkte je erledigter Aufgabe (Standard 10).             |
 | `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
@@ -120,6 +121,8 @@ persons:
 | `bring_deeplink`  | Text               | Ziel des „In Bring! öffnen"-Buttons (Std. web.getbring.com). |
 | `highlight_overdue` | Bool             | überfällige Aufgaben als dringend markieren (Std. an).  |
 | `context_rules`   | Liste              | Regeln, die auf HA-Zustände reagieren (siehe unten).    |
+| `rewards`         | Liste              | Belohnungen für den Shop (`name`, `cost`, `emoji`).     |
+| `parent_pin`      | Text/Zahl          | PIN für die Eltern-Freigabe beim Einlösen.              |
 
 ### Kinder-Modus
 
@@ -209,6 +212,38 @@ bestimmte `todo.*`-Listen ein.
 > eine HA-Automation, nicht Kartencode. Die Karte macht die **sichtbare**
 > Eskalation (Dringend-Markierung); den Push kannst du an denselben Sensoren
 > aufhängen.
+
+### Belohnungs-Shop
+
+Punkte lassen sich gegen **Belohnungen** einlösen – mit **Eltern-Freigabe per
+PIN**. Belohnungen definierst du in `rewards`; die PIN in `parent_pin`.
+
+Damit ausgegebene Punkte **dauerhaft** gespeichert werden (auch nach Neuladen/
+Neustart), bekommt jede Person einen HA-Helfer **`input_number`**, der die
+**bereits eingelösten** Punkte hält. **Guthaben = verdient − eingelöst.**
+
+```yaml
+type: custom:family-task-card
+parent_pin: "1234"
+rewards:
+  - { name: "30 Min Tablet", cost: 50, emoji: "📱" }
+  - { name: "Eis", cost: 30, emoji: "🍦" }
+  - { name: "Kino", cost: 200, emoji: "🎬" }
+persons:
+  - name: Lina
+    lists: todo.lina_aemtli
+    points_entity: input_number.lina_eingeloest   # input_number-Helfer anlegen
+```
+
+Bedienung: 🎁-Button in der Personen-Spalte (bzw. im Kinder-Modus) öffnet den
+Shop. „Einlösen" ist nur aktiv, wenn das Guthaben reicht; danach fragt die Karte
+die **Eltern-PIN** ab und bucht bei Erfolg vom `input_number` ab.
+
+> Ohne `points_entity` zeigt der Shop die Belohnungen nur an (Einlösen
+> deaktiviert). Der **asynchrone Freigabe-Ablauf** („Kind stellt Antrag, Eltern
+> bestätigen später per Push, evtl. mit Foto") kommt laut Roadmap mit einem
+> optionalen Backend. Die verdienten Punkte werden live aus dem Listenzustand
+> berechnet – siehe Hinweis beim Einkauf.
 
 Ein vollständiges Beispiel liegt unter
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).

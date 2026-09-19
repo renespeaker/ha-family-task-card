@@ -9,6 +9,7 @@ interface PersonConfig {
   color?: string;
   lists?: string | string[];
   goal?: number;
+  points_entity?: string;
 }
 
 /** Family Board Card palette, offered as one-click color chips. */
@@ -45,6 +46,7 @@ const SETTINGS_SCHEMA = [
     selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } },
   },
   { name: "bring_deeplink", selector: { text: {} } },
+  { name: "parent_pin", selector: { text: {} } },
 ];
 
 /** One ha-form per person, with entity pickers filtered by domain. */
@@ -53,6 +55,10 @@ const PERSON_SCHEMA = [
   { name: "person", selector: { entity: { filter: { domain: "person" } } } },
   { name: "lists", selector: { entity: { filter: { domain: "todo" }, multiple: true } } },
   { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
+  {
+    name: "points_entity",
+    selector: { entity: { filter: { domain: "input_number" } } },
+  },
 ];
 
 /** German labels / helpers for the forms (falls back to the raw key). */
@@ -66,9 +72,11 @@ const LABELS: Record<string, string> = {
   shopping_lists: "Einkaufslisten (Bring!)",
   shopping_points: "Punkte pro Einkauf",
   bring_deeplink: "Bring!-Link",
+  parent_pin: "Eltern-PIN (Belohnungen)",
   name: "Name",
   person: "Person (Avatar)",
   lists: "Aufgabenlisten (todo.*)",
+  points_entity: "Guthaben-Helfer (input_number)",
 };
 const HELPERS: Record<string, string> = {
   points_per_task: "Punkte je erledigter Aufgabe (Standard 10).",
@@ -81,9 +89,13 @@ const HELPERS: Record<string, string> = {
     "Diese todo.*-Listen (z. B. Bring!) werden als eine 'Einkauf'-Kachel gezeigt; Abhaken erledigt den ganzen Einkauf.",
   shopping_points: "Punkte für einen erledigten Einkauf (Standard = Punkte pro Aufgabe).",
   bring_deeplink: "Ziel des 'In Bring! öffnen'-Buttons (Standard web.getbring.com).",
+  parent_pin:
+    "PIN, die zum Einlösen einer Belohnung abgefragt wird (Eltern-Freigabe). Belohnungen selbst per YAML (rewards).",
   person: "Optional: person.* liefert Avatarbild & Anzeigename.",
   lists: "Eine oder mehrere todo.*-Listen, die zu dieser Person gehören.",
   goal_person: "Optionales persönliches Punkteziel.",
+  points_entity:
+    "input_number, das die bereits eingelösten Punkte dieser Person speichert (Guthaben = verdient − eingelöst).",
 };
 
 export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEditor {
@@ -124,6 +136,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.kid_mode) delete next.kid_mode;
     if (!next.shopping_points) delete next.shopping_points;
     if (!next.bring_deeplink) delete next.bring_deeplink;
+    if (!next.parent_pin) delete next.parent_pin;
     // Default is on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (Array.isArray(next.shopping_lists)) {
@@ -138,6 +151,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     const value = { ...ev.detail.value } as PersonConfig;
     if (!value.color) delete value.color;
     if (!value.goal) delete value.goal;
+    if (!value.points_entity) delete value.points_entity;
     // Collapse a single-list array back to a string for tidy YAML.
     if (Array.isArray(value.lists)) {
       if (value.lists.length === 0) delete value.lists;
