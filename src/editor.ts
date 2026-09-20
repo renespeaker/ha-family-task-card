@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import type { HomeAssistant, LovelaceCardEditor } from "custom-card-helpers";
 import type { FamilyTaskConfig } from "./ha-family-task-card";
+import { langOf, t, type Lang } from "./localize";
 
 interface PersonConfig {
   name?: string;
@@ -26,33 +27,8 @@ const PALETTE = [
   "#60A5FA",
 ];
 
-/** Settings form (flat data). */
-const SETTINGS_SCHEMA = [
-  { name: "title", selector: { text: {} } },
-  {
-    name: "points_per_task",
-    selector: { number: { min: 0, max: 1000, mode: "box", step: 1 } },
-  },
-  { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
-  { name: "show_completed", selector: { boolean: {} } },
-  { name: "kid_mode", selector: { boolean: {} } },
-  { name: "highlight_overdue", selector: { boolean: {} } },
-  {
-    name: "shopping_lists",
-    selector: { entity: { filter: { domain: "todo" }, multiple: true } },
-  },
-  {
-    name: "shopping_points",
-    selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } },
-  },
-  { name: "bring_deeplink", selector: { text: {} } },
-  { name: "parent_pin", selector: { text: {} } },
-  {
-    name: "level_size",
-    selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } },
-  },
-  { name: "show_leaderboard", selector: { boolean: {} } },
-];
+/** Settings form (flat data). Sort options are localized in `_schema()`. */
+const SORT_VALUES = ["manual", "due", "alpha"] as const;
 
 /** One ha-form per person, with entity pickers filtered by domain. */
 const PERSON_SCHEMA = [
@@ -66,46 +42,104 @@ const PERSON_SCHEMA = [
   },
 ];
 
-/** German labels / helpers for the forms (falls back to the raw key). */
-const LABELS: Record<string, string> = {
-  title: "Titel",
-  points_per_task: "Punkte pro Aufgabe",
-  goal: "Ziel (Punkte)",
-  show_completed: "Erledigte anzeigen",
-  kid_mode: "Kinder-Modus",
-  highlight_overdue: "Überfällige hervorheben",
-  shopping_lists: "Einkaufslisten (Bring!)",
-  shopping_points: "Punkte pro Einkauf",
-  bring_deeplink: "Bring!-Link",
-  parent_pin: "Eltern-PIN (Belohnungen)",
-  level_size: "Punkte pro Level",
-  show_leaderboard: "Rangliste anzeigen",
-  name: "Name",
-  person: "Person (Avatar)",
-  lists: "Aufgabenlisten (todo.*)",
-  points_entity: "Guthaben-Helfer (input_number)",
+type Bi = { de: string; en: string };
+
+/** Bilingual labels / helpers for the forms (falls back to the raw key). */
+const LABELS: Record<string, Bi> = {
+  title: { de: "Titel", en: "Title" },
+  points_per_task: { de: "Punkte pro Aufgabe", en: "Points per task" },
+  goal: { de: "Ziel (Punkte)", en: "Goal (points)" },
+  show_completed: { de: "Erledigte anzeigen", en: "Show completed" },
+  kid_mode: { de: "Kinder-Modus", en: "Kid mode" },
+  highlight_overdue: { de: "Überfällige hervorheben", en: "Highlight overdue" },
+  shopping_lists: { de: "Einkaufslisten (Bring!)", en: "Shopping lists (Bring!)" },
+  shopping_points: { de: "Punkte pro Einkauf", en: "Points per shopping trip" },
+  bring_deeplink: { de: "Bring!-Link", en: "Bring! link" },
+  parent_pin: { de: "Eltern-PIN (Belohnungen)", en: "Parent PIN (rewards)" },
+  level_size: { de: "Punkte pro Level", en: "Points per level" },
+  show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
+  sort: { de: "Sortierung", en: "Sort" },
+  hide_empty: { de: "Leere Personen ausblenden", en: "Hide empty persons" },
+  due_soon: { de: "Bald fällig (Tage)", en: "Due soon (days)" },
+  allow_add: { de: "Aufgabe-hinzufügen-Feld", en: "Add-task field" },
+  name: { de: "Name", en: "Name" },
+  person: { de: "Person (Avatar)", en: "Person (avatar)" },
+  lists: { de: "Aufgabenlisten (todo.*)", en: "Task lists (todo.*)" },
+  points_entity: { de: "Guthaben-Helfer (input_number)", en: "Points helper (input_number)" },
 };
-const HELPERS: Record<string, string> = {
-  points_per_task: "Punkte je erledigter Aufgabe (Standard 10).",
-  goal: "Familien-Punkteziel für den Fortschrittsbalken. 0 = aus.",
-  show_completed: "Erledigte Aufgaben ausgegraut mitanzeigen.",
-  kid_mode: "Großes, tippbares Layout fürs Kinder-Tablet (Avatar oben zum Wechseln).",
-  highlight_overdue:
-    "Aufgaben mit überschrittenem Fälligkeitsdatum als dringend markieren (Standard an). Weitere Kontext-Regeln per YAML (context_rules).",
-  shopping_lists:
-    "Diese todo.*-Listen (z. B. Bring!) werden als eine 'Einkauf'-Kachel gezeigt; Abhaken erledigt den ganzen Einkauf.",
-  shopping_points: "Punkte für einen erledigten Einkauf (Standard = Punkte pro Aufgabe).",
-  bring_deeplink: "Ziel des 'In Bring! öffnen'-Buttons (Standard web.getbring.com).",
-  parent_pin:
-    "PIN, die zum Einlösen einer Belohnung abgefragt wird (Eltern-Freigabe). Belohnungen selbst per YAML (rewards).",
-  level_size:
-    "Punkte pro Level (aus verdienten Punkten). Standard 100, 0 = keine Level. Abzeichen optional per YAML (level_emojis).",
-  show_leaderboard: "Rangliste der Personen nach verdienten Punkten unter dem Board anzeigen.",
-  person: "Optional: person.* liefert Avatarbild & Anzeigename.",
-  lists: "Eine oder mehrere todo.*-Listen, die zu dieser Person gehören.",
-  goal_person: "Optionales persönliches Punkteziel.",
-  points_entity:
-    "input_number, das die bereits eingelösten Punkte dieser Person speichert (Guthaben = verdient − eingelöst).",
+const HELPERS: Record<string, Bi> = {
+  points_per_task: {
+    de: "Punkte je erledigter Aufgabe (Standard 10).",
+    en: "Points per completed task (default 10).",
+  },
+  goal: {
+    de: "Familien-Punkteziel für den Fortschrittsbalken. 0 = aus.",
+    en: "Family points goal for the progress bar. 0 = off.",
+  },
+  show_completed: {
+    de: "Erledigte Aufgaben ausgegraut mitanzeigen.",
+    en: "Also show completed tasks (dimmed).",
+  },
+  kid_mode: {
+    de: "Großes, tippbares Layout fürs Kinder-Tablet (Avatar oben zum Wechseln).",
+    en: "Big, tappable layout for the kids' tablet (avatar switcher on top).",
+  },
+  highlight_overdue: {
+    de: "Aufgaben mit überschrittenem Fälligkeitsdatum als dringend markieren (Standard an). Weitere Kontext-Regeln per YAML (context_rules).",
+    en: "Mark tasks past their due date as urgent (default on). More context rules via YAML (context_rules).",
+  },
+  shopping_lists: {
+    de: "Diese todo.*-Listen (z. B. Bring!) werden als eine 'Einkauf'-Kachel gezeigt; Abhaken erledigt den ganzen Einkauf.",
+    en: "These todo.* lists (e.g. Bring!) show as one 'shopping' tile; checking it off completes the whole trip.",
+  },
+  shopping_points: {
+    de: "Punkte für einen erledigten Einkauf (Standard = Punkte pro Aufgabe).",
+    en: "Points for a finished shopping trip (default = points per task).",
+  },
+  bring_deeplink: {
+    de: "Ziel des 'In Bring! öffnen'-Buttons (Standard web.getbring.com).",
+    en: "Target of the 'Open in Bring!' button (default web.getbring.com).",
+  },
+  parent_pin: {
+    de: "PIN, die zum Einlösen einer Belohnung abgefragt wird (Eltern-Freigabe). Belohnungen selbst per YAML (rewards).",
+    en: "PIN asked when redeeming a reward (parent approval). Rewards themselves via YAML (rewards).",
+  },
+  level_size: {
+    de: "Punkte pro Level (aus verdienten Punkten). Standard 100, 0 = keine Level. Abzeichen optional per YAML (level_emojis).",
+    en: "Points per level (from earned points). Default 100, 0 = no levels. Badges optional via YAML (level_emojis).",
+  },
+  show_leaderboard: {
+    de: "Rangliste der Personen nach verdienten Punkten unter dem Board anzeigen.",
+    en: "Show a ranking of persons by earned points under the board.",
+  },
+  sort: {
+    de: "Reihenfolge der offenen Aufgaben je Person.",
+    en: "Order of the open tasks per person.",
+  },
+  hide_empty: {
+    de: "Personen ohne offene Aufgaben ausblenden.",
+    en: "Hide persons that have no open tasks.",
+  },
+  due_soon: {
+    de: "Aufgaben, die in den nächsten X Tagen fällig sind, hervorheben. 0 = aus.",
+    en: "Highlight tasks due within the next X days. 0 = off.",
+  },
+  allow_add: {
+    de: "Ein Eingabefeld pro Person zum Anlegen neuer Aufgaben (nur wo die Liste es unterstützt).",
+    en: "An input field per person to add new tasks (only where the list supports it).",
+  },
+  person: {
+    de: "Optional: person.* liefert Avatarbild & Anzeigename.",
+    en: "Optional: person.* provides the avatar picture & display name.",
+  },
+  lists: {
+    de: "Eine oder mehrere todo.*-Listen, die zu dieser Person gehören.",
+    en: "One or more todo.* lists that belong to this person.",
+  },
+  points_entity: {
+    de: "input_number, das die bereits eingelösten Punkte dieser Person speichert (Guthaben = verdient − eingelöst).",
+    en: "input_number storing this person's already-redeemed points (balance = earned − spent).",
+  },
 };
 
 export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEditor {
@@ -124,17 +158,61 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
   private get _settingsData(): FamilyTaskConfig {
     const s = this._config.shopping_lists;
     const shopping_lists = Array.isArray(s) ? s : s ? [s] : [];
-    // highlight_overdue defaults to on -> show the toggle on unless explicitly off.
+    // These default to on -> show the toggles on unless explicitly off.
     const highlight_overdue = this._config.highlight_overdue !== false;
-    return { ...this._config, shopping_lists, highlight_overdue };
+    const allow_add = this._config.allow_add !== false;
+    return { ...this._config, shopping_lists, highlight_overdue, allow_add };
+  }
+
+  private get _lang(): Lang {
+    return langOf(this.hass);
+  }
+
+  /** Settings schema; sort options are localized here. */
+  private _schema() {
+    return [
+      { name: "title", selector: { text: {} } },
+      {
+        name: "points_per_task",
+        selector: { number: { min: 0, max: 1000, mode: "box", step: 1 } },
+      },
+      { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
+      { name: "show_completed", selector: { boolean: {} } },
+      { name: "kid_mode", selector: { boolean: {} } },
+      { name: "highlight_overdue", selector: { boolean: {} } },
+      { name: "allow_add", selector: { boolean: {} } },
+      { name: "hide_empty", selector: { boolean: {} } },
+      {
+        name: "sort",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: SORT_VALUES.map((v) => ({ value: v, label: t(this.hass, `sort_${v}`) })),
+          },
+        },
+      },
+      { name: "due_soon", selector: { number: { min: 0, max: 60, mode: "box", step: 1 } } },
+      {
+        name: "shopping_lists",
+        selector: { entity: { filter: { domain: "todo" }, multiple: true } },
+      },
+      {
+        name: "shopping_points",
+        selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } },
+      },
+      { name: "bring_deeplink", selector: { text: {} } },
+      { name: "parent_pin", selector: { text: {} } },
+      { name: "level_size", selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } } },
+      { name: "show_leaderboard", selector: { boolean: {} } },
+    ];
   }
 
   private _emit(config: FamilyTaskConfig): void {
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config } }));
   }
 
-  private _label = (s: { name: string }): string => LABELS[s.name] ?? s.name;
-  private _helper = (s: { name: string }): string | undefined => HELPERS[s.name];
+  private _label = (s: { name: string }): string => LABELS[s.name]?.[this._lang] ?? s.name;
+  private _helper = (s: { name: string }): string | undefined => HELPERS[s.name]?.[this._lang];
 
   private _settingsChanged(ev: CustomEvent): void {
     ev.stopPropagation();
@@ -148,8 +226,12 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.bring_deeplink) delete next.bring_deeplink;
     if (!next.parent_pin) delete next.parent_pin;
     if (!next.show_leaderboard) delete next.show_leaderboard;
-    // Default is on: store only the explicit "off"; drop the redundant "on".
+    if (!next.hide_empty) delete next.hide_empty;
+    if (!next.due_soon) delete next.due_soon;
+    if (!next.sort || next.sort === "manual") delete next.sort;
+    // Defaults are on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
+    if (next.allow_add) delete next.allow_add;
     if (Array.isArray(next.shopping_lists)) {
       if (next.shopping_lists.length === 0) delete next.shopping_lists;
       else if (next.shopping_lists.length === 1) next.shopping_lists = next.shopping_lists[0];
@@ -235,7 +317,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         <ha-form
           .hass=${this.hass}
           .data=${this._settingsData}
-          .schema=${SETTINGS_SCHEMA}
+          .schema=${this._schema()}
           .computeLabel=${this._label}
           .computeHelper=${this._helper}
           @value-changed=${this._settingsChanged}
@@ -243,20 +325,24 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
 
         <div class="section">
           <div class="section-head">
-            <span>Personen</span>
-            <button class="link" @click=${this._autoDetect} title="person.*-Entitäten übernehmen">
-              Personen erkennen
+            <span>${t(this.hass, "persons")}</span>
+            <button
+              class="link"
+              @click=${this._autoDetect}
+              title=${t(this.hass, "detect_persons_hint")}
+            >
+              ${t(this.hass, "detect_persons")}
             </button>
           </div>
 
           ${this._persons.map((p, idx) => this._personRow(p, idx))}
           ${
             this._persons.length === 0
-              ? html`<div class="empty">Noch keine Person. Füge eine hinzu.</div>`
+              ? html`<div class="empty">${t(this.hass, "no_persons")}</div>`
               : nothing
           }
 
-          <button class="add" @click=${this._addPerson}>+ Person hinzufügen</button>
+          <button class="add" @click=${this._addPerson}>${t(this.hass, "add_person")}</button>
         </div>
       </div>
     `;
@@ -264,7 +350,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
 
   private _personRow(p: PersonConfig, idx: number) {
     const color = this._personColor(p, idx);
-    const title = p.name || p.person || `Person ${idx + 1}`;
+    const title = p.name || p.person || `${t(this.hass, "person_fallback")} ${idx + 1}`;
     return html`
       <div class="person">
         <div class="person-head">
@@ -273,19 +359,19 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
           <span class="spacer"></span>
           <ha-icon-button
             .path=${"M7,15L12,10L17,15H7Z"}
-            title="Nach oben"
+            title=${t(this.hass, "move_up")}
             .disabled=${idx === 0}
             @click=${() => this._movePerson(idx, -1)}
           ></ha-icon-button>
           <ha-icon-button
             .path=${"M7,10L12,15L17,10H7Z"}
-            title="Nach unten"
+            title=${t(this.hass, "move_down")}
             .disabled=${idx === this._persons.length - 1}
             @click=${() => this._movePerson(idx, 1)}
           ></ha-icon-button>
           <ha-icon-button
             .path=${"M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"}
-            title="Entfernen"
+            title=${t(this.hass, "remove")}
             @click=${() => this._removePerson(idx)}
           ></ha-icon-button>
         </div>
@@ -300,7 +386,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         ></ha-form>
 
         <div class="colors">
-          <span class="colors-label">Farbe</span>
+          <span class="colors-label">${t(this.hass, "color")}</span>
           ${PALETTE.map(
             (c) => html`
               <button
@@ -313,7 +399,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
           )}
           <button
             class="swatch auto ${!p.color ? "active" : ""}"
-            title="Automatisch (Palette)"
+            title=${t(this.hass, "color_auto")}
             @click=${() => this._setPersonColor(idx, undefined)}
           >
             A
