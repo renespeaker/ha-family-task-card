@@ -2,12 +2,12 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.7.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.8.0).** Personen-Board, visueller Editor, Kinder-Modus,
 > Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
 > Level/Abzeichen + Rangliste sind da – responsiv, **zweisprachig (DE/EN)**,
-> mit **Aufgabe-hinzufügen** und Sortier-/Ausblend-Optionen. Die Karte liest
-> `todo.*`-Listen live, schreibt beim Abhaken zurück und passt sich den
-> Fähigkeiten jeder Integration an – siehe [ROADMAP.md](ROADMAP.md).
+> **theme-aware inkl. Dark-Mode-Schalter**, mit **Aufgabe-hinzufügen** und
+> Sortier-/Ausblend-Optionen. Die Karte liest `todo.*`-Listen live, schreibt beim
+> Abhaken zurück und passt sich jeder Integration an – siehe [ROADMAP.md](ROADMAP.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
 [Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
@@ -176,6 +176,7 @@ persons:
 | `level_size`      | Zahl               | Punkte pro Level (Std. 100, 0 = aus).                   |
 | `level_emojis`    | Liste              | Abzeichen je Level-Stufe (optional).                    |
 | `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
+| `theme`           | Text               | Farbschema: `auto` (HA-Theme, Std.) / `dark` / `light`. |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
@@ -362,6 +363,23 @@ persons:
 
 > Level & Rangliste nutzen die **verdienten** Punkte (nicht das Shop-Guthaben) –
 > beides ist stateless aus den `todo`-Listen abgeleitet.
+
+### Dark Mode / Farbschema
+
+Die Karte ist **theme-aware**: Mit einem dunklen Home-Assistant-Theme wird sie
+automatisch dunkel – ganz ohne Konfiguration. Wenn du das Farbschema **fest**
+setzen willst (z. B. Wandtablet immer dunkel, egal welches Dashboard-Theme),
+nutze `theme`:
+
+```yaml
+type: custom:family-task-card
+theme: dark        # auto (Standard, folgt HA) | dark | light
+persons:
+  - { name: Lina, lists: todo.lina_aemtli }
+```
+
+Der Schalter überschreibt die Farbvariablen **nur innerhalb dieser Karte** –
+Akzentfarbe (Personen-Palette, `--primary-color`) bleibt erhalten.
 
 ### Aufgaben hinzufügen, Sortierung & Sprache
 

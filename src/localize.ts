@@ -59,6 +59,9 @@ const STRINGS: Record<string, Entry> = {
   sort_manual: { de: "Manuell", en: "Manual" },
   sort_due: { de: "Nach Fälligkeit", en: "By due date" },
   sort_alpha: { de: "Alphabetisch", en: "Alphabetical" },
+  theme_auto: { de: "Automatisch (HA-Theme)", en: "Automatic (HA theme)" },
+  theme_dark: { de: "Dunkel", en: "Dark" },
+  theme_light: { de: "Hell", en: "Light" },
 };
 
 export function langOf(hass?: HomeAssistant): Lang {
