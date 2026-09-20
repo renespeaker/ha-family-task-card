@@ -27,8 +27,9 @@ const PALETTE = [
   "#60A5FA",
 ];
 
-/** Settings form (flat data). Sort options are localized in `_schema()`. */
+/** Settings form (flat data). Sort/theme options are localized in `_schema()`. */
 const SORT_VALUES = ["manual", "due", "alpha"] as const;
+const THEME_VALUES = ["auto", "dark", "light"] as const;
 
 /** One ha-form per person, with entity pickers filtered by domain. */
 const PERSON_SCHEMA = [
@@ -47,6 +48,7 @@ type Bi = { de: string; en: string };
 /** Bilingual labels / helpers for the forms (falls back to the raw key). */
 const LABELS: Record<string, Bi> = {
   title: { de: "Titel", en: "Title" },
+  theme: { de: "Farbschema", en: "Color scheme" },
   points_per_task: { de: "Punkte pro Aufgabe", en: "Points per task" },
   goal: { de: "Ziel (Punkte)", en: "Goal (points)" },
   show_completed: { de: "Erledigte anzeigen", en: "Show completed" },
@@ -68,6 +70,10 @@ const LABELS: Record<string, Bi> = {
   points_entity: { de: "Guthaben-Helfer (input_number)", en: "Points helper (input_number)" },
 };
 const HELPERS: Record<string, Bi> = {
+  theme: {
+    de: "Farbschema der Karte erzwingen (unabhängig vom Dashboard-Theme). Standard: dem HA-Theme folgen.",
+    en: "Force the card's color scheme (independent of the dashboard theme). Default: follow the HA theme.",
+  },
   points_per_task: {
     de: "Punkte je erledigter Aufgabe (Standard 10).",
     en: "Points per completed task (default 10).",
@@ -173,6 +179,15 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     return [
       { name: "title", selector: { text: {} } },
       {
+        name: "theme",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: THEME_VALUES.map((v) => ({ value: v, label: t(this.hass, `theme_${v}`) })),
+          },
+        },
+      },
+      {
         name: "points_per_task",
         selector: { number: { min: 0, max: 1000, mode: "box", step: 1 } },
       },
@@ -229,6 +244,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.hide_empty) delete next.hide_empty;
     if (!next.due_soon) delete next.due_soon;
     if (!next.sort || next.sort === "manual") delete next.sort;
+    if (!next.theme || next.theme === "auto") delete next.theme;
     // Defaults are on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (next.allow_add) delete next.allow_add;

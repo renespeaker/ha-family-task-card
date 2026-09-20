@@ -117,6 +117,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   hide_empty?: boolean; // hide persons with no open tasks (and nothing to show)
   due_soon?: number; // mark tasks due within N days as "due soon" (highlight)
   allow_add?: boolean; // show an "add task" field per person (needs a creatable list). default true
+  theme?: "auto" | "dark" | "light"; // force the card's color scheme. default auto (HA theme)
 }
 
 interface LevelInfo {
@@ -401,6 +402,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return t(this.hass, key);
   }
 
+  private _themeClass(): string {
+    const th = this._config?.theme;
+    return th === "dark" ? "theme-dark" : th === "light" ? "theme-light" : "";
+  }
+
   /** Can this todo list's items be checked off? (UPDATE_TODO_ITEM capability.) */
   private _canToggle(entity: string): boolean {
     const sf = this.hass?.states[entity]?.attributes?.supported_features;
@@ -659,7 +665,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       : columns;
 
     return html`
-      <ha-card>
+      <ha-card class=${this._themeClass()}>
         <div class="head">
           <div class="badge">🧹</div>
           <div class="head-text">
@@ -716,7 +722,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const lvl = this._levelInfo(earned);
 
     return html`
-      <ha-card class="kid" style="--pc:${color}">
+      <ha-card class="kid ${this._themeClass()}" style="--pc:${color}">
         ${
           persons.length > 1
             ? html`<div class="kid-people">
@@ -1184,10 +1190,31 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     :host {
       --pc: var(--primary-color);
     }
+    /* Optional forced color scheme (theme: dark|light). Overrides the HA theme
+       variables only within this card, so a wall tablet can stay dark/light. */
+    ha-card.theme-dark {
+      --card-background-color: #1b1c20;
+      --ha-card-background: #1b1c20;
+      --primary-text-color: #e4e4e7;
+      --secondary-text-color: #9aa0a6;
+      --divider-color: rgba(255, 255, 255, 0.12);
+      --secondary-background-color: #26272c;
+      color-scheme: dark;
+    }
+    ha-card.theme-light {
+      --card-background-color: #ffffff;
+      --ha-card-background: #ffffff;
+      --primary-text-color: #1f2933;
+      --secondary-text-color: #6b7280;
+      --divider-color: rgba(0, 0, 0, 0.12);
+      --secondary-background-color: #f3f4f6;
+      color-scheme: light;
+    }
     ha-card {
       padding: 16px;
       font-family: var(--ha-font-family-body, var(--mdc-typography-font-family, inherit));
       color: var(--primary-text-color);
+      background: var(--card-background-color, var(--ha-card-background));
     }
     .head {
       display: flex;

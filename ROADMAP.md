@@ -95,6 +95,8 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       CREATE unterstützt; `allow_add`).
 - [x] **Sortierung & Filter** offener Aufgaben (`sort`, `hide_empty`, `due_soon`).
 - [x] **Zweisprachig (DE/EN)** – Sprache aus der HA-Oberfläche (`localize.ts`).
+- [x] **Theme-aware + Dark-Mode-Schalter** – folgt dem HA-Theme; `theme:
+      auto|dark|light` erzwingt ein Farbschema karten-intern (z. B. Wandtablet).
 - [ ] Vorlese-/Symbolmodus für Nicht-Leser; Ämtli-Pakete nach Alter.
 - [ ] Rendering direkt in / neben der Family Board Card.
 - [ ] Weitere Sprachen (aktuell DE/EN).

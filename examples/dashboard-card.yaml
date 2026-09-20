@@ -72,6 +72,9 @@ persons:
 # level_size: 100                 # points per level (0 = off); badge chip next to the name
 # show_leaderboard: true          # ranking of persons by earned points under the board
 
+# --- Optional: color scheme (theme-aware by default) ---
+# theme: dark                     # auto (default, follows HA) | dark | light
+
 # --- Optional: add-task, sorting & filters ---
 # allow_add: true                 # "+ add task" field per person (default on)
 # sort: due                       # manual (default) | due | alpha
