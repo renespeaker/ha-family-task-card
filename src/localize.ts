@@ -62,10 +62,21 @@ const STRINGS: Record<string, Entry> = {
   theme_auto: { de: "Automatisch (HA-Theme)", en: "Automatic (HA theme)" },
   theme_dark: { de: "Dunkel", en: "Dark" },
   theme_light: { de: "Hell", en: "Light" },
+  err_no_persons: {
+    de: '"persons" muss eine Liste sein (mind. eine Person).',
+    en: '"persons" must be a list with at least one person.',
+  },
 };
 
 export function langOf(hass?: HomeAssistant): Lang {
-  const l = (hass?.locale?.language || "de").toLowerCase();
+  // `hass` is not there yet while setConfig validates, and that is exactly when
+  // an error message has to be readable - so fall back to the browser language
+  // before falling back to the documented German default.
+  const l = (
+    hass?.locale?.language ||
+    (typeof navigator === "undefined" ? "" : navigator.language) ||
+    "de"
+  ).toLowerCase();
   return l.startsWith("de") ? "de" : "en";
 }
 

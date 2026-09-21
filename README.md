@@ -423,11 +423,20 @@ npm install        # Abhängigkeiten
 npm run build      # src/ → gebaute Karte
 npm run watch      # Neu bauen bei Änderungen
 npm run lint       # Typecheck (tsc --noEmit)
+npm test           # Vitest (Karte gegen ein nachgebautes Home Assistant)
 npm run format     # Prettier
 ```
 
-Die GitHub-Actions bauen bei jedem Push (`CI`) und prüfen die HACS-Struktur
-(`Validate`).
+Getestet wird die Karte als Komponente: [`src/card.test.ts`](src/card.test.ts)
+rendert sie mit happy-dom gegen ein nachgebautes Home Assistant und prüft, was
+am Ende wirklich dasteht – Spalten und offene Aufgaben je Person, Punkte,
+Abhaken (schreibt es wirklich `todo.update_item`?), schreibgeschützte Listen,
+Einkaufs-Kachel, Fälligkeiten, Kindermodus und die Zweisprachigkeit. Ein
+Browser wird dafür nicht gebraucht.
+
+Die GitHub-Actions bauen und testen bei jedem Push (`CI`), prüfen die
+HACS-Struktur (`Validate`) und hängen bei einem Release die gebaute Karte als
+Asset an (`Release`).
 
 ## Mitwirken
 
