@@ -4,10 +4,11 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.9.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, context tasks, reward shop, celebrate actions and levels/badges +
-> leaderboard are in — responsive, **bilingual (DE/EN)**, **theme-aware incl. a
-> dark-mode switch**, with **add-task** and sort/hide options. The card reads
+> **Status: usable (v0.10.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, context tasks, reward shop, celebrate actions, levels/badges +
+> leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
+> (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **add-task** and
+> sort/hide options. The card reads
 > `todo.*` lists live, writes back on check-off and adapts to every integration —
 > see [ROADMAP.md](ROADMAP.md).
 
@@ -146,6 +147,8 @@ persons:
 | `show_leaderboard` | bool | ranking of persons by points under the board. |
 | `theme` | text | color scheme: `auto` (HA theme, default) / `dark` / `light`. |
 | `active_person_entity` | entity | card follows the active person (NFC/presence); empty = manual. |
+| `kiosk` | bool | wall-tablet mode: idle "Who's there?" picker + auto-return. |
+| `auto_return` | number | seconds of inactivity before returning to the picker (default 30, 0 = never). |
 | `allow_add` | bool | "add task" field per person (default on). |
 | `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
 | `hide_empty` | bool | hide persons with no open tasks. |
@@ -305,8 +308,8 @@ persons:
 - Placeholders: **`{name}`** (person) and **`{task}`** (task/reward name) are
   substituted in all text values.
 
-> The on-screen confetti animation runs anyway. A dedicated kiosk layout and
-> person switching via NFC/presence are still on the roadmap.
+> The on-screen confetti animation runs anyway. See **Kiosk mode** and **Person
+> switch via NFC / presence** below for the wall-tablet setup.
 
 ### Levels, badges & leaderboard
 
@@ -372,6 +375,32 @@ Home Assistant does the **detection** and sets the entity — e.g.:
 Matching: the entity value is compared to each person's `name`, their `person.*`
 entity and their display name (case-insensitive). Empty field = classic manual
 switching.
+
+### Kiosk mode (wall tablet)
+
+For a tablet/display mounted on the wall: `kiosk: true` turns it into a **shared
+family station**.
+
+- **Idle "Who's there?" screen** — big avatars of everyone. Tap your own face →
+  your tasks appear (the big kid layout).
+- **Auto-return** — after `auto_return` seconds without input (default 30) it
+  goes back to the picker on its own. `0` = never.
+- **Hands-free** — combined with `active_person_entity`, an **NFC tag** or
+  **presence** wakes the right person directly (no tapping), and after inactivity
+  it tidies itself back up.
+
+```yaml
+type: custom:family-task-card
+kiosk: true
+auto_return: 30                                 # seconds (0 = never)
+active_person_entity: input_select.active_kid   # optional: NFC/presence
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_chores }
+  - { name: Ben,  person: person.ben,  lists: todo.ben_chores }
+```
+
+That makes the wall tablet a "tap → my chores → done" station that resets itself
+back to the neutral state.
 
 ### Add tasks, sorting & language
 

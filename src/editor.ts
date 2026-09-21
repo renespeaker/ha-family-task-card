@@ -44,6 +44,8 @@ const LABELS: Record<string, Bi> = {
   show_completed: { de: "Erledigte anzeigen", en: "Show completed" },
   kid_mode: { de: "Kinder-Modus", en: "Kid mode" },
   active_person_entity: { de: "Aktive Person (Entität)", en: "Active person (entity)" },
+  kiosk: { de: "Kiosk-Modus (Wandtablet)", en: "Kiosk mode (wall tablet)" },
+  auto_return: { de: "Auto-Rückkehr (Sek.)", en: "Auto-return (sec)" },
   highlight_overdue: { de: "Überfällige hervorheben", en: "Highlight overdue" },
   shopping_lists: { de: "Einkaufslisten (Bring!)", en: "Shopping lists (Bring!)" },
   shopping_points: { de: "Punkte pro Einkauf", en: "Points per shopping trip" },
@@ -84,6 +86,14 @@ const HELPERS: Record<string, Bi> = {
   active_person_entity: {
     de: "Entität (input_select/Sensor/person), deren Wert die aktive Person nennt – die Karte fokussiert sie automatisch (z. B. per NFC-Tag/Anwesenheit). Leer = manuell umschalten.",
     en: "Entity (input_select/sensor/person) whose value names the active person — the card focuses them automatically (e.g. via NFC tag/presence). Empty = switch manually.",
+  },
+  kiosk: {
+    de: "Wandtablet-Modus: Ruhebildschirm 'Wer ist dran?' mit großen Avataren; Antippen (oder NFC/Anwesenheit) zeigt die Aufgaben, nach Inaktivität geht es zurück.",
+    en: "Wall-tablet mode: an idle 'Who's there?' screen with big avatars; tapping (or NFC/presence) shows the tasks, and it returns after inactivity.",
+  },
+  auto_return: {
+    de: "Sekunden Inaktivität bis zurück zum 'Wer ist dran?'-Bildschirm (Standard 30, 0 = nie).",
+    en: "Seconds of inactivity before returning to the 'Who's there?' screen (default 30, 0 = never).",
   },
   highlight_overdue: {
     de: "Aufgaben mit überschrittenem Fälligkeitsdatum als dringend markieren (Standard an). Weitere Kontext-Regeln per YAML (context_rules).",
@@ -197,6 +207,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
           },
         },
       },
+      { name: "kiosk", selector: { boolean: {} } },
+      { name: "auto_return", selector: { number: { min: 0, max: 3600, mode: "box", step: 5 } } },
       { name: "highlight_overdue", selector: { boolean: {} } },
       { name: "allow_add", selector: { boolean: {} } },
       { name: "hide_empty", selector: { boolean: {} } },
@@ -249,6 +261,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.sort || next.sort === "manual") delete next.sort;
     if (!next.theme || next.theme === "auto") delete next.theme;
     if (!next.active_person_entity) delete next.active_person_entity;
+    if (!next.kiosk) delete next.kiosk;
+    if (!next.auto_return) delete next.auto_return;
     // Defaults are on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (next.allow_add) delete next.allow_add;

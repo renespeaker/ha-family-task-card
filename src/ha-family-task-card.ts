@@ -19,8 +19,9 @@ import { PERSON_PALETTE } from "./shared/person-palette";
  * integration's `supported_features` (read-only lists show 🔒, creatable lists
  * get an add-task field), sorts/filters open tasks, and is bilingual (DE/EN via
  * the HA UI language), and can follow an `active_person_entity` to switch the
- * focused person hands-free (NFC / presence). See ROADMAP.md for what remains
- * (a dedicated kiosk layout with auto-return).
+ * focused person hands-free (NFC / presence). A `kiosk` mode turns it into a
+ * wall-tablet station: an idle "who's there?" picker with big avatars, tap to
+ * open a person's tasks, and auto-return to the picker after inactivity.
  */
 
 const CARD_NAME = "Family Task Card";
@@ -111,6 +112,8 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   allow_add?: boolean; // show an "add task" field per person (needs a creatable list). default true
   theme?: "auto" | "dark" | "light"; // force the card's color scheme. default auto (HA theme)
   active_person_entity?: string; // entity whose state names the person to focus (NFC/presence)
+  kiosk?: boolean; // wall-tablet mode: idle "who's there?" picker + auto-return
+  auto_return?: number; // seconds of inactivity before returning to the picker. default 30, 0 = never
 }
 
 interface LevelInfo {
@@ -299,6 +302,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** Last seen state of active_person_entity, to react only on change. */
   private _lastActive: string | undefined;
+
+  /** Kiosk mode: idle picker vs. a person's tasks, plus the inactivity timer. */
+  @state() private _kioskIdle = true;
+  private _kioskTimer?: number;
 
   public static async getConfigElement() {
     await import("./editor");
@@ -650,6 +657,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   protected render() {
     if (!this._config) return nothing;
     const cfg = this._config;
+    if (cfg.kiosk && cfg.persons.length > 0) return this._renderKiosk();
     if (cfg.kid_mode && cfg.persons.length > 0) return this._renderKid();
     let familyEarned = 0;
     const columns = cfg.persons.map((p, idx) => {
@@ -698,6 +706,84 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         )}
       </div>
     `;
+  }
+
+  /* ---- kiosk mode (wall tablet) ----------------------------------- */
+
+  private _autoReturnSecs(): number {
+    return this._config?.auto_return ?? 30;
+  }
+
+  /** Restart the inactivity timer that returns the kiosk to the idle picker. */
+  private _resetKioskTimer(): void {
+    if (this._kioskTimer) clearTimeout(this._kioskTimer);
+    const secs = this._autoReturnSecs();
+    if (!this._config?.kiosk || secs <= 0) return;
+    this._kioskTimer = window.setTimeout(() => {
+      this._kioskIdle = true;
+    }, secs * 1000);
+  }
+
+  /** Wake the kiosk onto a person and (re)start the inactivity timer. */
+  private _wakeKiosk(idx: number): void {
+    this._activeKid = idx;
+    this._kioskIdle = false;
+    this._resetKioskTimer();
+  }
+
+  private _renderKiosk() {
+    // Any interaction keeps the current person on screen; inactivity returns
+    // to the "who's there?" picker.
+    const keepAwake = () => {
+      if (!this._kioskIdle) this._resetKioskTimer();
+    };
+    const body = this._kioskIdle ? this._renderKioskPicker() : this._renderKid();
+    return html`<div class="kiosk-wrap" @pointerdown=${keepAwake} @keydown=${keepAwake}>
+      ${body}
+    </div>`;
+  }
+
+  private _renderKioskPicker() {
+    const cfg = this._config!;
+    const themeClass = this._themeClass();
+    let familyEarned = 0;
+    for (const p of cfg.persons) familyEarned += this._personView(p).earned;
+    return html`
+      <ha-card class="kiosk-idle ${themeClass}">
+        <div class="kiosk-title">${this._t("who_is_it")}</div>
+        <div class="kiosk-people">${cfg.persons.map((p, idx) => this._kioskAvatar(p, idx))}</div>
+        <div class="kiosk-foot">⭐ ${familyEarned}</div>
+      </ha-card>
+    `;
+  }
+
+  private _kioskAvatar(p: PersonConfig, idx: number) {
+    const color = personColor(p, idx);
+    const name = this._personName(p, idx);
+    const st = p.person ? this.hass?.states[p.person] : undefined;
+    const pic = st?.attributes?.entity_picture as string | undefined;
+    const initials = name.slice(0, 2).toUpperCase();
+    const open = this._personView(p).openCount;
+    return html`
+      <button class="kiosk-person" @click=${() => this._wakeKiosk(idx)}>
+        ${
+          pic
+            ? html`<div
+                class="kiosk-av"
+                style="background-image:url('${pic}');box-shadow:0 0 0 4px ${color}"
+              ></div>`
+            : html`<div class="kiosk-av initials" style="background:${color}">${initials}</div>`
+        }
+        <div class="kiosk-name">${name}</div>
+        <div class="kiosk-open">${open ? html`${open} ${this._t("open")}` : "✓"}</div>
+      </button>
+    `;
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this._burstTimer) clearTimeout(this._burstTimer);
+    if (this._kioskTimer) clearTimeout(this._kioskTimer);
   }
 
   /* ---- kid mode --------------------------------------------------- */
@@ -898,7 +984,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       if (raw !== this._lastActive) {
         this._lastActive = raw;
         const idx = this._activePersonIndex();
-        if (idx >= 0) this._activeKid = idx;
+        if (idx >= 0) {
+          // A tag scan / presence change picks the person and wakes the kiosk.
+          if (this._config.kiosk) this._wakeKiosk(idx);
+          else this._activeKid = idx;
+        }
       }
     }
 
@@ -940,11 +1030,6 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private async _kidCompleteShopping(entry: ShoppingEntry): Promise<void> {
     this._celebrate();
     await this._completeShopping(entry);
-  }
-
-  public disconnectedCallback(): void {
-    super.disconnectedCallback();
-    if (this._burstTimer) clearTimeout(this._burstTimer);
   }
 
   private _goalBar(earned: number) {
@@ -1709,6 +1794,71 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         animation: none;
         display: none;
       }
+    }
+
+    /* ---- kiosk idle picker ---- */
+    ha-card.kiosk-idle {
+      padding: 24px;
+      min-height: 60vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+    }
+    .kiosk-title {
+      font-size: 2em;
+      font-weight: 800;
+    }
+    .kiosk-people {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 22px;
+      justify-content: center;
+    }
+    .kiosk-person {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font: inherit;
+      color: var(--primary-text-color);
+      padding: 8px;
+      border-radius: 18px;
+      transition: transform 0.12s ease;
+    }
+    .kiosk-person:hover,
+    .kiosk-person:active {
+      transform: scale(1.05);
+    }
+    .kiosk-av {
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #11181f;
+      font-weight: 800;
+      font-size: 34px;
+    }
+    .kiosk-name {
+      font-size: 1.2em;
+      font-weight: 700;
+    }
+    .kiosk-open {
+      font-size: 0.9em;
+      color: var(--secondary-text-color);
+    }
+    .kiosk-foot {
+      font-size: 1.2em;
+      font-weight: 700;
+      color: var(--secondary-text-color);
     }
 
     /* ---- reward shop ---- */

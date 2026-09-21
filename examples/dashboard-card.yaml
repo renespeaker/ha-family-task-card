@@ -80,6 +80,13 @@ persons:
 # button). The value is matched to each person's name / person.* / display name.
 # active_person_entity: input_select.active_kid
 
+# --- Optional: kiosk mode (wall tablet) ---
+# A shared family station: an idle "who's there?" picker with big avatars; tap a
+# face to see that person's tasks; after auto_return seconds of inactivity it
+# returns to the picker. Combine with active_person_entity for hands-free (NFC).
+# kiosk: true
+# auto_return: 30                 # seconds of inactivity (default 30, 0 = never)
+
 # --- Optional: add-task, sorting & filters ---
 # allow_add: true                 # "+ add task" field per person (default on)
 # sort: due                       # manual (default) | due | alpha

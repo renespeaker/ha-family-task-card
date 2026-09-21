@@ -4,7 +4,7 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.9.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.10.0).** Personen-Board, visueller Editor, Kinder-Modus,
 > Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
 > Level/Abzeichen + Rangliste sind da – responsiv, **zweisprachig (DE/EN)**,
 > **theme-aware inkl. Dark-Mode-Schalter**, mit **Aufgabe-hinzufügen** und
@@ -180,6 +180,8 @@ persons:
 | `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
 | `theme`           | Text               | Farbschema: `auto` (HA-Theme, Std.) / `dark` / `light`. |
 | `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
+| `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
+| `auto_return`     | Zahl               | Sek. Inaktivität bis zurück zum Auswahl-Bildschirm (Std. 30, 0 = nie). |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
@@ -343,9 +345,8 @@ persons:
 - Platzhalter: **`{name}`** (Person) und **`{task}`** (Aufgaben-/Belohnungsname)
   werden in allen Text-Werten ersetzt.
 
-> Die Konfetti-Animation auf dem Bildschirm läuft ohnehin. Ein spezielles
-> Kiosk-Layout und Personenwechsel per NFC/Anwesenheit stehen noch auf der
-> Roadmap.
+> Die Konfetti-Animation auf dem Bildschirm läuft ohnehin. Fürs Wandtablet siehe
+> **Kiosk-Modus** und **Personenwechsel per NFC / Anwesenheit** weiter unten.
 
 ### Level, Abzeichen & Rangliste
 
@@ -383,6 +384,32 @@ persons:
 
 Der Schalter überschreibt die Farbvariablen **nur innerhalb dieser Karte** –
 Akzentfarbe (Personen-Palette, `--primary-color`) bleibt erhalten.
+
+### Kiosk-Modus (Wandtablet)
+
+Für ein fest an der Wand hängendes Tablet/Display: `kiosk: true` macht daraus eine
+**geteilte Familien-Station**.
+
+- **Ruhebildschirm „Wer ist dran?"** — große Avatare aller Personen. Antippen des
+  eigenen Gesichts → die eigenen Aufgaben erscheinen (großes Kinder-Layout).
+- **Auto-Rückkehr** — nach `auto_return` Sekunden ohne Bedienung (Standard 30)
+  geht es automatisch zurück zum Auswahl-Bildschirm. `0` = nie.
+- **Freihändig** — kombiniert mit `active_person_entity` weckt ein **NFC-Tag** oder
+  **Anwesenheit** direkt die richtige Person (ohne Tippen), und nach Inaktivität
+  wird wieder aufgeräumt.
+
+```yaml
+type: custom:family-task-card
+kiosk: true
+auto_return: 30                                   # Sekunden (0 = nie)
+active_person_entity: input_select.aktives_kind   # optional: NFC/Anwesenheit
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
+  - { name: Ben,  person: person.ben,  lists: todo.ben_aemtli }
+```
+
+So wird das Wandtablet zur „Antippen → meine Ämtli → fertig"-Station, die sich
+von selbst wieder in den neutralen Zustand zurücksetzt.
 
 ### Personenwechsel per NFC / Anwesenheit
 

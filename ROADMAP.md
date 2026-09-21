@@ -82,8 +82,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Personenwechsel per NFC/Anwesenheit** – `active_person_entity`: die Karte
       folgt der aktiven Person (Kinder-Modus fokussiert, Board hebt hervor); HA
       setzt die Entität per NFC-Tag/Anwesenheit/Button.
-- [ ] **Kiosk-Layout (Rest)** – dediziertes Wandtablet-Layout mit auto-Rückkehr
-      zur Übersicht nach Inaktivität.
+- [x] **Kiosk-Layout** – dediziertes Wandtablet-Layout (`kiosk`): Ruhebildschirm
+      „Wer ist dran?" mit großen Avataren, Antippen fokussiert die Person, und
+      `auto_return` kehrt nach Inaktivität automatisch zur Auswahl zurück.
 
 ## Später / Roadmap
 
