@@ -32,5 +32,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Meldet nur; blockiert bewusst nicht, damit eine beabsichtigte Aenderung
+      # an einer gespiegelten Datei nicht das jeweils andere Repo lahmlegt.
+      - name: Gespiegelte Dateien abgleichen
+        run: npm run check:shared
+
       - name: Verify built card is committed
         run: git diff --exit-code -- family-task-card.js

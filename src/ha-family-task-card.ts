@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing, PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
 import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-card-helpers";
 import { t } from "./localize";
+import { PERSON_PALETTE } from "./shared/person-palette";
 
 /**
  * Family Task Card — a gamified family task / chore card for Home Assistant.
@@ -31,19 +32,9 @@ const DEFAULT_LEVEL_EMOJIS = ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"];
 const TODO_CREATE_ITEM = 1; // add new items
 const TODO_UPDATE_ITEM = 4; // check off / reopen items
 
-/* Same person palette as the Family Board Card, for one shared look. */
-const FALLBACK_COLORS = [
-  "#8B7CF6",
-  "#34D399",
-  "#FBBF24",
-  "#FB7185",
-  "#22D3EE",
-  "#C084FC",
-  "#A3E635",
-  "#FB923C",
-  "#F472B6",
-  "#60A5FA",
-];
+/* Same person palette as the Family Board Card: one mirrored file, so the same
+   person is the same colour on both cards. */
+const FALLBACK_COLORS = PERSON_PALETTE;
 
 /* Lightweight auto-emoji for common chores (matches the board's playful feel). */
 const EMOJI_RULES: Array<[RegExp, string]> = [
