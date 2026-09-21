@@ -79,9 +79,11 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Feier-Aktionen** – Erfolg über HA fühlbar machen: `celebrate.actions`
       ruft beliebige HA-Services (Licht/Sound/TTS/Push) bei `all_done` / `task` /
       `reward`, mit `{name}`/`{task}`-Platzhaltern.
-- [ ] **Kiosk-Moment (Rest)** – dediziertes Kiosk-Layout fürs Wandtablet
-      (auto-Rückkehr) und Personenwechsel per NFC/Anwesenheit (`active_person`-
-      Entität).
+- [x] **Personenwechsel per NFC/Anwesenheit** – `active_person_entity`: die Karte
+      folgt der aktiven Person (Kinder-Modus fokussiert, Board hebt hervor); HA
+      setzt die Entität per NFC-Tag/Anwesenheit/Button.
+- [ ] **Kiosk-Layout (Rest)** – dediziertes Wandtablet-Layout mit auto-Rückkehr
+      zur Übersicht nach Inaktivität.
 
 ## Später / Roadmap
 

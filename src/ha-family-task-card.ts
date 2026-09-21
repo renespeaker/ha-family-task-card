@@ -18,8 +18,9 @@ import { PERSON_PALETTE } from "./shared/person-palette";
  * badges / a leaderboard derived from earned points. It adapts to each todo
  * integration's `supported_features` (read-only lists show 🔒, creatable lists
  * get an add-task field), sorts/filters open tasks, and is bilingual (DE/EN via
- * the HA UI language). See ROADMAP.md for what remains (kiosk layout, person
- * switch).
+ * the HA UI language), and can follow an `active_person_entity` to switch the
+ * focused person hands-free (NFC / presence). See ROADMAP.md for what remains
+ * (a dedicated kiosk layout with auto-return).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -109,6 +110,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   due_soon?: number; // mark tasks due within N days as "due soon" (highlight)
   allow_add?: boolean; // show an "add task" field per person (needs a creatable list). default true
   theme?: "auto" | "dark" | "light"; // force the card's color scheme. default auto (HA theme)
+  active_person_entity?: string; // entity whose state names the person to focus (NFC/presence)
 }
 
 interface LevelInfo {
@@ -294,6 +296,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** Per-person open-count from the last render, to detect "all done" moments. */
   private _prevOpen: Record<number, number> = {};
+
+  /** Last seen state of active_person_entity, to react only on change. */
+  private _lastActive: string | undefined;
 
   public static async getConfigElement() {
     await import("./editor");
@@ -883,7 +888,21 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** Detect per-person "all done" transitions (open>0 -> 0) and celebrate them. */
   protected updated(): void {
-    if (!this._config?.celebrate) return;
+    if (!this._config) return;
+
+    // Follow active_person_entity: when its state changes (NFC tag, presence,
+    // a button), focus that person. Manual taps stay until the entity changes.
+    const ent = this._config.active_person_entity;
+    if (ent) {
+      const raw = this.hass?.states[ent]?.state;
+      if (raw !== this._lastActive) {
+        this._lastActive = raw;
+        const idx = this._activePersonIndex();
+        if (idx >= 0) this._activeKid = idx;
+      }
+    }
+
+    if (!this._config.celebrate) return;
     this._config.persons.forEach((p, idx) => {
       const open = this._personView(p).openCount;
       const prev = this._prevOpen[idx];
@@ -892,6 +911,25 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         this._fireCelebrate("all_done", { name: this._personName(p, idx) });
       }
     });
+  }
+
+  /** Index of the person named by active_person_entity (name / entity / label), or -1. */
+  private _activePersonIndex(): number {
+    const ent = this._config?.active_person_entity;
+    const raw = ent ? this.hass?.states[ent]?.state : undefined;
+    if (!raw || ["unknown", "unavailable", ""].includes(raw)) return -1;
+    const v = raw.toLowerCase();
+    const persons = this._config?.persons ?? [];
+    for (let i = 0; i < persons.length; i++) {
+      const p = persons[i];
+      if (p.person && p.person.toLowerCase() === v) return i;
+      if (this._personName(p, i).toLowerCase() === v) return i;
+      const fn = p.person
+        ? (this.hass?.states[p.person]?.attributes?.friendly_name as string | undefined)
+        : undefined;
+      if (fn && fn.toLowerCase() === v) return i;
+    }
+    return -1;
   }
 
   private async _kidComplete(entity: string, item: TodoItem): Promise<void> {
@@ -938,9 +976,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const points = view.hasWallet ? view.balance : view.earned;
     const lvl = this._levelInfo(view.earned);
     const addEntity = this._config?.allow_add === false ? undefined : this._addEntityFor(p);
+    const isActive = this._config?.active_person_entity ? this._activePersonIndex() === idx : false;
 
     return html`
-      <div class="col" style="--pc:${color}">
+      <div class="col ${isActive ? "active" : ""}" style="--pc:${color}">
         <div class="col-head">
           ${
             pic
@@ -1283,6 +1322,12 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       border-radius: 14px;
       padding: 10px;
       min-width: 0;
+    }
+    /* the person named by active_person_entity (NFC / presence) */
+    .col.active {
+      border-color: var(--pc);
+      box-shadow: 0 0 0 2px var(--pc);
+      background: color-mix(in srgb, var(--pc) 12%, var(--card-background-color, #fff));
     }
     .col-head {
       display: flex;

@@ -4,7 +4,7 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.8.0).** Per-person board, visual editor, kid mode, Bring!
+> **Status: usable (v0.9.0).** Per-person board, visual editor, kid mode, Bring!
 > shopping, context tasks, reward shop, celebrate actions and levels/badges +
 > leaderboard are in — responsive, **bilingual (DE/EN)**, **theme-aware incl. a
 > dark-mode switch**, with **add-task** and sort/hide options. The card reads
@@ -145,6 +145,7 @@ persons:
 | `level_emojis` | list | badge per level tier (optional). |
 | `show_leaderboard` | bool | ranking of persons by points under the board. |
 | `theme` | text | color scheme: `auto` (HA theme, default) / `dark` / `light`. |
+| `active_person_entity` | entity | card follows the active person (NFC/presence); empty = manual. |
 | `allow_add` | bool | "add task" field per person (default on). |
 | `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
 | `hide_empty` | bool | hide persons with no open tasks. |
@@ -342,6 +343,35 @@ persons:
 
 The switch overrides the color variables **only inside this card** — the accent
 (person palette, `--primary-color`) is kept.
+
+### Person switch via NFC / presence
+
+Set `active_person_entity` and the card **follows the active person
+automatically**: the state of that entity (an `input_select`, `sensor` or
+`person.*`) names whose turn it is — kid mode focuses that person, the board
+highlights them. Hands-free, no tapping.
+
+```yaml
+type: custom:family-task-card
+kid_mode: true
+active_person_entity: input_select.active_kid   # value = name / person.* / display name
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_chores }
+  - { name: Ben,  person: person.ben,  lists: todo.ben_chores }
+```
+
+Home Assistant does the **detection** and sets the entity — e.g.:
+
+- **NFC tag on the tablet:** the HA Companion app scans the tag → an automation
+  sets `input_select.active_kid` to the child. (Great for non-readers: tap the
+  chip → their tasks appear.)
+- **Presence/room:** a presence sensor + `person.*`/BLE set the entity to the
+  person entering the room.
+- **Button/voice:** a dashboard button or voice command sets it.
+
+Matching: the entity value is compared to each person's `name`, their `person.*`
+entity and their display name (case-insensitive). Empty field = classic manual
+switching.
 
 ### Add tasks, sorting & language
 
