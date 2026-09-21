@@ -3,6 +3,7 @@ import { property, state } from "lit/decorators.js";
 import type { HomeAssistant, LovelaceCardEditor } from "custom-card-helpers";
 import type { FamilyTaskConfig } from "./ha-family-task-card";
 import { langOf, t, type Lang } from "./localize";
+import { PERSON_PALETTE } from "./shared/person-palette";
 
 interface PersonConfig {
   name?: string;
@@ -14,18 +15,7 @@ interface PersonConfig {
 }
 
 /** Family Board Card palette, offered as one-click color chips. */
-const PALETTE = [
-  "#8B7CF6",
-  "#34D399",
-  "#FBBF24",
-  "#FB7185",
-  "#22D3EE",
-  "#C084FC",
-  "#A3E635",
-  "#FB923C",
-  "#F472B6",
-  "#60A5FA",
-];
+const PALETTE = PERSON_PALETTE;
 
 /** Settings form (flat data). Sort/theme options are localized in `_schema()`. */
 const SORT_VALUES = ["manual", "due", "alpha"] as const;
