@@ -4,7 +4,7 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.8.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.8.2).** Personen-Board, visueller Editor, Kinder-Modus,
 > Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
 > Level/Abzeichen + Rangliste sind da – responsiv, **zweisprachig (DE/EN)**,
 > **theme-aware inkl. Dark-Mode-Schalter**, mit **Aufgabe-hinzufügen** und
