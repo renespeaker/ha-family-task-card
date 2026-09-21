@@ -322,7 +322,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   public setConfig(config: FamilyTaskConfig): void {
     if (!config || !Array.isArray(config.persons)) {
-      throw new Error('"persons" muss eine Liste sein (mind. eine Person).');
+      // setConfig runs before `hass` is set, so this falls back to the browser
+      // language rather than the HA profile language.
+      throw new Error(t(this.hass, "err_no_persons"));
     }
     this._config = { points_per_task: DEFAULT_POINTS, ...config };
   }
