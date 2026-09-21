@@ -1,6 +1,6 @@
 {
   "name": "ha-family-task-card",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "Gamified family task / chore card for Home Assistant",
   "type": "module",
   "license": "MIT",

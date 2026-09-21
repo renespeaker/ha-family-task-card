@@ -75,6 +75,11 @@ persons:
 # --- Optional: color scheme (theme-aware by default) ---
 # theme: dark                     # auto (default, follows HA) | dark | light
 
+# --- Optional: hands-free person switch (NFC / presence) ---
+# The card follows this entity's value; HA sets it (NFC tag scan, presence, a
+# button). The value is matched to each person's name / person.* / display name.
+# active_person_entity: input_select.active_kid
+
 # --- Optional: add-task, sorting & filters ---
 # allow_add: true                 # "+ add task" field per person (default on)
 # sort: due                       # manual (default) | due | alpha

@@ -43,6 +43,7 @@ const LABELS: Record<string, Bi> = {
   goal: { de: "Ziel (Punkte)", en: "Goal (points)" },
   show_completed: { de: "Erledigte anzeigen", en: "Show completed" },
   kid_mode: { de: "Kinder-Modus", en: "Kid mode" },
+  active_person_entity: { de: "Aktive Person (Entität)", en: "Active person (entity)" },
   highlight_overdue: { de: "Überfällige hervorheben", en: "Highlight overdue" },
   shopping_lists: { de: "Einkaufslisten (Bring!)", en: "Shopping lists (Bring!)" },
   shopping_points: { de: "Punkte pro Einkauf", en: "Points per shopping trip" },
@@ -79,6 +80,10 @@ const HELPERS: Record<string, Bi> = {
   kid_mode: {
     de: "Großes, tippbares Layout fürs Kinder-Tablet (Avatar oben zum Wechseln).",
     en: "Big, tappable layout for the kids' tablet (avatar switcher on top).",
+  },
+  active_person_entity: {
+    de: "Entität (input_select/Sensor/person), deren Wert die aktive Person nennt – die Karte fokussiert sie automatisch (z. B. per NFC-Tag/Anwesenheit). Leer = manuell umschalten.",
+    en: "Entity (input_select/sensor/person) whose value names the active person — the card focuses them automatically (e.g. via NFC tag/presence). Empty = switch manually.",
   },
   highlight_overdue: {
     de: "Aufgaben mit überschrittenem Fälligkeitsdatum als dringend markieren (Standard an). Weitere Kontext-Regeln per YAML (context_rules).",
@@ -184,6 +189,14 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
       { name: "show_completed", selector: { boolean: {} } },
       { name: "kid_mode", selector: { boolean: {} } },
+      {
+        name: "active_person_entity",
+        selector: {
+          entity: {
+            filter: [{ domain: "input_select" }, { domain: "sensor" }, { domain: "person" }],
+          },
+        },
+      },
       { name: "highlight_overdue", selector: { boolean: {} } },
       { name: "allow_add", selector: { boolean: {} } },
       { name: "hide_empty", selector: { boolean: {} } },
@@ -235,6 +248,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.due_soon) delete next.due_soon;
     if (!next.sort || next.sort === "manual") delete next.sort;
     if (!next.theme || next.theme === "auto") delete next.theme;
+    if (!next.active_person_entity) delete next.active_person_entity;
     // Defaults are on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (next.allow_add) delete next.allow_add;

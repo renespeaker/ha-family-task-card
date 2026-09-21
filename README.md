@@ -4,7 +4,7 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.8.2).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.9.0).** Personen-Board, visueller Editor, Kinder-Modus,
 > Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
 > Level/Abzeichen + Rangliste sind da – responsiv, **zweisprachig (DE/EN)**,
 > **theme-aware inkl. Dark-Mode-Schalter**, mit **Aufgabe-hinzufügen** und
@@ -179,6 +179,7 @@ persons:
 | `level_emojis`    | Liste              | Abzeichen je Level-Stufe (optional).                    |
 | `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
 | `theme`           | Text               | Farbschema: `auto` (HA-Theme, Std.) / `dark` / `light`. |
+| `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
@@ -382,6 +383,35 @@ persons:
 
 Der Schalter überschreibt die Farbvariablen **nur innerhalb dieser Karte** –
 Akzentfarbe (Personen-Palette, `--primary-color`) bleibt erhalten.
+
+### Personenwechsel per NFC / Anwesenheit
+
+Setzt du `active_person_entity`, **folgt die Karte automatisch der aktiven
+Person**: Der Zustand dieser Entität (ein `input_select`, `sensor` oder
+`person.*`) nennt, wer gerade dran ist – im Kinder-Modus wird diese Person
+fokussiert, im Board hervorgehoben. Freihändig, ohne Antippen.
+
+```yaml
+type: custom:family-task-card
+kid_mode: true
+active_person_entity: input_select.aktives_kind   # Wert = Name / person.* / Anzeigename
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
+  - { name: Ben,  person: person.ben,  lists: todo.ben_aemtli }
+```
+
+Die **Erkennung** macht Home Assistant und setzt die Entität – z. B.:
+
+- **NFC-Tag am Tablet:** Die HA-Companion-App scannt den Tag → eine Automation
+  setzt `input_select.aktives_kind` auf das Kind. (Perfekt für Nicht-Leser:
+  Chip dran → seine Aufgaben erscheinen.)
+- **Anwesenheit/Raum:** Präsenzmelder + `person.*`/BLE setzen die Entität auf die
+  Person, die den Raum betritt.
+- **Button/Sprache:** Ein Dashboard-Button oder Sprachbefehl setzt sie.
+
+Matching: der Wert der Entität wird mit `name`, der `person.*`-Entität und dem
+Anzeigenamen jeder Person verglichen (Groß-/Kleinschreibung egal). Leeres Feld =
+klassisches manuelles Umschalten.
 
 ### Aufgaben hinzufügen, Sortierung & Sprache
 
