@@ -4,10 +4,11 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.10.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
-> Level/Abzeichen + Rangliste sind da – responsiv, **zweisprachig (DE/EN)**,
-> **theme-aware inkl. Dark-Mode-Schalter**, mit **Aufgabe-hinzufügen** und
+> **Status: nutzbar (v0.11.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop,
+> Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
+> **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
+> **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
 > Sortier-/Ausblend-Optionen. Die Karte liest `todo.*`-Listen live, schreibt beim
 > Abhaken zurück und passt sich jeder Integration an – siehe [ROADMAP.md](ROADMAP.md).
 
@@ -186,6 +187,34 @@ persons:
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
 | `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
+| `scale`           | Zahl (%)           | Gesamte Kartengröße (Zoom über alles). Std. 100.        |
+| `font_scale`      | Zahl (%)           | Nur Schriftgröße. Std. 100.                             |
+| `avatar_scale`    | Zahl (%)           | Nur Avatare/Bilder und Karten-Icon. Std. 100.           |
+
+### Darstellung anpassen (Größe, Schrift, Bilder)
+
+Im **visuellen Editor** (Karte → Bearbeiten) gibt es drei Schieberegler, mit denen
+du das Aussehen ohne YAML anpasst — praktisch, weil z. B. der Kinder-Modus bewusst
+größer ist:
+
+- **Kartengröße (`scale`)** — zoomt die **ganze** Karte (Layout, Schrift und Bilder
+  zusammen). Ideal, um eine Kinder-Card insgesamt kleiner oder größer zu machen.
+- **Schriftgröße (`font_scale`)** — passt **nur den Text** an (zusätzlich zur
+  Kartengröße), z. B. gut lesbar aus der Entfernung am Wandtablet.
+- **Avatar-/Bildgröße (`avatar_scale`)** — passt **nur Avatare/Bilder** und das
+  Karten-Icon an.
+
+Alle drei sind in Prozent; **100 % = Standard** (nichts ändert sich). Sie wirken
+in Board-, Kinder- und Kiosk-Modus.
+
+```yaml
+type: custom:family-task-card
+scale: 90 # ganze Karte auf 90 %
+font_scale: 120 # Text aber 120 % (gut lesbar)
+avatar_scale: 140 # große Avatare
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
+```
 
 ### Kinder-Modus
 

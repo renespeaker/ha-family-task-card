@@ -21,7 +21,9 @@ import { PERSON_PALETTE } from "./shared/person-palette";
  * the HA UI language), and can follow an `active_person_entity` to switch the
  * focused person hands-free (NFC / presence). A `kiosk` mode turns it into a
  * wall-tablet station: an idle "who's there?" picker with big avatars, tap to
- * open a person's tasks, and auto-return to the picker after inactivity.
+ * open a person's tasks, and auto-return to the picker after inactivity. The
+ * visual editor also exposes appearance sliders — `scale` (whole card),
+ * `font_scale` (text) and `avatar_scale` (avatars/pictures), each in percent.
  */
 
 const CARD_NAME = "Family Task Card";
@@ -114,6 +116,9 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   active_person_entity?: string; // entity whose state names the person to focus (NFC/presence)
   kiosk?: boolean; // wall-tablet mode: idle "who's there?" picker + auto-return
   auto_return?: number; // seconds of inactivity before returning to the picker. default 30, 0 = never
+  scale?: number; // overall card size in % (zoom). default 100
+  font_scale?: number; // text size in % on top of the theme. default 100
+  avatar_scale?: number; // avatar / picture size in %. default 100
 }
 
 interface LevelInfo {
@@ -976,6 +981,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   protected updated(): void {
     if (!this._config) return;
 
+    this._applyAppearance();
+
     // Follow active_person_entity: when its state changes (NFC tag, presence,
     // a button), focus that person. Manual taps stay until the entity changes.
     const ent = this._config.active_person_entity;
@@ -1001,6 +1008,28 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         this._fireCelebrate("all_done", { name: this._personName(p, idx) });
       }
     });
+  }
+
+  /**
+   * Appearance controls (visual editor): scale the whole card, its text and its
+   * avatars/pictures independently. Defaults (all 100 %) keep today's look.
+   * - scale        -> `zoom` on the host, scales everything (layout included)
+   * - font_scale   -> `--ftc-fs`, multiplies the em-relative text base
+   * - avatar_scale -> `--ftc-av`, multiplies avatar / picture / header-icon sizes
+   */
+  private _applyAppearance(): void {
+    const c = this._config;
+    const pct = (v: number | undefined, min: number, max: number): number => {
+      const n = typeof v === "number" && isFinite(v) ? v : 100;
+      return Math.min(max, Math.max(min, n)) / 100;
+    };
+    const fs = pct(c?.font_scale, 50, 300);
+    const av = pct(c?.avatar_scale, 40, 400);
+    const sc = pct(c?.scale, 40, 400);
+    this.style.setProperty("--ftc-fs", String(fs));
+    this.style.setProperty("--ftc-av", String(av));
+    // zoom scales the whole card uniformly; clear it at 100 % so nothing lingers.
+    this.style.setProperty("zoom", sc === 1 ? "" : String(sc));
   }
 
   /** Index of the person named by active_person_entity (name / entity / label), or -1. */
@@ -1332,6 +1361,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       font-family: var(--ha-font-family-body, var(--mdc-typography-font-family, inherit));
       color: var(--primary-text-color);
       background: var(--card-background-color, var(--ha-card-background));
+      /* font_scale: base for all em-relative text; default 1 = no change */
+      font-size: calc(1em * var(--ftc-fs, 1));
     }
     .head {
       display: flex;
@@ -1343,14 +1374,14 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       min-width: 0;
     }
     .badge {
-      width: 42px;
-      height: 42px;
+      width: calc(42px * var(--ftc-av, 1));
+      height: calc(42px * var(--ftc-av, 1));
       border-radius: 12px;
       flex: none;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+      font-size: calc(22px * var(--ftc-av, 1));
       background: color-mix(in srgb, var(--primary-color) 14%, var(--card-background-color, #fff));
     }
     .title {
@@ -1421,8 +1452,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       margin-bottom: 8px;
     }
     .avatar {
-      width: 36px;
-      height: 36px;
+      width: calc(36px * var(--ftc-av, 1));
+      height: calc(36px * var(--ftc-av, 1));
       border-radius: 50%;
       background-size: cover;
       background-position: center;
@@ -1434,7 +1465,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       justify-content: center;
       color: #11181f;
       font-weight: 700;
-      font-size: 13px;
+      font-size: calc(13px * var(--ftc-av, 1));
     }
     .col-meta {
       min-width: 0;
@@ -1624,8 +1655,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       margin-bottom: 14px;
     }
     .kid-av {
-      width: 48px;
-      height: 48px;
+      width: calc(48px * var(--ftc-av, 1));
+      height: calc(48px * var(--ftc-av, 1));
       border-radius: 50%;
       background-size: cover;
       background-position: center;
@@ -1636,7 +1667,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       justify-content: center;
       color: #11181f;
       font-weight: 800;
-      font-size: 16px;
+      font-size: calc(16px * var(--ftc-av, 1));
       opacity: 0.55;
       transition:
         opacity 0.15s ease,
@@ -1647,9 +1678,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       transform: scale(1.08);
     }
     .kid-av.big {
-      width: 72px;
-      height: 72px;
-      font-size: 24px;
+      width: calc(72px * var(--ftc-av, 1));
+      height: calc(72px * var(--ftc-av, 1));
+      font-size: calc(24px * var(--ftc-av, 1));
       opacity: 1;
     }
     .kid-hero {
@@ -1835,8 +1866,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       transform: scale(1.05);
     }
     .kiosk-av {
-      width: 104px;
-      height: 104px;
+      width: calc(104px * var(--ftc-av, 1));
+      height: calc(104px * var(--ftc-av, 1));
       border-radius: 50%;
       background-size: cover;
       background-position: center;
@@ -1845,7 +1876,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       justify-content: center;
       color: #11181f;
       font-weight: 800;
-      font-size: 34px;
+      font-size: calc(34px * var(--ftc-av, 1));
     }
     .kiosk-name {
       font-size: 1.2em;

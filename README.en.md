@@ -4,11 +4,11 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.10.0).** Per-person board, visual editor, kid mode, Bring!
+> **Status: usable (v0.11.0).** Per-person board, visual editor, kid mode, Bring!
 > shopping, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
-> (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **add-task** and
-> sort/hide options. The card reads
+> (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
+> (size/text/pictures)**, **add-task** and sort/hide options. The card reads
 > `todo.*` lists live, writes back on check-off and adapts to every integration —
 > see [ROADMAP.md](ROADMAP.md).
 
@@ -153,6 +153,9 @@ persons:
 | `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
 | `hide_empty` | bool | hide persons with no open tasks. |
 | `due_soon` | number | mark tasks due within X days as "due soon". |
+| `scale` | number (%) | overall card size (zoom over everything). default 100. |
+| `font_scale` | number (%) | text size only. default 100. |
+| `avatar_scale` | number (%) | avatars/pictures and the card icon only. default 100. |
 
 ### Kid mode
 
@@ -160,6 +163,30 @@ With `kid_mode: true` the card shows a **big, tappable single-child layout** for
 the wall tablet: an avatar switcher on top (whose turn is it?), XL tiles with
 emoji below, a points/goal bar and a short confetti feedback on check-off. Great
 as its own card on a kids' dashboard while the full board stays for the parents.
+
+### Appearance (size, text, pictures)
+
+The **visual editor** (card → Edit) has three sliders to adjust the look without
+YAML — handy because kid mode, for example, is intentionally larger:
+
+- **Card size (`scale`)** — zooms the **whole** card (layout, text and pictures
+  together). Ideal to make a kids' card overall smaller or larger.
+- **Font size (`font_scale`)** — adjusts **text only** (on top of the card size),
+  e.g. for good legibility from across the room on a wall tablet.
+- **Avatar / picture size (`avatar_scale`)** — adjusts **avatars/pictures** and
+  the card icon only.
+
+All three are in percent; **100 % = default** (nothing changes). They apply in
+board, kid and kiosk mode.
+
+```yaml
+type: custom:family-task-card
+scale: 90 # whole card at 90 %
+font_scale: 120 # but text at 120 % (easy to read)
+avatar_scale: 140 # big avatars
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_chores }
+```
 
 ### Shopping with Bring!
 

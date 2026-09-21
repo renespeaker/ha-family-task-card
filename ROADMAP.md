@@ -85,6 +85,8 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Kiosk-Layout** – dediziertes Wandtablet-Layout (`kiosk`): Ruhebildschirm
       „Wer ist dran?" mit großen Avataren, Antippen fokussiert die Person, und
       `auto_return` kehrt nach Inaktivität automatisch zur Auswahl zurück.
+- [x] **Darstellungs-Regler** – im visuellen Editor: `scale` (ganze Karte),
+      `font_scale` (nur Schrift) und `avatar_scale` (nur Avatare/Bilder), je in %.
 
 ## Später / Roadmap
 

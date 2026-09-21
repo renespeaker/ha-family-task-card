@@ -75,6 +75,13 @@ persons:
 # --- Optional: color scheme (theme-aware by default) ---
 # theme: dark                     # auto (default, follows HA) | dark | light
 
+# --- Optional: appearance (size / text / pictures), also in the visual editor ---
+# All in percent; 100 = default (no change). scale zooms the whole card;
+# font_scale is text only; avatar_scale is avatars/pictures + the card icon.
+# scale: 90                       # overall card size
+# font_scale: 120                 # text only
+# avatar_scale: 140               # avatars / pictures only
+
 # --- Optional: hands-free person switch (NFC / presence) ---
 # The card follows this entity's value; HA sets it (NFC tag scan, presence, a
 # button). The value is matched to each person's name / person.* / display name.
