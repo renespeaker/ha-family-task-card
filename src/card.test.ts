@@ -272,3 +272,39 @@ describe("kid mode", () => {
     expect(all(".board")).toHaveLength(0);
   });
 });
+
+describe("appearance", () => {
+  const opts = { lists: { "todo.anna": { items: [task("a1", "Tisch decken")] } } };
+
+  it("leaves the host untouched at the defaults", async () => {
+    const { el } = await mount({ persons: [{ name: "Anna", lists: "todo.anna" }] }, opts);
+    expect(el.style.getPropertyValue("--ftc-fs")).toBe("1");
+    expect(el.style.getPropertyValue("--ftc-av")).toBe("1");
+    // zoom stays cleared at 100 % so nothing lingers on the host.
+    expect(el.style.getPropertyValue("zoom")).toBe("");
+  });
+
+  it("maps scale / font_scale / avatar_scale to host variables", async () => {
+    const { el } = await mount(
+      {
+        persons: [{ name: "Anna", lists: "todo.anna" }],
+        scale: 150,
+        font_scale: 120,
+        avatar_scale: 80,
+      },
+      opts,
+    );
+    expect(el.style.getPropertyValue("--ftc-fs")).toBe("1.2");
+    expect(el.style.getPropertyValue("--ftc-av")).toBe("0.8");
+    expect(el.style.getPropertyValue("zoom")).toBe("1.5");
+  });
+
+  it("clamps out-of-range values into a sane band", async () => {
+    const { el } = await mount(
+      { persons: [{ name: "Anna", lists: "todo.anna" }], scale: 5000, font_scale: 0 },
+      opts,
+    );
+    expect(el.style.getPropertyValue("zoom")).toBe("4"); // 400 % ceiling
+    expect(el.style.getPropertyValue("--ftc-fs")).toBe("0.5"); // 50 % floor
+  });
+});

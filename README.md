@@ -4,10 +4,11 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.9.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop, Feier-Aktionen und
-> Level/Abzeichen + Rangliste sind da – responsiv, **zweisprachig (DE/EN)**,
-> **theme-aware inkl. Dark-Mode-Schalter**, mit **Aufgabe-hinzufügen** und
+> **Status: nutzbar (v0.11.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop,
+> Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
+> **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
+> **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
 > Sortier-/Ausblend-Optionen. Die Karte liest `todo.*`-Listen live, schreibt beim
 > Abhaken zurück und passt sich jeder Integration an – siehe [ROADMAP.md](ROADMAP.md).
 
@@ -180,10 +181,40 @@ persons:
 | `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
 | `theme`           | Text               | Farbschema: `auto` (HA-Theme, Std.) / `dark` / `light`. |
 | `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
+| `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
+| `auto_return`     | Zahl               | Sek. Inaktivität bis zurück zum Auswahl-Bildschirm (Std. 30, 0 = nie). |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
 | `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
+| `scale`           | Zahl (%)           | Gesamte Kartengröße (Zoom über alles). Std. 100.        |
+| `font_scale`      | Zahl (%)           | Nur Schriftgröße. Std. 100.                             |
+| `avatar_scale`    | Zahl (%)           | Nur Avatare/Bilder und Karten-Icon. Std. 100.           |
+
+### Darstellung anpassen (Größe, Schrift, Bilder)
+
+Im **visuellen Editor** (Karte → Bearbeiten) gibt es drei Schieberegler, mit denen
+du das Aussehen ohne YAML anpasst — praktisch, weil z. B. der Kinder-Modus bewusst
+größer ist:
+
+- **Kartengröße (`scale`)** — zoomt die **ganze** Karte (Layout, Schrift und Bilder
+  zusammen). Ideal, um eine Kinder-Card insgesamt kleiner oder größer zu machen.
+- **Schriftgröße (`font_scale`)** — passt **nur den Text** an (zusätzlich zur
+  Kartengröße), z. B. gut lesbar aus der Entfernung am Wandtablet.
+- **Avatar-/Bildgröße (`avatar_scale`)** — passt **nur Avatare/Bilder** und das
+  Karten-Icon an.
+
+Alle drei sind in Prozent; **100 % = Standard** (nichts ändert sich). Sie wirken
+in Board-, Kinder- und Kiosk-Modus.
+
+```yaml
+type: custom:family-task-card
+scale: 90 # ganze Karte auf 90 %
+font_scale: 120 # Text aber 120 % (gut lesbar)
+avatar_scale: 140 # große Avatare
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
+```
 
 ### Kinder-Modus
 
@@ -343,9 +374,8 @@ persons:
 - Platzhalter: **`{name}`** (Person) und **`{task}`** (Aufgaben-/Belohnungsname)
   werden in allen Text-Werten ersetzt.
 
-> Die Konfetti-Animation auf dem Bildschirm läuft ohnehin. Ein spezielles
-> Kiosk-Layout und Personenwechsel per NFC/Anwesenheit stehen noch auf der
-> Roadmap.
+> Die Konfetti-Animation auf dem Bildschirm läuft ohnehin. Fürs Wandtablet siehe
+> **Kiosk-Modus** und **Personenwechsel per NFC / Anwesenheit** weiter unten.
 
 ### Level, Abzeichen & Rangliste
 
@@ -383,6 +413,32 @@ persons:
 
 Der Schalter überschreibt die Farbvariablen **nur innerhalb dieser Karte** –
 Akzentfarbe (Personen-Palette, `--primary-color`) bleibt erhalten.
+
+### Kiosk-Modus (Wandtablet)
+
+Für ein fest an der Wand hängendes Tablet/Display: `kiosk: true` macht daraus eine
+**geteilte Familien-Station**.
+
+- **Ruhebildschirm „Wer ist dran?"** — große Avatare aller Personen. Antippen des
+  eigenen Gesichts → die eigenen Aufgaben erscheinen (großes Kinder-Layout).
+- **Auto-Rückkehr** — nach `auto_return` Sekunden ohne Bedienung (Standard 30)
+  geht es automatisch zurück zum Auswahl-Bildschirm. `0` = nie.
+- **Freihändig** — kombiniert mit `active_person_entity` weckt ein **NFC-Tag** oder
+  **Anwesenheit** direkt die richtige Person (ohne Tippen), und nach Inaktivität
+  wird wieder aufgeräumt.
+
+```yaml
+type: custom:family-task-card
+kiosk: true
+auto_return: 30                                   # Sekunden (0 = nie)
+active_person_entity: input_select.aktives_kind   # optional: NFC/Anwesenheit
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
+  - { name: Ben,  person: person.ben,  lists: todo.ben_aemtli }
+```
+
+So wird das Wandtablet zur „Antippen → meine Ämtli → fertig"-Station, die sich
+von selbst wieder in den neutralen Zustand zurücksetzt.
 
 ### Personenwechsel per NFC / Anwesenheit
 

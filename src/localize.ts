@@ -62,6 +62,7 @@ const STRINGS: Record<string, Entry> = {
   theme_auto: { de: "Automatisch (HA-Theme)", en: "Automatic (HA theme)" },
   theme_dark: { de: "Dunkel", en: "Dark" },
   theme_light: { de: "Hell", en: "Light" },
+  who_is_it: { de: "Wer ist dran?", en: "Who's there?" },
   err_no_persons: {
     de: '"persons" muss eine Liste sein (mind. eine Person).',
     en: '"persons" must be a list with at least one person.',

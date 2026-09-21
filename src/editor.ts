@@ -44,6 +44,8 @@ const LABELS: Record<string, Bi> = {
   show_completed: { de: "Erledigte anzeigen", en: "Show completed" },
   kid_mode: { de: "Kinder-Modus", en: "Kid mode" },
   active_person_entity: { de: "Aktive Person (Entität)", en: "Active person (entity)" },
+  kiosk: { de: "Kiosk-Modus (Wandtablet)", en: "Kiosk mode (wall tablet)" },
+  auto_return: { de: "Auto-Rückkehr (Sek.)", en: "Auto-return (sec)" },
   highlight_overdue: { de: "Überfällige hervorheben", en: "Highlight overdue" },
   shopping_lists: { de: "Einkaufslisten (Bring!)", en: "Shopping lists (Bring!)" },
   shopping_points: { de: "Punkte pro Einkauf", en: "Points per shopping trip" },
@@ -51,6 +53,9 @@ const LABELS: Record<string, Bi> = {
   parent_pin: { de: "Eltern-PIN (Belohnungen)", en: "Parent PIN (rewards)" },
   level_size: { de: "Punkte pro Level", en: "Points per level" },
   show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
+  scale: { de: "Kartengröße", en: "Card size" },
+  font_scale: { de: "Schriftgröße", en: "Font size" },
+  avatar_scale: { de: "Avatar-/Bildgröße", en: "Avatar / picture size" },
   sort: { de: "Sortierung", en: "Sort" },
   hide_empty: { de: "Leere Personen ausblenden", en: "Hide empty persons" },
   due_soon: { de: "Bald fällig (Tage)", en: "Due soon (days)" },
@@ -85,6 +90,14 @@ const HELPERS: Record<string, Bi> = {
     de: "Entität (input_select/Sensor/person), deren Wert die aktive Person nennt – die Karte fokussiert sie automatisch (z. B. per NFC-Tag/Anwesenheit). Leer = manuell umschalten.",
     en: "Entity (input_select/sensor/person) whose value names the active person — the card focuses them automatically (e.g. via NFC tag/presence). Empty = switch manually.",
   },
+  kiosk: {
+    de: "Wandtablet-Modus: Ruhebildschirm 'Wer ist dran?' mit großen Avataren; Antippen (oder NFC/Anwesenheit) zeigt die Aufgaben, nach Inaktivität geht es zurück.",
+    en: "Wall-tablet mode: an idle 'Who's there?' screen with big avatars; tapping (or NFC/presence) shows the tasks, and it returns after inactivity.",
+  },
+  auto_return: {
+    de: "Sekunden Inaktivität bis zurück zum 'Wer ist dran?'-Bildschirm (Standard 30, 0 = nie).",
+    en: "Seconds of inactivity before returning to the 'Who's there?' screen (default 30, 0 = never).",
+  },
   highlight_overdue: {
     de: "Aufgaben mit überschrittenem Fälligkeitsdatum als dringend markieren (Standard an). Weitere Kontext-Regeln per YAML (context_rules).",
     en: "Mark tasks past their due date as urgent (default on). More context rules via YAML (context_rules).",
@@ -112,6 +125,18 @@ const HELPERS: Record<string, Bi> = {
   show_leaderboard: {
     de: "Rangliste der Personen nach verdienten Punkten unter dem Board anzeigen.",
     en: "Show a ranking of persons by earned points under the board.",
+  },
+  scale: {
+    de: "Gesamte Karte vergrößern/verkleinern (Zoom über alles: Layout, Schrift, Bilder). 100 % = Standard.",
+    en: "Enlarge/shrink the whole card (zoom over everything: layout, text, pictures). 100 % = default.",
+  },
+  font_scale: {
+    de: "Nur die Schriftgröße anpassen (zusätzlich zur Kartengröße). 100 % = Standard.",
+    en: "Adjust the text size only (on top of the card size). 100 % = default.",
+  },
+  avatar_scale: {
+    de: "Nur Avatare/Bilder und das Karten-Icon anpassen. 100 % = Standard.",
+    en: "Adjust avatars/pictures and the card icon only. 100 % = default.",
   },
   sort: {
     de: "Reihenfolge der offenen Aufgaben je Person.",
@@ -162,7 +187,19 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     // These default to on -> show the toggles on unless explicitly off.
     const highlight_overdue = this._config.highlight_overdue !== false;
     const allow_add = this._config.allow_add !== false;
-    return { ...this._config, shopping_lists, highlight_overdue, allow_add };
+    // Appearance sliders default to 100 % so they start centered, not at min.
+    const scale = this._config.scale ?? 100;
+    const font_scale = this._config.font_scale ?? 100;
+    const avatar_scale = this._config.avatar_scale ?? 100;
+    return {
+      ...this._config,
+      shopping_lists,
+      highlight_overdue,
+      allow_add,
+      scale,
+      font_scale,
+      avatar_scale,
+    };
   }
 
   private get _lang(): Lang {
@@ -197,6 +234,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
           },
         },
       },
+      { name: "kiosk", selector: { boolean: {} } },
+      { name: "auto_return", selector: { number: { min: 0, max: 3600, mode: "box", step: 5 } } },
       { name: "highlight_overdue", selector: { boolean: {} } },
       { name: "allow_add", selector: { boolean: {} } },
       { name: "hide_empty", selector: { boolean: {} } },
@@ -222,6 +261,24 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       { name: "parent_pin", selector: { text: {} } },
       { name: "level_size", selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } } },
       { name: "show_leaderboard", selector: { boolean: {} } },
+      {
+        name: "scale",
+        selector: {
+          number: { min: 50, max: 200, mode: "slider", step: 5, unit_of_measurement: "%" },
+        },
+      },
+      {
+        name: "font_scale",
+        selector: {
+          number: { min: 70, max: 200, mode: "slider", step: 5, unit_of_measurement: "%" },
+        },
+      },
+      {
+        name: "avatar_scale",
+        selector: {
+          number: { min: 50, max: 250, mode: "slider", step: 5, unit_of_measurement: "%" },
+        },
+      },
     ];
   }
 
@@ -249,6 +306,12 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.sort || next.sort === "manual") delete next.sort;
     if (!next.theme || next.theme === "auto") delete next.theme;
     if (!next.active_person_entity) delete next.active_person_entity;
+    if (!next.kiosk) delete next.kiosk;
+    if (!next.auto_return) delete next.auto_return;
+    // Appearance: 100 % is the default look -> store only a real deviation.
+    if (!next.scale || next.scale === 100) delete next.scale;
+    if (!next.font_scale || next.font_scale === 100) delete next.font_scale;
+    if (!next.avatar_scale || next.avatar_scale === 100) delete next.avatar_scale;
     // Defaults are on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (next.allow_add) delete next.allow_add;
