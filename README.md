@@ -1,5 +1,7 @@
 # 🧹 Family Task Card
 
+> 🌐 Deutsch (diese Seite) · **English:** [README.en.md](README.en.md)
+
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
 > **Status: nutzbar (v0.8.0).** Personen-Board, visueller Editor, Kinder-Modus,

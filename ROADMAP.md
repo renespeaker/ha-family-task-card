@@ -100,9 +100,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [ ] Vorlese-/Symbolmodus für Nicht-Leser; Ämtli-Pakete nach Alter.
 - [ ] Rendering direkt in / neben der Family Board Card.
 - [ ] Weitere Sprachen (aktuell DE/EN).
-- [ ] **Englische README / Projektbeschreibung** – die Beschreibung der Karte auch
-      auf Englisch anbieten (viele internationale Nutzer); z. B. `README.en.md` +
-      Sprach-Umschalter oben, GitHub-Repo-Beschreibung englisch/zweisprachig.
+- [x] **Englische README** – `README.en.md` mit Sprach-Umschalter oben in beiden
+      READMEs (viele internationale Nutzer). Offen: GitHub-Repo-Beschreibung
+      englisch/zweisprachig (Repo-Einstellung).
 - [x] **Fähigkeits-Erkennung** – Karte liest `supported_features` der `todo`-
       Entity; nicht abhakbare Listen werden schreibgeschützt (🔒) statt Leertipp.
 - [ ] **Microsoft To Do** – keine native HA-`todo`-Integration; Optionen:
