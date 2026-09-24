@@ -1,536 +1,521 @@
 # 🧹 Family Task Card
 
-> 🌐 Deutsch (diese Seite) · **English:** [README.en.md](README.en.md)
+> 🌐 **English** (this page) · [Deutsch](README.de.md)
 
-![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
+![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: nutzbar (v0.11.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, Kontext-Aufgaben, Belohnungs-Shop,
-> Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
-> **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
-> **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
-> Sortier-/Ausblend-Optionen. Die Karte liest `todo.*`-Listen live, schreibt beim
-> Abhaken zurück und passt sich jeder Integration an – siehe [ROADMAP.md](ROADMAP.md).
+> **Status: usable (v0.11.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, context tasks, reward shop, celebrate actions, levels/badges +
+> leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
+> (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
+> (size/text/pictures)**, **add-task** and sort/hide options. The card reads
+> `todo.*` lists live, writes back on check-off and adapts to every integration —
+> see [ROADMAP.md](ROADMAP.md).
 
-Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
-[Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
-spielerisch bedienbar, im Look der
-[Family Board Card](https://github.com/renespeaker/ha-family-board-card) und
-**theme-aware** (nutzt durchgehend HA-CSS-Variablen, passt sich also dem
-Dashboard-Theme an).
+A **gamified family task / chore card** for
+[Home Assistant](https://www.home-assistant.io/) — playful for grown-ups **and**
+kids, in the look of the
+[Family Board Card](https://github.com/renespeaker/ha-family-board-card) and
+**theme-aware** (uses HA CSS variables throughout, so it follows your dashboard
+theme).
 
-## Idee
+## Idea
 
-Aufgaben pro Person – mit Avataren aus den `person.*`-Entitäten, Farbe je
-Familienmitglied, Punkten und Belohnungen. **Provider-übergreifend**, weil die
-Karte auf Home Assistants `todo.*`-Entities aufsetzt: Apple Erinnerungen,
-Todoist, Google Tasks, Bring! und lokale To-do-Listen liefern alle solche
-Entities – Abhaken in der Karte hakt die Aufgabe **bidirektional** auch in der
-Quell-App ab. Kein separater Cloud-Account für Kinder nötig, alles läuft in HA.
+Tasks per person — with avatars from your `person.*` entities, a color per family
+member, points and rewards. **Provider-agnostic**, because the card builds on
+Home Assistant's `todo.*` entities: Apple Reminders, Todoist, Google Tasks,
+Bring! and local to-do lists all expose such entities — checking a task in the
+card checks it off **bidirectionally** in the source app too. No separate cloud
+account for kids, everything stays in HA.
 
-## Geplante Funktionen
+## Planned features
 
-- **Aufgaben pro Person** – Spalten mit Avatar, Farbe, Punkten; Kacheln mit
-  Emoji und `border-left`-Akzent wie die Termin-Chips der Family Board Card.
-- **Kinder-Modus** – große, bunte Kacheln, Antippen = erledigt, Sterne &
-  Belohnungsziel; auch für Kinder, die noch nicht lesen.
-- **Belohnungs-Shop mit Eltern-Freigabe** – Punkte → Taschengeld / Bildschirm­zeit /
-  Wunsch; Kind löst ein, Eltern bestätigen (optional mit Foto-Beweis).
-- **Kontext-Aufgaben (HA-Superkraft)** – reagieren auf Kalender, Wetter &
-  Anwesenheit (z. B. „Müll" am Abfuhr-Vorabend, „Gießen" bei Regen überspringen,
-  Eskalations-Push wenn nicht rechtzeitig erledigt).
-- **Kiosk-Modus** – fürs Wandtablet; Erfolg wird über HA fühlbar (Licht wird
-  grün, Sound, TTS-Ansage, Eltern-Push).
-- **Einkaufen mit Bring!** – der ganze Einkauf als eine zugewiesene Aufgabe mit
-  Punkten; Push öffnet die Bring!-App, Artikel-Abhaken synchron.
-- **Am Handy einrichten** – Aufgaben, Zuständige, Punkte & Wiederholung per UI.
+- **Tasks per person** – columns with avatar, colour and points; tiles with an
+  emoji and a `border-left` accent, like the event chips of the Family Board Card.
+- **Kid mode** – big, colourful tiles, tap to complete, stars and a reward goal;
+  works for children who cannot read yet.
+- **Reward shop with parental approval** – points → pocket money / screen time /
+  a wish; the child redeems, the parents confirm (optionally with photo proof).
+- **Context tasks (the Home Assistant superpower)** – react to calendar, weather
+  and presence (bin day the evening before, skip watering when it rains,
+  escalate with a push when something is not done in time).
+- **Kiosk mode** – for the wall tablet; success becomes tangible through Home
+  Assistant (a light turns green, a sound, a TTS announcement, a push to parents).
+- **Shopping with Bring!** – the whole shopping trip as one assigned task with
+  points; a push opens the Bring! app, checked-off items stay in sync.
+- **Set up from a phone** – tasks, owners, points and repetition through the UI.
 
-Details, Reihenfolge und Roadmap-Themen (Auto-Rotation „reihum", Einzel-Item-
-Zuweisung, Geofence, Level/Avatare …) in [ROADMAP.md](ROADMAP.md).
+Details, ordering and roadmap topics (round-robin rotation, per-item assignment,
+geofencing, levels/avatars …) live in [ROADMAP.md](ROADMAP.md).
 
-## Synergie mit der Family Board Card
+## How it works with the Family Board Card
 
-Gleiche Design-Sprache und dieselben `person.*`-Entities: die Aufgaben können
-neben – oder perspektivisch in – der Family Board Card erscheinen. Ein Look,
-eine Bedienung.
+The same design language, the same `person.*` entities and **the same person
+palette** – kept as a mirrored file in both projects, so the same person has the
+same colour on both cards.
 
-## Plattformen & Provider (iOS / Android)
+Since board v0.27 the [Family Board Card](https://github.com/renespeaker/ha-family-board-card)
+can additionally show due tasks from the same `todo.*` lists as chips.
 
-Die Karte läuft überall, wo Home Assistant läuft – im Browser und **in der HA-
-Companion-App auf iPhone/iPad und Android**. Das Layout ist **responsiv**: auf
-dem Handy stapeln sich die Personen-Spalten, Bedien­elemente sind touch-groß, der
-Kinder-Modus ist fürs Wandtablet gemacht.
+**Both cards still stand entirely on their own.** Neither requires the other,
+they never talk to each other — each talks to Home Assistant. Install just one
+and you will never notice the other exists.
 
-Weil die Karte auf `todo.*`-Entities aufsetzt, ist sie **provider- und plattform-
-übergreifend** – die jeweilige HA-Integration liefert die Liste, die Karte nutzt
-sie **ohne anbieterspezifischen Code**. Und: die Karte erkennt die **Fähigkeiten**
-jeder Liste (`supported_features`) – kann eine Liste nicht abgehakt werden, zeigt
-sie die Aufgaben schreibgeschützt (🔒) statt ins Leere zu tippen.
+## Platforms & providers (iOS / Android)
 
-| Provider | HA-Integration | Konto | Lesen · Abhaken |
+The card runs everywhere Home Assistant runs — in the browser and **in the HA
+Companion app on iPhone/iPad and Android**. The layout is **responsive**: on a
+phone the person columns stack, controls are touch-sized, and kid mode is built
+for a wall tablet.
+
+Because the card builds on `todo.*` entities, it is **provider- and
+platform-agnostic** — the respective HA integration supplies the list and the
+card uses it **without provider-specific code**. It also detects each list's
+**capabilities** (`supported_features`): a list that can't be checked off is
+shown read-only (🔒) instead of a dead tap.
+
+| Provider | HA integration | Account | Read · Check off |
 |---|---|---|:---:|
-| 🍎 **Apple Erinnerungen** | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (iCloud) | Apple-ID | ✅ · ✅ |
+| 🍎 **Apple Reminders** | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (iCloud) | Apple ID | ✅ · ✅ |
 | 🟦 **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) | Google | ✅ · ✅ |
 | 🔴 **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) | Todoist | ✅ · ✅ |
 | 🛒 **Bring!** | [Bring!](https://www.home-assistant.io/integrations/bring/) | Bring! | ✅ · ✅ |
-| 📝 **Lokale To-do-Liste** | HA-nativ | – | ✅ · ✅ |
-| 🟦 **Microsoft To Do** | keine offizielle | Microsoft | ⚠️ nur über Custom-Component/Bridge |
-| 🟡 **Google Keep** | keine offizielle | Google | ⚠️ inoffiziell |
+| 📝 **Local to-do list** | HA-native | – | ✅ · ✅ |
+| 🟦 **Microsoft To Do** | none official | Microsoft | ⚠️ only via custom component/bridge |
+| 🟡 **Google Keep** | none official | Google | ⚠️ unofficial |
 
-> „Android" ist keine App – Android-Nutzer nehmen meist **Google Tasks,
-> Microsoft To Do oder Todoist**. Die großen sind abgedeckt; die einzige echte
-> Lücke ist **Microsoft To Do** (HA hat dafür (noch) keine native `todo`-
-> Integration – aktuell nur über Community-Custom-Components oder eine Bridge in
-> eine lokale HA-Liste).
+> "Android" is not an app — Android users mostly use **Google Tasks, Microsoft
+> To Do or Todoist**. The big ones are covered; the only real gap is **Microsoft
+> To Do** (HA has no native `todo` integration for it yet — currently only via
+> community custom components or a bridge into a local HA list).
 
-### Provider einrichten (Kurzanleitungen)
+### Setting up a provider (quick guides)
 
-Alle Wege enden gleich: Die Liste erscheint als `todo.*`-Entity, die du hier im
-**Editor pro Person** auswählst. Abhaken in der Karte synchronisiert zurück.
+All paths end the same way: the list shows up as a `todo.*` entity that you pick
+**per person in the editor**. Checking off in the card syncs back.
 
-- **🍎 Apple Erinnerungen** — HA-Integration *CalDAV* hinzufügen, iCloud-CalDAV-URL
-  + Apple-ID + **app-spezifisches Passwort**
-  ([appleid.apple.com](https://appleid.apple.com) → Anmeldung & Sicherheit).
-- **🟦 Google Tasks** — HA-Integration *Google Tasks*, per Google-Login verbinden;
-  jede Tasks-Liste wird ein `todo.*`.
-- **🔴 Todoist** — HA-Integration *Todoist* mit deinem API-Token.
-- **🛒 Bring!** — HA-Integration *Bring!* mit Bring!-Account (siehe unten).
-- **📝 Lokal** — Einstellungen → Geräte & Dienste → Helfer → *To-do-Liste*.
+- **🍎 Apple Reminders** — add the *CalDAV* HA integration with the iCloud CalDAV
+  URL + Apple ID + an **app-specific password**
+  ([appleid.apple.com](https://appleid.apple.com) → Sign-In & Security).
+- **🟦 Google Tasks** — add the *Google Tasks* HA integration and sign in with
+  Google; each Tasks list becomes a `todo.*`.
+- **🔴 Todoist** — add the *Todoist* HA integration with your API token.
+- **🛒 Bring!** — add the *Bring!* HA integration with a Bring! account (see below).
+- **📝 Local** — Settings → Devices & Services → Helpers → *To-do list*.
 
-**Push/Deep-Links:** Benachrichtigungen (z. B. „Einkauf steht an", „X ist
-fertig") verschickst du über `notify.mobile_app_*`; zum Öffnen einer App/URL
-nutzt iOS `url`, Android `clickAction` (Beispiel: `examples/bring-push-automation.yaml`).
+**Push / deep links:** notifications (e.g. "Shopping is due", "X is done") go
+through `notify.mobile_app_*`; to open an app/URL use `url` on iOS and
+`clickAction` on Android (example: `examples/bring-push-automation.yaml`).
 
 ## Installation
 
-Die Family Task Card ist eine **Lovelace-Karte** (Frontend) – genau wie die
-Family Board Card. Es gibt **keine Integration** zum Hinzufügen und **kein
-Neustart** nötig.
+The Family Task Card is a **Lovelace card** (frontend) — just like the Family
+Board Card. There is **no integration** to add and **no restart** required.
 
-### Über HACS (empfohlen)
+### Via HACS (recommended)
 
 1. HACS → ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
-   Typ **Dashboard** (Lovelace).
-2. **„Family Task Card"** installieren. HACS legt die Ressource automatisch an.
-3. Browser einmal **hart neu laden** (Strg+Shift+R), damit die Karte geladen wird.
-4. Dashboard → Karte hinzufügen → nach **„Family Task Card"** suchen.
+   type **Dashboard** (Lovelace).
+2. Install **"Family Task Card"**. HACS registers the resource automatically.
+3. **Hard-refresh** the browser once (Ctrl+Shift+R) so the card loads.
+4. Dashboard → Add card → search for **"Family Task Card"**.
 
-### Manuell (ohne HACS)
+### Manual (without HACS)
 
-1. `family-task-card.js` aus diesem Repo nach `config/www/` kopieren.
-2. Einstellungen → **Dashboards → ⋮ → Ressourcen → Ressource hinzufügen**:
-   URL `/local/family-task-card.js`, Typ **JavaScript-Modul**.
-3. Browser hart neu laden, dann Karte hinzufügen.
+1. Copy `family-task-card.js` from this repo to `config/www/`.
+2. Settings → **Dashboards → ⋮ → Resources → Add resource**: URL
+   `/local/family-task-card.js`, type **JavaScript module**.
+3. Hard-refresh the browser, then add the card.
 
-> **Von einer früheren Version als Integration installiert?** Entferne die alte
-> „Family Task Card"-Integration unter *Geräte & Dienste* und deinstalliere sie
-> in HACS, dann füge das Repo wie oben als **Dashboard** neu hinzu.
+## Configuration
 
-## Konfiguration
-
-Die Karte wird pro Person mit einer oder mehreren `todo.*`-Listen konfiguriert –
-im selben Stil wie die Family Board Card mit `persons`. Am einfachsten geht das
-über den **visuellen Editor** (Karte im Dashboard bearbeiten): Personen
-hinzufügen/sortieren, `person.*` & `todo.*`-Listen per Auswahlfeld zuordnen,
-Farbe wählen, Punkte & Ziel setzen – funktioniert auch am Handy. Ein Klick auf
-**„Personen erkennen"** übernimmt vorhandene `person.*`-Entitäten. Wer lieber
-YAML schreibt:
+The card is configured per person with one or more `todo.*` lists — the same way
+the Family Board Card uses `persons`. Easiest via the **visual editor** (edit the
+card on the dashboard): add/sort persons, assign `person.*` & `todo.*` lists from
+pickers, choose a color, set points & a goal — works on the phone too. **"Detect
+persons"** imports existing `person.*` entities. If you prefer YAML:
 
 ```yaml
 type: custom:family-task-card
-title: Familien-Aufgaben
-points_per_task: 10   # Punkte pro erledigter Aufgabe (Standard 10)
-goal: 200             # optionales Familienziel -> Fortschrittsbalken
-show_completed: false # erledigte Aufgaben (ausgegraut) mitanzeigen
+title: Family tasks
+points_per_task: 10   # points per completed task (default 10)
+goal: 200             # optional family goal -> progress bar
+show_completed: false # also show completed tasks (dimmed)
 persons:
-  - name: Mama
-    person: person.mama          # optional -> Avatar + Anzeigename
-    lists: todo.mama_aufgaben     # eine Liste ...
-  - name: Papa
-    person: person.papa
+  - name: Mom
+    person: person.mom          # optional -> avatar + display name
+    lists: todo.mom_tasks       # one list ...
+  - name: Dad
+    person: person.dad
     lists:
-      - todo.papa_aufgaben        # ... oder mehrere
-      - todo.einkauf_bring
+      - todo.dad_tasks          # ... or several
+      - todo.shopping_bring
   - name: Lina
-    color: "#FB7185"              # optionaler Farb-Override
-    lists: todo.lina_aemtli
+    color: "#FB7185"            # optional color override
+    lists: todo.lina_chores
 ```
 
-| Option            | Typ                | Beschreibung                                             |
-|-------------------|--------------------|---------------------------------------------------------|
-| `persons`         | Liste (Pflicht)    | Familienmitglieder; je Person `name`/`person`/`lists`.  |
-| `persons[].lists` | Entität(en)        | `todo.*`-Entität(en), die zu dieser Person gehören.     |
-| `persons[].person`| `person.*`         | optional – liefert Avatar & Anzeigename.                |
-| `persons[].color` | Farbe              | optional – überschreibt die Palette.                    |
-| `persons[].points_entity` | `input_number` | Guthaben-Helfer (eingelöste Punkte) für den Shop.  |
-| `title`           | Text               | Kartentitel.                                             |
-| `points_per_task` | Zahl               | Punkte je erledigter Aufgabe (Standard 10).             |
-| `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
-| `show_completed`  | Bool               | erledigte Aufgaben ausgegraut mitanzeigen.              |
-| `kid_mode`        | Bool               | großes, tippbares Kinder-Layout (Avatar-Umschalter).    |
-| `shopping_lists`  | Entität(en)        | `todo.*`-Listen (z. B. Bring!) als eine „Einkauf"-Kachel. |
-| `shopping_points` | Zahl               | Punkte für einen erledigten Einkauf (Std. = pro Aufgabe). |
-| `bring_deeplink`  | Text               | Ziel des „In Bring! öffnen"-Buttons (Std. web.getbring.com). |
-| `highlight_overdue` | Bool             | überfällige Aufgaben als dringend markieren (Std. an).  |
-| `context_rules`   | Liste              | Regeln, die auf HA-Zustände reagieren (siehe unten).    |
-| `rewards`         | Liste              | Belohnungen für den Shop (`name`, `cost`, `emoji`).     |
-| `parent_pin`      | Text/Zahl          | PIN für die Eltern-Freigabe beim Einlösen.              |
-| `celebrate`       | Objekt             | HA-Services bei Erfolg (Licht/Sound/TTS/Push, siehe unten). |
-| `level_size`      | Zahl               | Punkte pro Level (Std. 100, 0 = aus).                   |
-| `level_emojis`    | Liste              | Abzeichen je Level-Stufe (optional).                    |
-| `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
-| `theme`           | Text               | Farbschema: `auto` (HA-Theme, Std.) / `dark` / `light`. |
-| `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
-| `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
-| `auto_return`     | Zahl               | Sek. Inaktivität bis zurück zum Auswahl-Bildschirm (Std. 30, 0 = nie). |
-| `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
-| `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
-| `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
-| `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
-| `scale`           | Zahl (%)           | Gesamte Kartengröße (Zoom über alles). Std. 100.        |
-| `font_scale`      | Zahl (%)           | Nur Schriftgröße. Std. 100.                             |
-| `avatar_scale`    | Zahl (%)           | Nur Avatare/Bilder und Karten-Icon. Std. 100.           |
+| Option | Type | Description |
+|---|---|---|
+| `persons` | list (required) | Family members; each with `name`/`person`/`lists`. |
+| `persons[].lists` | entity/entities | `todo.*` entity/entities belonging to this person. |
+| `persons[].person` | `person.*` | optional — provides avatar & display name. |
+| `persons[].color` | color | optional — overrides the palette. |
+| `persons[].points_entity` | `input_number` | balance helper (redeemed points) for the shop. |
+| `title` | text | card title. |
+| `points_per_task` | number | points per completed task (default 10). |
+| `goal` | number | family points goal → progress bar. |
+| `show_completed` | bool | also show completed tasks (dimmed). |
+| `kid_mode` | bool | big, tappable kid layout (avatar switcher). |
+| `shopping_lists` | entity/entities | `todo.*` lists (e.g. Bring!) shown as one "shopping" tile. |
+| `shopping_points` | number | points for a finished shopping trip (default = per task). |
+| `bring_deeplink` | text | target of the "Open in Bring!" button (default web.getbring.com). |
+| `highlight_overdue` | bool | mark overdue tasks as urgent (default on). |
+| `context_rules` | list | rules that react to HA state (see below). |
+| `rewards` | list | rewards for the shop (`name`, `cost`, `emoji`). |
+| `parent_pin` | text/number | PIN for the parent approval on redeeming. |
+| `celebrate` | object | HA services on success (light/sound/TTS/push, see below). |
+| `level_size` | number | points per level (default 100, 0 = off). |
+| `level_emojis` | list | badge per level tier (optional). |
+| `show_leaderboard` | bool | ranking of persons by points under the board. |
+| `theme` | text | color scheme: `auto` (HA theme, default) / `dark` / `light`. |
+| `active_person_entity` | entity | card follows the active person (NFC/presence); empty = manual. |
+| `kiosk` | bool | wall-tablet mode: idle "Who's there?" picker + auto-return. |
+| `auto_return` | number | seconds of inactivity before returning to the picker (default 30, 0 = never). |
+| `allow_add` | bool | "add task" field per person (default on). |
+| `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
+| `hide_empty` | bool | hide persons with no open tasks. |
+| `due_soon` | number | mark tasks due within X days as "due soon". |
+| `scale` | number (%) | overall card size (zoom over everything). default 100. |
+| `font_scale` | number (%) | text size only. default 100. |
+| `avatar_scale` | number (%) | avatars/pictures and the card icon only. default 100. |
 
-### Darstellung anpassen (Größe, Schrift, Bilder)
+### Kid mode
 
-Im **visuellen Editor** (Karte → Bearbeiten) gibt es drei Schieberegler, mit denen
-du das Aussehen ohne YAML anpasst — praktisch, weil z. B. der Kinder-Modus bewusst
-größer ist:
+With `kid_mode: true` the card shows a **big, tappable single-child layout** for
+the wall tablet: an avatar switcher on top (whose turn is it?), XL tiles with
+emoji below, a points/goal bar and a short confetti feedback on check-off. Great
+as its own card on a kids' dashboard while the full board stays for the parents.
 
-- **Kartengröße (`scale`)** — zoomt die **ganze** Karte (Layout, Schrift und Bilder
-  zusammen). Ideal, um eine Kinder-Card insgesamt kleiner oder größer zu machen.
-- **Schriftgröße (`font_scale`)** — passt **nur den Text** an (zusätzlich zur
-  Kartengröße), z. B. gut lesbar aus der Entfernung am Wandtablet.
-- **Avatar-/Bildgröße (`avatar_scale`)** — passt **nur Avatare/Bilder** und das
-  Karten-Icon an.
+### Appearance (size, text, pictures)
 
-Alle drei sind in Prozent; **100 % = Standard** (nichts ändert sich). Sie wirken
-in Board-, Kinder- und Kiosk-Modus.
+The **visual editor** (card → Edit) has three sliders to adjust the look without
+YAML — handy because kid mode, for example, is intentionally larger:
+
+- **Card size (`scale`)** — zooms the **whole** card (layout, text and pictures
+  together). Ideal to make a kids' card overall smaller or larger.
+- **Font size (`font_scale`)** — adjusts **text only** (on top of the card size),
+  e.g. for good legibility from across the room on a wall tablet.
+- **Avatar / picture size (`avatar_scale`)** — adjusts **avatars/pictures** and
+  the card icon only.
+
+All three are in percent; **100 % = default** (nothing changes). They apply in
+board, kid and kiosk mode.
 
 ```yaml
 type: custom:family-task-card
-scale: 90 # ganze Karte auf 90 %
-font_scale: 120 # Text aber 120 % (gut lesbar)
-avatar_scale: 140 # große Avatare
+scale: 90 # whole card at 90 %
+font_scale: 120 # but text at 120 % (easy to read)
+avatar_scale: 140 # big avatars
 persons:
-  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
+  - { name: Lina, person: person.lina, lists: todo.lina_chores }
 ```
 
-### Kinder-Modus
+### Shopping with Bring!
 
-Mit `kid_mode: true` zeigt die Karte ein **großes, tippbares Einzel-Kind-Layout**
-fürs Wandtablet: oben ein Avatar-Umschalter (wer ist dran?), darunter XL-Kacheln
-mit Emoji, ein Punkte-/Ziel-Balken und ein kurzes Konfetti-Feedback beim Abhaken.
-Ideal als eigene Karte auf einem Kinder-Dashboard, während das volle Board für
-die Eltern bleibt.
+> **Prerequisite:** Bring! needs the
+> [**Bring! integration**](https://www.home-assistant.io/integrations/bring/) in
+> Home Assistant and a **Bring! account** (the free Bring! app). The integration
+> exposes your Bring! list as a `todo.*` entity, which this card then uses.
+> Without Bring! the card works normally with any other `todo.*` lists.
 
-### Einkaufen mit Bring!
-
-> **Voraussetzung:** Für die Bring!-Nutzung brauchst du die
-> [**Bring!-Integration**](https://www.home-assistant.io/integrations/bring/) in
-> Home Assistant und einen **Bring!-Account** beim Anbieter (die kostenlose
-> Bring!-App). Die Integration stellt deine Bring!-Liste als `todo.*`-Entity
-> bereit – die diese Karte dann verwendet. Ohne Bring! funktioniert die Karte
-> normal mit allen anderen `todo.*`-Listen.
-
-Listen unter `shopping_lists` (z. B. eine Bring!-Liste aus der HA-Bring-
-Integration) werden **als eine „Einkauf"-Kachel** dargestellt: 🛒 + Anzahl der
-Artikel + ein **„In Bring! öffnen"**-Button. Antippen der Kachel erledigt den
-ganzen Einkauf – jeder offene Artikel wird abgehakt und **synchron zurück in die
-Quell-Liste** geschrieben. Für einen erledigten Einkauf gibt es `shopping_points`.
+Lists under `shopping_lists` (e.g. a Bring! list from the HA Bring integration)
+are shown **as one "shopping" tile**: 🛒 + item count + an **"Open in Bring!"**
+button. Tapping the tile completes the whole trip — every open item is checked
+off and written **back to the source list**. A finished trip is worth
+`shopping_points`.
 
 ```yaml
 type: custom:family-task-card
-shopping_lists: todo.einkauf_bring
+shopping_lists: todo.shopping_bring
 shopping_points: 20
 # bring_deeplink: "https://web.getbring.com"   # optional
 persons:
-  - name: Papa
-    person: person.papa
+  - name: Dad
+    person: person.dad
     lists:
-      - todo.papa_aufgaben
-      - todo.einkauf_bring    # dieselbe Liste der Person zuweisen -> zählt für sie
+      - todo.dad_tasks
+      - todo.shopping_bring    # assign the same list to the person -> counts for them
 ```
 
-Den **Push aufs Handy**, der Bring! direkt öffnet, übernimmt eine Home-
-Assistant-Automation (nicht die Karte) – eine fertige Vorlage liegt unter
+The **push to the phone** that opens Bring! is a Home Assistant automation (not
+the card) — a ready template is in
 [`examples/bring-push-automation.yaml`](examples/bring-push-automation.yaml).
 
-> Hinweis: Einen offiziellen Deep-Link auf eine *bestimmte* Bring!-Liste gibt es
-> öffentlich nicht; der Button öffnet Bring! allgemein. Die Punkte für Einkäufe
-> werden aktuell live aus dem Listenzustand geschätzt – eine echte Punkte-
-> Historie kommt laut Roadmap mit einem optionalen Backend.
+> Note: there is no public deep link to a *specific* Bring! list; the button
+> opens Bring! in general. Shopping points are currently estimated live from the
+> list state — a real points history is on the roadmap with an optional backend.
 
-### Kontext-Aufgaben
+### Context tasks
 
-Die HA-Superkraft: Aufgaben **reagieren auf den Zustand deines Zuhauses**
-(Wetter, Anwesenheit, Kalender, Sensoren). Zwei Ebenen:
+The HA superpower: tasks **react to the state of your home** (weather, presence,
+calendar, sensors). Two layers:
 
-**1. Überfällig automatisch** – Aufgaben mit überschrittenem Fälligkeitsdatum
-(`due`) werden ohne Konfiguration als **dringend** markiert (⚠️, roter Akzent,
-Chip „Überfällig"). Abschaltbar mit `highlight_overdue: false`.
+**1. Overdue automatically** — tasks past their due date (`due`) are marked
+**urgent** with no configuration (⚠️, red accent, "Overdue" chip). Turn off with
+`highlight_overdue: false`.
 
-**2. `context_rules`** – eigene Regeln. Trifft die Bedingung auf `entity` zu,
-bekommen passende Aufgaben den `effect`:
+**2. `context_rules`** — your own rules. When the condition on `entity` is met,
+matching tasks get the `effect`:
 
-- `hide` – ausblenden (z. B. Gießen überspringen, wenn es regnet)
-- `highlight` – hervorheben (farbiger Rahmen)
-- `urgent` – als dringend markieren (⚠️, z. B. Müll am Abfuhr-Vorabend)
+- `hide` — hide (e.g. skip watering when it rains)
+- `highlight` — emphasize (colored border)
+- `urgent` — mark as urgent (⚠️, e.g. bins the evening before pickup)
 
 ```yaml
 type: custom:family-task-card
 persons:
-  - name: Papa
-    lists: todo.haushalt
+  - name: Dad
+    lists: todo.household
 context_rules:
-  # Gießen ausblenden, wenn das Wetter auf Regen steht
-  - match: "gieß|blumen|pflanze"
+  # hide watering when the weather is rainy
+  - match: "water|plant|flower"
     entity: weather.home
     state: rainy
     effect: hide
-  # Müll dringend machen, wenn der Abfuhr-Sensor morgen meldet
-  - match: "müll|tonne"
-    entity: binary_sensor.muellabfuhr_morgen
+  # bins urgent when the pickup sensor reports tomorrow
+  - match: "bin|trash|garbage"
+    entity: binary_sensor.bin_pickup_tomorrow
     state: "on"
     effect: urgent
-    label: "Morgen Abfuhr!"
-  # Einkauf hervorheben, wenn jemand unterwegs ist (Anwesenheit)
-  - match: "einkauf"
-    entity: person.papa
+    label: "Pickup tomorrow!"
+  # highlight shopping when someone is away (presence)
+  - match: "shopping|groceries"
+    entity: person.dad
     state: not_home
     effect: highlight
-    label: "Du bist unterwegs"
+    label: "You're out"
 ```
 
-Bedingungen je Regel: `state` (ein Wert oder Liste), `above`/`below` (numerisch),
-oder ganz ohne → „Zustand ist an/aktiv". `invert: true` dreht die Bedingung um.
-Ohne `match`/`lists` gilt die Regel für alle Aufgaben; `lists` schränkt auf
-bestimmte `todo.*`-Listen ein.
+Conditions per rule: `state` (a value or list), `above`/`below` (numeric), or
+none → "state is on/active". `invert: true` flips the condition. Without
+`match`/`lists` the rule applies to all tasks; `lists` restricts it to specific
+`todo.*` lists.
 
-> Die **Eskalations-Push** („nicht rechtzeitig erledigt") ist – wie bei Bring! –
-> eine HA-Automation, nicht Kartencode. Die Karte macht die **sichtbare**
-> Eskalation (Dringend-Markierung); den Push kannst du an denselben Sensoren
-> aufhängen.
+> The **escalation push** ("not done in time") is — like Bring! — an HA
+> automation, not card code. The card does the **visible** escalation (urgent
+> marking); hook the push onto the same sensors.
 
-### Belohnungs-Shop
+### Reward shop
 
-Punkte lassen sich gegen **Belohnungen** einlösen – mit **Eltern-Freigabe per
-PIN**. Belohnungen definierst du in `rewards`; die PIN in `parent_pin`.
+Points can be redeemed for **rewards** — with **parent approval via PIN**. Define
+rewards in `rewards`; the PIN in `parent_pin`.
 
-Damit ausgegebene Punkte **dauerhaft** gespeichert werden (auch nach Neuladen/
-Neustart), bekommt jede Person einen HA-Helfer **`input_number`**, der die
-**bereits eingelösten** Punkte hält. **Guthaben = verdient − eingelöst.**
+So spent points persist (across reloads/restarts), each person gets an HA helper
+**`input_number`** that holds the **already-redeemed** points. **Balance = earned
+− redeemed.**
 
 ```yaml
 type: custom:family-task-card
 parent_pin: "1234"
 rewards:
-  - { name: "30 Min Tablet", cost: 50, emoji: "📱" }
-  - { name: "Eis", cost: 30, emoji: "🍦" }
-  - { name: "Kino", cost: 200, emoji: "🎬" }
+  - { name: "30 min tablet", cost: 50, emoji: "📱" }
+  - { name: "Ice cream", cost: 30, emoji: "🍦" }
+  - { name: "Cinema", cost: 200, emoji: "🎬" }
 persons:
   - name: Lina
-    lists: todo.lina_aemtli
-    points_entity: input_number.lina_eingeloest   # input_number-Helfer anlegen
+    lists: todo.lina_chores
+    points_entity: input_number.lina_redeemed   # create an input_number helper
 ```
 
-Bedienung: 🎁-Button in der Personen-Spalte (bzw. im Kinder-Modus) öffnet den
-Shop. „Einlösen" ist nur aktiv, wenn das Guthaben reicht; danach fragt die Karte
-die **Eltern-PIN** ab und bucht bei Erfolg vom `input_number` ab.
+Usage: the 🎁 button in the person column (or in kid mode) opens the shop.
+"Redeem" is only active when the balance is enough; then the card asks for the
+**parent PIN** and, on success, raises the `input_number`.
 
-> Ohne `points_entity` zeigt der Shop die Belohnungen nur an (Einlösen
-> deaktiviert). Der **asynchrone Freigabe-Ablauf** („Kind stellt Antrag, Eltern
-> bestätigen später per Push, evtl. mit Foto") kommt laut Roadmap mit einem
-> optionalen Backend. Die verdienten Punkte werden live aus dem Listenzustand
-> berechnet – siehe Hinweis beim Einkauf.
+> Without `points_entity` the shop only displays the rewards (redeeming
+> disabled). The **asynchronous approval flow** ("kid requests, parents confirm
+> later via push, optionally with a photo") is on the roadmap with an optional
+> backend. Earned points are computed live from the list state — see the shopping
+> note.
 
-### Feier-Aktionen (Erfolg fühlbar machen)
+### Celebrate actions (make success tangible)
 
-Die Karte kann bei Erfolg **beliebige Home-Assistant-Services** aufrufen – so
-wird aus einem Häkchen ein kleiner Moment: Licht kurz grün, ein Jingle, eine
-TTS-Ansage oder ein Push an die Eltern. Ideal fürs Wandtablet.
+On success the card can call **any Home Assistant services** — turning a checkmark
+into a moment: light briefly green, a jingle, a TTS announcement or a push to the
+parents. Great for the wall tablet.
 
 ```yaml
 type: custom:family-task-card
 celebrate:
-  on: all_done            # all_done | task | reward  (oder eine Liste)
+  on: all_done            # all_done | task | reward  (or a list)
   actions:
     - service: light.turn_on
-      data: { entity_id: light.kinderzimmer, rgb_color: [0, 255, 0], brightness_pct: 100 }
+      data: { entity_id: light.kids_room, rgb_color: [0, 255, 0], brightness_pct: 100 }
     - service: tts.google_translate_say
-      data: { entity_id: media_player.kueche, message: "{name} hat alles geschafft!" }
-    - service: notify.mobile_app_papa
-      data: { message: "{name} ist fertig 🎉" }
+      data: { entity_id: media_player.kitchen, message: "{name} finished everything!" }
+    - service: notify.mobile_app_dad
+      data: { message: "{name} is done 🎉" }
 persons:
   - name: Lina
-    lists: todo.lina_aemtli
+    lists: todo.lina_chores
 ```
 
-- **`on`** wählt den Moment: `all_done` (Person hat nichts Offenes mehr –
-  Standard), `task` (jede erledigte Aufgabe) oder `reward` (Belohnung eingelöst).
-  Mehrere gleichzeitig als Liste möglich.
-- **`actions`** ist eine Liste von Service-Aufrufen (`service` + `data`/`target`),
-  genau wie in HA-Automationen.
-- Platzhalter: **`{name}`** (Person) und **`{task}`** (Aufgaben-/Belohnungsname)
-  werden in allen Text-Werten ersetzt.
+- **`on`** picks the moment: `all_done` (person has nothing open — default),
+  `task` (each completed task) or `reward` (reward redeemed). Several at once as
+  a list.
+- **`actions`** is a list of service calls (`service` + `data`/`target`), exactly
+  like in HA automations.
+- Placeholders: **`{name}`** (person) and **`{task}`** (task/reward name) are
+  substituted in all text values.
 
-> Die Konfetti-Animation auf dem Bildschirm läuft ohnehin. Fürs Wandtablet siehe
-> **Kiosk-Modus** und **Personenwechsel per NFC / Anwesenheit** weiter unten.
+> The on-screen confetti animation runs anyway. See **Kiosk mode** and **Person
+> switch via NFC / presence** below for the wall-tablet setup.
 
-### Level, Abzeichen & Rangliste
+### Levels, badges & leaderboard
 
-Jede Person sammelt mit erledigten Aufgaben **Level** – rein aus den verdienten
-Punkten berechnet, ohne zusätzliche Einrichtung. Neben dem Namen erscheint ein
-**Abzeichen-Chip** (z. B. „🏅 L3"). Mit `show_leaderboard: true` gibt es zusätzlich
-eine **Rangliste** unter dem Board (🥇🥈🥉).
+Each person earns **levels** from completed tasks — computed purely from earned
+points, with no extra setup. A **badge chip** appears next to the name (e.g.
+"🏅 L3"). With `show_leaderboard: true` you also get a **ranking** under the board
+(🥇🥈🥉).
 
 ```yaml
 type: custom:family-task-card
-level_size: 100                       # Punkte pro Level (Standard 100, 0 = aus)
-level_emojis: ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"]   # optional, je Stufe
+level_size: 100                       # points per level (default 100, 0 = off)
+level_emojis: ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"]   # optional, per tier
 show_leaderboard: true
 persons:
-  - { name: Lina, lists: todo.lina_aemtli }
-  - { name: Ben, lists: todo.ben_aemtli }
+  - { name: Lina, lists: todo.lina_chores }
+  - { name: Ben, lists: todo.ben_chores }
 ```
 
-> Level & Rangliste nutzen die **verdienten** Punkte (nicht das Shop-Guthaben) –
-> beides ist stateless aus den `todo`-Listen abgeleitet.
+> Levels & leaderboard use the **earned** points (not the shop balance) — both
+> are derived statelessly from the `todo` lists.
 
-### Dark Mode / Farbschema
+### Dark mode / color scheme
 
-Die Karte ist **theme-aware**: Mit einem dunklen Home-Assistant-Theme wird sie
-automatisch dunkel – ganz ohne Konfiguration. Wenn du das Farbschema **fest**
-setzen willst (z. B. Wandtablet immer dunkel, egal welches Dashboard-Theme),
-nutze `theme`:
+The card is **theme-aware**: with a dark Home Assistant theme it turns dark
+automatically — no configuration. To **force** the color scheme (e.g. a wall
+tablet always dark, regardless of the dashboard theme), use `theme`:
 
 ```yaml
 type: custom:family-task-card
-theme: dark        # auto (Standard, folgt HA) | dark | light
+theme: dark        # auto (default, follows HA) | dark | light
 persons:
-  - { name: Lina, lists: todo.lina_aemtli }
+  - { name: Lina, lists: todo.lina_chores }
 ```
 
-Der Schalter überschreibt die Farbvariablen **nur innerhalb dieser Karte** –
-Akzentfarbe (Personen-Palette, `--primary-color`) bleibt erhalten.
+The switch overrides the color variables **only inside this card** — the accent
+(person palette, `--primary-color`) is kept.
 
-### Kiosk-Modus (Wandtablet)
+### Person switch via NFC / presence
 
-Für ein fest an der Wand hängendes Tablet/Display: `kiosk: true` macht daraus eine
-**geteilte Familien-Station**.
-
-- **Ruhebildschirm „Wer ist dran?"** — große Avatare aller Personen. Antippen des
-  eigenen Gesichts → die eigenen Aufgaben erscheinen (großes Kinder-Layout).
-- **Auto-Rückkehr** — nach `auto_return` Sekunden ohne Bedienung (Standard 30)
-  geht es automatisch zurück zum Auswahl-Bildschirm. `0` = nie.
-- **Freihändig** — kombiniert mit `active_person_entity` weckt ein **NFC-Tag** oder
-  **Anwesenheit** direkt die richtige Person (ohne Tippen), und nach Inaktivität
-  wird wieder aufgeräumt.
-
-```yaml
-type: custom:family-task-card
-kiosk: true
-auto_return: 30                                   # Sekunden (0 = nie)
-active_person_entity: input_select.aktives_kind   # optional: NFC/Anwesenheit
-persons:
-  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
-  - { name: Ben,  person: person.ben,  lists: todo.ben_aemtli }
-```
-
-So wird das Wandtablet zur „Antippen → meine Ämtli → fertig"-Station, die sich
-von selbst wieder in den neutralen Zustand zurücksetzt.
-
-### Personenwechsel per NFC / Anwesenheit
-
-Setzt du `active_person_entity`, **folgt die Karte automatisch der aktiven
-Person**: Der Zustand dieser Entität (ein `input_select`, `sensor` oder
-`person.*`) nennt, wer gerade dran ist – im Kinder-Modus wird diese Person
-fokussiert, im Board hervorgehoben. Freihändig, ohne Antippen.
+Set `active_person_entity` and the card **follows the active person
+automatically**: the state of that entity (an `input_select`, `sensor` or
+`person.*`) names whose turn it is — kid mode focuses that person, the board
+highlights them. Hands-free, no tapping.
 
 ```yaml
 type: custom:family-task-card
 kid_mode: true
-active_person_entity: input_select.aktives_kind   # Wert = Name / person.* / Anzeigename
+active_person_entity: input_select.active_kid   # value = name / person.* / display name
 persons:
-  - { name: Lina, person: person.lina, lists: todo.lina_aemtli }
-  - { name: Ben,  person: person.ben,  lists: todo.ben_aemtli }
+  - { name: Lina, person: person.lina, lists: todo.lina_chores }
+  - { name: Ben,  person: person.ben,  lists: todo.ben_chores }
 ```
 
-Die **Erkennung** macht Home Assistant und setzt die Entität – z. B.:
+Home Assistant does the **detection** and sets the entity — e.g.:
 
-- **NFC-Tag am Tablet:** Die HA-Companion-App scannt den Tag → eine Automation
-  setzt `input_select.aktives_kind` auf das Kind. (Perfekt für Nicht-Leser:
-  Chip dran → seine Aufgaben erscheinen.)
-- **Anwesenheit/Raum:** Präsenzmelder + `person.*`/BLE setzen die Entität auf die
-  Person, die den Raum betritt.
-- **Button/Sprache:** Ein Dashboard-Button oder Sprachbefehl setzt sie.
+- **NFC tag on the tablet:** the HA Companion app scans the tag → an automation
+  sets `input_select.active_kid` to the child. (Great for non-readers: tap the
+  chip → their tasks appear.)
+- **Presence/room:** a presence sensor + `person.*`/BLE set the entity to the
+  person entering the room.
+- **Button/voice:** a dashboard button or voice command sets it.
 
-Matching: der Wert der Entität wird mit `name`, der `person.*`-Entität und dem
-Anzeigenamen jeder Person verglichen (Groß-/Kleinschreibung egal). Leeres Feld =
-klassisches manuelles Umschalten.
+Matching: the entity value is compared to each person's `name`, their `person.*`
+entity and their display name (case-insensitive). Empty field = classic manual
+switching.
 
-### Aufgaben hinzufügen, Sortierung & Sprache
+### Kiosk mode (wall tablet)
 
-- **➕ Aufgabe hinzufügen** — unter jeder Person erscheint ein Eingabefeld; Enter
-  legt die Aufgabe via `todo.add_item` an – aber nur, wo die Liste das
-  unterstützt (die Karte prüft die Fähigkeiten). Abschaltbar mit `allow_add: false`.
-- **🔽 Sortierung** — `sort: due` (nach Fälligkeit) oder `sort: alpha`
-  (alphabetisch); Standard `manual` (Reihenfolge der Liste). Dringende/
-  hervorgehobene Aufgaben stehen immer oben.
-- **🙈 Leere ausblenden** — `hide_empty: true` versteckt Personen ohne offene
-  Aufgaben.
-- **⏰ Bald fällig** — `due_soon: 2` hebt Aufgaben hervor, die in den nächsten 2
-  Tagen fällig sind (überfällige bleiben „dringend").
-- **🌐 Sprache** — die Karte ist **zweisprachig (Deutsch/Englisch)** und richtet
-  sich automatisch nach der HA-Oberflächensprache.
+For a tablet/display mounted on the wall: `kiosk: true` turns it into a **shared
+family station**.
 
-Ein vollständiges Beispiel liegt unter
+- **Idle "Who's there?" screen** — big avatars of everyone. Tap your own face →
+  your tasks appear (the big kid layout).
+- **Auto-return** — after `auto_return` seconds without input (default 30) it
+  goes back to the picker on its own. `0` = never.
+- **Hands-free** — combined with `active_person_entity`, an **NFC tag** or
+  **presence** wakes the right person directly (no tapping), and after inactivity
+  it tidies itself back up.
+
+```yaml
+type: custom:family-task-card
+kiosk: true
+auto_return: 30                                 # seconds (0 = never)
+active_person_entity: input_select.active_kid   # optional: NFC/presence
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina_chores }
+  - { name: Ben,  person: person.ben,  lists: todo.ben_chores }
+```
+
+That makes the wall tablet a "tap → my chores → done" station that resets itself
+back to the neutral state.
+
+### Add tasks, sorting & language
+
+- **➕ Add task** — an input field appears under each person; Enter creates the
+  task via `todo.add_item` — but only where the list supports it (the card checks
+  capabilities). Turn off with `allow_add: false`.
+- **🔽 Sorting** — `sort: due` (by due date) or `sort: alpha` (alphabetical);
+  default `manual` (list order). Urgent/highlighted tasks always stay on top.
+- **🙈 Hide empty** — `hide_empty: true` hides persons with no open tasks.
+- **⏰ Due soon** — `due_soon: 2` highlights tasks due within the next 2 days
+  (overdue ones stay "urgent").
+- **🌐 Language** — the card is **bilingual (German/English)** and follows the HA
+  UI language automatically.
+
+A full example is in
 [`examples/dashboard-card.yaml`](examples/dashboard-card.yaml).
 
-## Aufbau des Repos
+## Repository layout
 
 ```
 src/
-├── ha-family-task-card.ts  Quelle der Lovelace-Karte (Lit + TypeScript)
-└── editor.ts               Visueller Karten-Editor (Personen, Listen, Punkte)
-family-task-card.js         Gebaute Karte (Rollup-Output, wird eingecheckt)
-hacs.json                   HACS-Metadaten (Lovelace/Dashboard-Karte)
-ROADMAP.md                  Vision, MVP & Roadmap
-examples/                   Beispiel-Dashboards & Bring!-Push-Automation
+├── ha-family-task-card.ts  source of the Lovelace card (Lit + TypeScript)
+├── editor.ts               visual card editor (people, lists, points)
+├── card.test.ts            component tests against a mocked Home Assistant
+└── shared/                 mirrored with the Family Board Card (person palette)
+family-task-card.js         built card (Rollup output, committed)
+hacs.json                   HACS metadata (Lovelace/dashboard card)
+ROADMAP.md / ROADMAP.de.md  vision, MVP & roadmap (English / German)
+examples/                   example dashboards & the Bring! push automation
 ```
 
-## Entwicklung
+## Development
 
-Die Karte wird mit TypeScript + [Lit](https://lit.dev/) geschrieben und mit
-Rollup zu einem einzelnen Bundle gebaut – nach `family-task-card.js` im
-Repo-Root, das HACS als Dashboard-Ressource ausliefert. Diese Datei wird
-eingecheckt (die CI prüft, dass sie zum Stand von `src/` passt).
+The card is written in TypeScript + [Lit](https://lit.dev/) and bundled with
+Rollup into a single file — `family-task-card.js` at the repo root, which HACS
+serves as a dashboard resource. That file is committed (CI checks it matches the
+`src/` state).
 
 ```bash
-npm install        # Abhängigkeiten
-npm run build      # src/ → gebaute Karte
-npm run watch      # Neu bauen bei Änderungen
-npm run lint       # Typecheck (tsc --noEmit)
-npm test           # Vitest (Karte gegen ein nachgebautes Home Assistant)
+npm install        # dependencies
+npm run build      # src/ → built card
+npm run watch      # rebuild on change
+npm run lint       # typecheck (tsc --noEmit)
+npm test           # Vitest (card against a mocked Home Assistant)
 npm run format     # Prettier
 ```
 
-Getestet wird die Karte als Komponente: [`src/card.test.ts`](src/card.test.ts)
-rendert sie mit happy-dom gegen ein nachgebautes Home Assistant und prüft, was
-am Ende wirklich dasteht – Spalten und offene Aufgaben je Person, Punkte,
-Abhaken (schreibt es wirklich `todo.update_item`?), schreibgeschützte Listen,
-Einkaufs-Kachel, Fälligkeiten, Kindermodus und die Zweisprachigkeit. Ein
-Browser wird dafür nicht gebraucht.
+The GitHub Actions build & test on every push (`CI`), validate the HACS structure
+(`Validate`) and attach the built card as a release asset (`Release`).
 
-Die GitHub-Actions bauen und testen bei jedem Push (`CI`), prüfen die
-HACS-Struktur (`Validate`) und hängen bei einem Release die gebaute Karte als
-Asset an (`Release`).
+## Contributing
 
-## Mitwirken
-
-Frühe Phase – Ideen und Feedback willkommen über die
+Early phase — ideas and feedback welcome via the
 [Issues](https://github.com/renespeaker/ha-family-task-card/issues).
 
-## Lizenz
+## License
 
-Siehe [LICENSE](LICENSE).
+See [LICENSE](LICENSE).

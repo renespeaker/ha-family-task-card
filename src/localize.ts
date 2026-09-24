@@ -1,9 +1,10 @@
 import type { HomeAssistant } from "custom-card-helpers";
 
 /**
- * Tiny localization layer (German default, English fallback). The card is used
- * across families in different languages; strings are picked from the running
- * Home Assistant UI language. Add a key here and reference it via `t(hass, key)`.
+ * Tiny localization layer (English default, German for German interfaces). The
+ * card is used across families in different languages; strings are picked from
+ * the running Home Assistant UI language. Add a key here and reference it via
+ * `t(hass, key)`.
  */
 
 export type Lang = "de" | "en";
@@ -73,10 +74,13 @@ export function langOf(hass?: HomeAssistant): Lang {
   // `hass` is not there yet while setConfig validates, and that is exactly when
   // an error message has to be readable - so fall back to the browser language
   // before falling back to the documented German default.
+  // English is the last resort, not German: this card ships worldwide, and its
+  // sister card (Family Board) falls back the same way - a French user should
+  // not end up with one English and one German card side by side.
   const l = (
     hass?.locale?.language ||
     (typeof navigator === "undefined" ? "" : navigator.language) ||
-    "de"
+    "en"
   ).toLowerCase();
   return l.startsWith("de") ? "de" : "en";
 }

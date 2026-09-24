@@ -1,133 +1,134 @@
 # Family Task Card — Roadmap
 
-Vision, MVP und geplante Ausbaustufen. Grundlage sind die bisherigen
-Design-Entscheidungen und ein interaktives Konzept-Mockup (Erwachsenen-Board,
-Kinder-Modus, Handy-Konfig, Kontext-Aufgaben, Belohnungs-Shop, Kiosk-Moment,
-Einkaufen mit Bring!).
+> 🌐 **English** (this page) · [Deutsch](ROADMAP.de.md)
 
-## Leitidee
+Vision, MVP and planned stages. It builds on the design decisions so far and on
+an interactive concept mock-up (grown-up board, kid mode, phone configuration,
+context tasks, reward shop, the kiosk moment, shopping with Bring!).
 
-> Mach aus jeder To-do (Apple Erinnerungen, Todoist, Google Tasks, HA, Bring!)
-> eine **smarte, gamifizierte** Familien-Aufgabe, die auf die echte Welt
-> reagiert.
+## Guiding idea
 
-Der unfaire Vorteil gegenüber Standalone-Apps: **Kontext aus Home Assistant**
-(Kalender, Wetter, Anwesenheit, Sensoren) plus die Aufgaben an einem Ort – und
-das im Look der Family Board Card.
+> Turn every to-do (Apple Reminders, Todoist, Google Tasks, HA, Bring!) into a
+> **smart, gamified** family task that reacts to the real world.
 
-## Architektur-Prinzipien
+The unfair advantage over standalone apps: **context from Home Assistant**
+(calendar, weather, presence, sensors) plus the tasks in one place — in the look
+of the Family Board Card.
 
-- **Provider-agnostisch über `todo.*`-Entities.** Apple Erinnerungen (CalDAV/
-  iCloud), Todoist, Google Tasks, Bring! und lokale To-do-Listen erscheinen in
-  HA als `todo`-Entities. Die Karte liest/schreibt diese → **bidirektional**,
-  ohne pro Anbieter eigenen Code.
-- **Theme-aware.** Durchgehend HA-CSS-Variablen (`--card-background-color`,
-  `--primary-text-color`, `--divider-color`, Akzent = `--primary-color`),
-  gleiche Personen-Palette wie die Family Board Card.
-- **Gamification als eigene Ebene.** Zuständigkeit, Punkte, Belohnungen und
-  Freigaben verwaltet die Family Task Card obendrauf (Bring!/todo-Listen kennen
-  keine „Zuständigkeit").
-- **Lokal & privat.** Kein separater Cloud-Account für Kinder.
-- **Reine Lovelace-Karte.** Auslieferung als HACS-Dashboard-Karte (wie die
-  Family Board Card) – keine Integration, kein Neustart. Ein optionales Backend
-  (für persistente Punkte-Historie & Freigaben) kann später dazukommen.
+## Architecture principles
+
+- **Provider-agnostic through `todo.*` entities.** Apple Reminders (CalDAV/
+  iCloud), Todoist, Google Tasks, Bring! and local to-do lists all appear in HA
+  as `todo` entities. The card reads and writes those → **bidirectional**,
+  without a line of per-provider code.
+- **Theme-aware.** HA CSS variables throughout (`--card-background-color`,
+  `--primary-text-color`, `--divider-color`, accent = `--primary-color`), and the
+  same person palette as the Family Board Card.
+- **Gamification as its own layer.** Ownership, points, rewards and approvals are
+  managed by the Family Task Card on top (Bring! and todo lists have no notion of
+  "who is responsible").
+- **Local & private.** No separate cloud account for children.
+- **A plain Lovelace card.** Shipped as a HACS dashboard card (like the Family
+  Board Card) — no integration, no restart. An optional backend (for a persistent
+  points history and approvals) can follow later.
 
 ## MVP (v0.x)
 
-Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
+The goal: a usable, coherent card with the core loop.
 
-- [x] Karte (Erwachsenen-Board) im Family-Board-Look: Spalten pro Person,
-      Avatar, Kacheln mit Emoji + `border-left`-Akzent, Abhaken schreibt ins
-      `todo`-Entity zurück (liest live via `todo/item/list`).
-- [x] Punkte & Familienziel-Fortschritt (Punkte je erledigter Aufgabe,
-      Familienziel als Fortschrittsbalken).
-- [x] Zuordnung Familienmitglieder (`person.*`) ↔ `todo.*`-Listen –
-      **über die Karten-Konfiguration** (`persons`), wie bei der Family Board
-      Card. Ein visueller Editor (Handy-Konfig) folgt weiter unten.
-- [x] **Visueller Karten-Editor** (`LovelaceCardEditor`) – Personen (hinzufügen/
-      sortieren/entfernen), `person.*` & `todo.*`-Listen per Auswahlfeld, Farbe,
-      Punkte & Ziel per UI statt YAML; „Personen erkennen" übernimmt `person.*`.
-      Funktioniert auch am Handy.
-- [x] **Kinder-Modus** (`kid_mode`) – großes, tippbares Einzel-Kind-Layout fürs
-      Wandtablet: Avatar-Umschalter oben, XL-Aufgabenkacheln mit Emoji, Punkte-
-      Ziel-Balken und Konfetti-Feedback beim Abhaken.
-- [x] **Einkaufen mit Bring!** (Karten-Teil) – `shopping_lists` zeigt eine
-      Bring!-Liste als eine „Einkauf"-Kachel mit 🛒, Artikel-Anzahl, Punkten
-      (`shopping_points`) und „In Bring! öffnen"-Button; Abhaken erledigt den
-      ganzen Einkauf synchron. Push-Zustellung als HA-Automation-Vorlage
-      (`examples/bring-push-automation.yaml`), nicht als Kartencode.
+- [x] The card (grown-up board) in the Family Board look: a column per person,
+      avatar, tiles with an emoji and a `border-left` accent, checking off writes
+      back to the `todo` entity (read live via `todo/item/list`).
+- [x] Points and family-goal progress (points per completed task, the family goal
+      as a progress bar).
+- [x] Mapping family members (`person.*`) ↔ `todo.*` lists — **through the card
+      configuration** (`persons`), as in the Family Board Card. A visual editor
+      (phone configuration) follows below.
+- [x] **Visual card editor** (`LovelaceCardEditor`) — people (add/reorder/remove),
+      `person.*` and `todo.*` lists through pickers, colour, points and goal
+      through the UI instead of YAML; "detect people" picks up `person.*`. Works
+      on a phone too.
+- [x] **Kid mode** (`kid_mode`) — a big, tappable single-child layout for the wall
+      tablet: avatar switcher at the top, XL task tiles with emoji, a points/goal
+      bar and confetti feedback on check-off.
+- [x] **Shopping with Bring!** (the card's part) — `shopping_lists` shows a Bring!
+      list as a single "shopping" tile with 🛒, an item count, points
+      (`shopping_points`) and an "open in Bring!" button; checking it off completes
+      the whole trip in sync. Push delivery ships as an HA automation template
+      (`examples/bring-push-automation.yaml`), not as card code.
 
-> **Architektur-Entscheidung.** Die Karte liest/schreibt `todo`-Entities direkt
-> im Frontend (`hass.callWS` / `todo.update_item`) und wird per Karten-
-> Konfiguration eingerichtet – genau wie die Family Board Card. Ausgeliefert als
-> reine **HACS-Lovelace-Karte** (kein Integration/Neustart). Persistente
-> Gamification (Punkte-Historie, Belohnungs-Freigaben, Zuweisungen) kann später
-> ein **optionales Backend** übernehmen, sobald Zustand über die Laufzeit hinaus
-> gespeichert werden muss.
+> **Architecture decision.** The card reads and writes `todo` entities directly
+> from the frontend (`hass.callWS` / `todo.update_item`) and is set up through the
+> card configuration — exactly like the Family Board Card. Shipped as a plain
+> **HACS Lovelace card** (no integration, no restart). Persistent gamification
+> (points history, reward approvals, assignments) can move to an **optional
+> backend** once state has to outlive the runtime.
 
-## Killer-Features (nach MVP)
+## Killer features (after the MVP)
 
-- [x] **Kontext-Aufgaben** – überfällige Aufgaben werden automatisch als dringend
-      markiert; `context_rules` reagieren auf beliebige HA-Entities (Wetter,
-      Anwesenheit, Kalender, Sensoren) und blenden Aufgaben aus, heben sie hervor
-      oder markieren sie als dringend. Eskalations-Push bleibt HA-Automation.
-- [x] **Belohnungs-Shop mit Eltern-Freigabe** – `rewards` in der Config, Guthaben
-      = verdient − eingelöst (eingelöst in einem `input_number` je Person),
-      Einlösen mit **Eltern-PIN** direkt in der Karte (Board & Kinder-Modus).
-      Offen (Backend): asynchrone Freigabe per Push, Foto-Beweis, Taschengeld-
-      Automatik.
-- [x] **Feier-Aktionen** – Erfolg über HA fühlbar machen: `celebrate.actions`
-      ruft beliebige HA-Services (Licht/Sound/TTS/Push) bei `all_done` / `task` /
-      `reward`, mit `{name}`/`{task}`-Platzhaltern.
-- [x] **Personenwechsel per NFC/Anwesenheit** – `active_person_entity`: die Karte
-      folgt der aktiven Person (Kinder-Modus fokussiert, Board hebt hervor); HA
-      setzt die Entität per NFC-Tag/Anwesenheit/Button.
-- [x] **Kiosk-Layout** – dediziertes Wandtablet-Layout (`kiosk`): Ruhebildschirm
-      „Wer ist dran?" mit großen Avataren, Antippen fokussiert die Person, und
-      `auto_return` kehrt nach Inaktivität automatisch zur Auswahl zurück.
-- [x] **Darstellungs-Regler** – im visuellen Editor: `scale` (ganze Karte),
-      `font_scale` (nur Schrift) und `avatar_scale` (nur Avatare/Bilder), je in %.
+- [x] **Context tasks** — overdue tasks are marked urgent automatically;
+      `context_rules` react to any HA entity (weather, presence, calendar,
+      sensors) and hide tasks, highlight them or flag them as urgent. The
+      escalation push stays an HA automation.
+- [x] **Reward shop with parental approval** — `rewards` in the config, balance =
+      earned − redeemed (redeemed held in an `input_number` per person), redeeming
+      behind a **parent PIN** right in the card (board and kid mode). Open
+      (backend): asynchronous approval by push, photo proof, automatic pocket money.
+- [x] **Celebrate actions** — make success tangible through HA:
+      `celebrate.actions` calls any HA service (light/sound/TTS/push) on
+      `all_done` / `task` / `reward`, with `{name}`/`{task}` placeholders.
+- [x] **Person switch by NFC/presence** — `active_person_entity`: the card follows
+      the active person (kid mode focuses, the board highlights); HA sets the
+      entity from an NFC tag, presence or a button.
+- [x] **Kiosk layout** — a dedicated wall-tablet layout (`kiosk`): a "whose turn
+      is it?" idle screen with large avatars, tapping focuses that person, and
+      `auto_return` goes back to the selection after a while.
+- [x] **Appearance sliders** — in the visual editor: `scale` (the whole card),
+      `font_scale` (text only) and `avatar_scale` (avatars/pictures only), each in %.
 
-## Später / Roadmap
+## Later / roadmap
 
-- [ ] Einzel-Item einer Person zuweisen (statt „ganzer Einkauf").
-- [ ] Standort-Erinnerung (Geofence) & Auto-Zuweisung „wer unterwegs ist".
-- [ ] Faire Auto-Rotation wiederkehrender Ämtli („reihum").
-- [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
-      (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
-      Statistik/Verlauf.
-- [x] **Aufgabe hinzufügen** direkt in der Karte (`todo.add_item`, wo die Liste
-      CREATE unterstützt; `allow_add`).
-- [x] **Sortierung & Filter** offener Aufgaben (`sort`, `hide_empty`, `due_soon`).
-- [x] **Zweisprachig (DE/EN)** – Sprache aus der HA-Oberfläche (`localize.ts`).
-- [x] **Theme-aware + Dark-Mode-Schalter** – folgt dem HA-Theme; `theme:
-      auto|dark|light` erzwingt ein Farbschema karten-intern (z. B. Wandtablet).
-- [ ] Vorlese-/Symbolmodus für Nicht-Leser; Ämtli-Pakete nach Alter.
-- [ ] Rendering direkt in / neben der Family Board Card.
-- [ ] Weitere Sprachen (aktuell DE/EN).
-- [x] **Englische README** – `README.en.md` mit Sprach-Umschalter oben in beiden
-      READMEs (viele internationale Nutzer). Offen: GitHub-Repo-Beschreibung
-      englisch/zweisprachig (Repo-Einstellung).
-- [x] **Fähigkeits-Erkennung** – Karte liest `supported_features` der `todo`-
-      Entity; nicht abhakbare Listen werden schreibgeschützt (🔒) statt Leertipp.
-- [ ] **Microsoft To Do** – keine native HA-`todo`-Integration; Optionen:
-      Community-Custom-Component (Microsoft Graph) empfehlen, Bridge in eine
-      lokale HA-Liste, oder eigene Graph-Integration (Backend-Projekt).
+- [ ] Assign a single item to a person (instead of "the whole shopping trip").
+- [ ] Location reminders (geofence) and auto-assignment to "whoever is out".
+- [ ] Fair auto-rotation of recurring chores ("taking turns").
+- [x] Levels and badges (from earned points) plus a family leaderboard
+      (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
+      statistics/history.
+- [x] **Add a task** right in the card (`todo.add_item`, wherever the list
+      supports CREATE; `allow_add`).
+- [x] **Sorting and filtering** of open tasks (`sort`, `hide_empty`, `due_soon`).
+- [x] **Bilingual (EN/DE)** — the language follows the HA interface (`localize.ts`).
+- [x] **Theme-aware plus a dark-mode switch** — follows the HA theme; `theme:
+      auto|dark|light` forces a colour scheme inside the card (for a wall tablet, say).
+- [ ] A read-aloud / symbol mode for children who cannot read yet; chore packs by age.
+- [x] **Due tasks in the Family Board Card** — since board v0.27 that card can show
+      due tasks from the same `todo.*` lists as chips. Both cards stay independent:
+      neither requires the other. Open: nothing planned — a deeper coupling would
+      break single-card installs.
+- [ ] More languages (currently EN/DE).
+- [x] **English documentation** — README and roadmap are English first, with the
+      German versions alongside as `README.de.md` / `ROADMAP.de.md`.
+- [x] **Capability detection** — the card reads `supported_features` of the `todo`
+      entity; lists that cannot be checked off are shown read-only (🔒) instead of
+      swallowing taps.
+- [ ] **Microsoft To Do** — no native HA `todo` integration. Options: recommend a
+      community custom component (Microsoft Graph), bridge into a local HA list,
+      or build a Graph integration (a backend project).
 
-## Provider-Matrix
+## Provider matrix
 
-Die Karte funktioniert mit **jeder** HA-`todo`-Integration und passt sich deren
-Fähigkeiten an. Beliebte Anbieter:
+The card works with **any** HA `todo` integration and adapts to what it can do.
+The popular ones:
 
-| Provider              | Lesen | Abhaken | Anmerkung                          |
-|-----------------------|:-----:|:-------:|------------------------------------|
-| Lokale To-do-Liste    |  ✅   |   ✅    | HA-nativ                           |
-| Apple Erinnerungen    |  ✅   |   ✅    | via CalDAV/iCloud-`todo`           |
-| Todoist               |  ✅   |   ✅    | offizielle Integration             |
-| Google Tasks          |  ✅   |   ✅    | offizielle Integration             |
-| Bring!                |  ✅   |   ✅    | geteilte Liste; Zuweisung in Karte |
-| Microsoft To Do       |  ⚠️   |   ⚠️    | keine native HA-Integration; Custom/Bridge |
-| Google Keep           |  ⚠️   |   ⚠️    | keine offizielle Integration       |
+| Provider           | Read | Check off | Note                                  |
+|--------------------|:----:|:---------:|---------------------------------------|
+| Local to-do list   |  ✅  |    ✅     | native to HA                          |
+| Apple Reminders    |  ✅  |    ✅     | via the CalDAV/iCloud `todo` entity   |
+| Todoist            |  ✅  |    ✅     | official integration                  |
+| Google Tasks       |  ✅  |    ✅     | official integration                  |
+| Bring!             |  ✅  |    ✅     | shared list; assignment lives in the card |
+| Microsoft To Do    |  ⚠️  |    ⚠️     | no native HA integration; custom/bridge |
+| Google Keep        |  ⚠️  |    ⚠️     | no official integration               |
 
-Legende: ✅ über die jeweilige HA-`todo`-Integration; ⚠️ nur über Community-
-Lösungen/Bridge.
+Legend: ✅ through that provider's HA `todo` integration; ⚠️ only through
+community solutions or a bridge.
