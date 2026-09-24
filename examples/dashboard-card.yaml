@@ -5,7 +5,8 @@
 #
 # The card reads Home Assistant `todo.*` lists live. Any provider that exposes
 # a todo entity works: local To-do lists, Apple Erinnerungen (CalDAV/iCloud),
-# Todoist, Google Tasks, Bring!. Checking a task writes back to the source list.
+# Todoist, Google Tasks, Bring!, Microsoft To Do (via MS365 To Do, see
+# docs/microsoft-todo.md). Checking a task writes back to the source list.
 
 type: custom:family-task-card
 title: Familien-Aufgaben

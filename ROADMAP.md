@@ -111,9 +111,11 @@ The goal: a usable, coherent card with the core loop.
 - [x] **Capability detection** — the card reads `supported_features` of the `todo`
       entity; lists that cannot be checked off are shown read-only (🔒) instead of
       swallowing taps.
-- [ ] **Microsoft To Do** — no native HA `todo` integration. Options: recommend a
-      community custom component (Microsoft Graph), bridge into a local HA list,
-      or build a Graph integration (a backend project).
+- [x] **Microsoft To Do** — via the community integration *MS365 To Do* (HACS,
+      Microsoft Graph), with an illustrated guide incl. the Entra app
+      ([docs/microsoft-todo.md](docs/microsoft-todo.md)). The card reads midnight
+      timestamps as all-day due dates (otherwise "due today" would turn "overdue"
+      at 00:00). Building our own Graph integration was deliberately dropped.
 
 ## Provider matrix
 
@@ -127,7 +129,7 @@ The popular ones:
 | Todoist            |  ✅  |    ✅     | official integration                  |
 | Google Tasks       |  ✅  |    ✅     | official integration                  |
 | Bring!             |  ✅  |    ✅     | shared list; assignment lives in the card |
-| Microsoft To Do    |  ⚠️  |    ⚠️     | no native HA integration; custom/bridge |
+| Microsoft To Do    |  ✅  |    ✅     | via *MS365 To Do* (HACS); [guide](docs/microsoft-todo.md) |
 | Google Keep        |  ⚠️  |    ⚠️     | no official integration               |
 
 Legend: ✅ through that provider's HA `todo` integration; ⚠️ only through

@@ -114,9 +114,11 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       deutschen Fassungen liegen als `README.de.md` / `ROADMAP.de.md` daneben.
 - [x] **Fähigkeits-Erkennung** – Karte liest `supported_features` der `todo`-
       Entity; nicht abhakbare Listen werden schreibgeschützt (🔒) statt Leertipp.
-- [ ] **Microsoft To Do** – keine native HA-`todo`-Integration; Optionen:
-      Community-Custom-Component (Microsoft Graph) empfehlen, Bridge in eine
-      lokale HA-Liste, oder eigene Graph-Integration (Backend-Projekt).
+- [x] **Microsoft To Do** – über die Community-Integration *MS365 To Do*
+      (HACS, Microsoft Graph), mit bebilderter Anleitung inkl. Entra-App
+      ([docs/microsoft-todo.de.md](docs/microsoft-todo.de.md)). Karte liest
+      Mitternachts-Zeitstempel als ganztägige Fälligkeit (sonst wäre „heute
+      fällig“ ab 00:00 „überfällig“). Eigene Graph-Integration bewusst verworfen.
 
 ## Provider-Matrix
 
@@ -130,7 +132,7 @@ Fähigkeiten an. Beliebte Anbieter:
 | Todoist               |  ✅   |   ✅    | offizielle Integration             |
 | Google Tasks          |  ✅   |   ✅    | offizielle Integration             |
 | Bring!                |  ✅   |   ✅    | geteilte Liste; Zuweisung in Karte |
-| Microsoft To Do       |  ⚠️   |   ⚠️    | keine native HA-Integration; Custom/Bridge |
+| Microsoft To Do       |  ✅   |   ✅    | via *MS365 To Do* (HACS); [Anleitung](docs/microsoft-todo.de.md) |
 | Google Keep           |  ⚠️   |   ⚠️    | keine offizielle Integration       |
 
 Legende: ✅ über die jeweilige HA-`todo`-Integration; ⚠️ nur über Community-

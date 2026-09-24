@@ -4,8 +4,8 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.11.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, context tasks, reward shop, celebrate actions, levels/badges +
+> **Status: usable (v0.12.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
 > (size/text/pictures)**, **add-task** and sort/hide options. The card reads
@@ -81,13 +81,14 @@ shown read-only (🔒) instead of a dead tap.
 | 🔴 **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) | Todoist | ✅ · ✅ |
 | 🛒 **Bring!** | [Bring!](https://www.home-assistant.io/integrations/bring/) | Bring! | ✅ · ✅ |
 | 📝 **Local to-do list** | HA-native | – | ✅ · ✅ |
-| 🟦 **Microsoft To Do** | none official | Microsoft | ⚠️ only via custom component/bridge |
+| 🟦 **Microsoft To Do** | [MS365 To Do](https://github.com/RogerSelwyn/MS365-ToDo) (HACS, community) | Microsoft | ✅ · ✅ ([guide](docs/microsoft-todo.md)) |
 | 🟡 **Google Keep** | none official | Google | ⚠️ unofficial |
 
 > "Android" is not an app — Android users mostly use **Google Tasks, Microsoft
-> To Do or Todoist**. The big ones are covered; the only real gap is **Microsoft
-> To Do** (HA has no native `todo` integration for it yet — currently only via
-> community custom components or a bridge into a local HA list).
+> To Do or Todoist**. All three are covered. **Microsoft To Do** has no official
+> HA integration (yet), but works reliably through the community integration
+> *MS365 To Do* — with an
+> [**illustrated step-by-step guide**](docs/microsoft-todo.md).
 
 ### Setting up a provider (quick guides)
 
@@ -100,6 +101,10 @@ All paths end the same way: the list shows up as a `todo.*` entity that you pick
 - **🟦 Google Tasks** — add the *Google Tasks* HA integration and sign in with
   Google; each Tasks list becomes a `todo.*`.
 - **🔴 Todoist** — add the *Todoist* HA integration with your API token.
+- **🟦 Microsoft To Do** — community integration *MS365 To Do* (HACS) plus an
+  Entra app at Microsoft. It's the most involved path (~15 min), so there's an
+  [**illustrated guide**](docs/microsoft-todo.md). Important: tick
+  **"Enable update"** during setup, otherwise the lists are read-only.
 - **🛒 Bring!** — add the *Bring!* HA integration with a Bring! account (see below).
 - **📝 Local** — Settings → Devices & Services → Helpers → *To-do list*.
 
@@ -490,6 +495,8 @@ family-task-card.js         built card (Rollup output, committed)
 hacs.json                   HACS metadata (Lovelace/dashboard card)
 ROADMAP.md / ROADMAP.de.md  vision, MVP & roadmap (English / German)
 examples/                   example dashboards & the Bring! push automation
+docs/                       guides (e.g. Microsoft To Do, illustrated; English / German)
+tools/                      helper scripts (palette check, guide pictures)
 ```
 
 ## Development
