@@ -239,6 +239,55 @@ describe("due dates", () => {
     );
     expect(all(".tile.urgent")).toHaveLength(0);
   });
+
+  // Microsoft To Do (via MS365-ToDo) sends an all-day due date as a midnight
+  // timestamp. "Now" is 21 Sep 10:00 in Berlin (summer time, +02:00).
+  const one = (due: string) => ({
+    lists: { "todo.anna": { items: [task("a1", "Staubsaugen", { due })] } },
+  });
+  const anna = { persons: [{ name: "Anna", lists: "todo.anna" }] };
+
+  it("reads a local-midnight timestamp as due today, not overdue", async () => {
+    const { all, texts } = await mount(anna, one("2026-09-21T00:00:00+02:00"));
+    expect(all(".tile.urgent")).toHaveLength(0);
+    expect(texts(".tile-due")).toEqual(["heute"]);
+  });
+
+  it("reads a UTC-midnight timestamp as that day, too", async () => {
+    const { all, texts } = await mount(anna, one("2026-09-21T00:00:00Z"));
+    expect(all(".tile.urgent")).toHaveLength(0);
+    expect(texts(".tile-due")).toEqual(["heute"]);
+  });
+
+  it("turns such a task overdue the next day", async () => {
+    const { all } = await mount(anna, one("2026-09-20T00:00:00+02:00"));
+    expect(all(".tile.urgent")).toHaveLength(1);
+  });
+
+  it("keeps a real time exact and shows it", async () => {
+    const past = await mount(anna, one("2026-09-21T09:00:00+02:00"));
+    expect(past.all(".tile.urgent")).toHaveLength(1);
+    const later = await mount(anna, one("2026-09-21T18:00:00+02:00"));
+    expect(later.all(".tile.urgent")).toHaveLength(0);
+    expect(later.texts(".tile-due")).toEqual(["heute, 18:00"]);
+  });
+
+  it("counts due-soon in calendar days", async () => {
+    const soon = await mount({ ...anna, due_soon: 2 }, one("2026-09-23"));
+    expect(soon.text()).toContain("Bald fällig");
+    const later = await mount({ ...anna, due_soon: 2 }, one("2026-09-24"));
+    expect(later.text()).not.toContain("Bald fällig");
+  });
+
+  it("stays right across the switch back to winter time", async () => {
+    // 25 Oct 2026 is 25 hours long in Berlin; a day-count must not slip.
+    const { all, text } = await mount(
+      { ...anna, due_soon: 1 },
+      { ...one("2026-10-26T00:00:00+01:00"), now: "2026-10-25T10:00:00" },
+    );
+    expect(all(".tile.urgent")).toHaveLength(0);
+    expect(text()).toContain("Bald fällig");
+  });
 });
 
 describe("language", () => {

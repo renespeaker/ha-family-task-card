@@ -222,21 +222,56 @@ function substitutePlaceholders(value: unknown, ctx: { name?: string; task?: str
   return value;
 }
 
-/** A task is overdue once its due date/time has fully passed. */
-function isOverdue(item: TodoItem): boolean {
-  if (!item.due) return false;
-  // Date-only due -> overdue after end of that day; datetime -> exact moment.
-  const d = new Date(item.due.length <= 10 ? `${item.due}T23:59:59` : item.due);
-  return !isNaN(d.getTime()) && d.getTime() < Date.now();
+interface Due {
+  /** Local calendar day the task is due on (midnight, local time). */
+  day: Date;
+  /** Exact moment for a timed task; undefined for an all-day one. */
+  at?: Date;
 }
 
-/** A task is "due soon" when its due date is within the next `days` (not past). */
+/**
+ * Read a todo `due` value. HA sends a date (`2026-09-24`) or a datetime. Some
+ * providers express an all-day due date as a midnight timestamp — Microsoft To
+ * Do does (`2026-09-24T00:00:00+02:00`, or midnight UTC). Taken literally, such
+ * a task would turn "overdue" in the first minutes of its own due day, so a
+ * datetime at exactly midnight (local or UTC) counts as all-day.
+ */
+function parseDue(due: string | undefined): Due | undefined {
+  if (!due) return undefined;
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(due);
+  if (ymd) return { day: new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) };
+  const d = new Date(due);
+  if (isNaN(d.getTime())) return undefined;
+  if (d.getHours() + d.getMinutes() + d.getSeconds() + d.getMilliseconds() === 0) {
+    return { day: new Date(d.getFullYear(), d.getMonth(), d.getDate()) };
+  }
+  if (d.getUTCHours() + d.getUTCMinutes() + d.getUTCSeconds() + d.getUTCMilliseconds() === 0) {
+    return { day: new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) };
+  }
+  return { day: new Date(d.getFullYear(), d.getMonth(), d.getDate()), at: d };
+}
+
+/** Whole calendar days from today to `day` (negative = past). Summer-time safe. */
+function daysFromToday(day: Date): number {
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round(
+    (Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()) - today) / 86400000,
+  );
+}
+
+/** A task is overdue once its due day (all-day) or due moment (timed) has passed. */
+function isOverdue(item: TodoItem): boolean {
+  const due = parseDue(item.due);
+  if (!due) return false;
+  return due.at ? due.at.getTime() < Date.now() : daysFromToday(due.day) < 0;
+}
+
+/** A task is "due soon" when due today or within the next `days` calendar days. */
 function dueSoon(item: TodoItem, days: number): boolean {
-  if (!item.due || days <= 0) return false;
-  const d = new Date(item.due.length <= 10 ? `${item.due}T23:59:59` : item.due);
-  if (isNaN(d.getTime())) return false;
-  const now = Date.now();
-  return d.getTime() >= now && d.getTime() <= now + days * 86400000;
+  const due = parseDue(item.due);
+  if (!due || days <= 0 || isOverdue(item)) return false;
+  return daysFromToday(due.day) <= days;
 }
 
 /** Does a rule target this task (by title regex and/or list)? */
@@ -506,9 +541,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const mode = this._config?.sort ?? "manual";
     if (mode === "manual") return items;
     const dueKey = (it: TodoItem) => {
-      if (!it.due) return Infinity;
-      const d = new Date(it.due.length <= 10 ? `${it.due}T00:00:00` : it.due);
-      return isNaN(d.getTime()) ? Infinity : d.getTime();
+      const due = parseDue(it.due);
+      return due ? (due.at ?? due.day).getTime() : Infinity;
     };
     const arr = [...items];
     if (mode === "alpha") arr.sort((a, b) => a.item.summary.localeCompare(b.item.summary));
@@ -1317,19 +1351,24 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _formatDue(due: string): string {
-    // `due` is a date (YYYY-MM-DD) or datetime; render short & locale-aware.
-    const d = new Date(due.length <= 10 ? `${due}T00:00:00` : due);
-    if (isNaN(d.getTime())) return due;
+  private _formatDue(raw: string): string {
+    // Short & locale-aware; a timed task (e.g. a reminder) also shows its time.
+    const due = parseDue(raw);
+    if (!due) return raw;
     const lang = this.hass?.locale?.language || "de";
-    const today = new Date();
-    const sameDay = d.toDateString() === today.toDateString();
-    if (sameDay) return this._t("today");
-    return new Intl.DateTimeFormat(lang, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    }).format(d);
+    const day =
+      daysFromToday(due.day) === 0
+        ? this._t("today")
+        : new Intl.DateTimeFormat(lang, {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          }).format(due.day);
+    if (!due.at) return day;
+    const time = new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" }).format(
+      due.at,
+    );
+    return `${day}, ${time}`;
   }
 
   static styles = css`
