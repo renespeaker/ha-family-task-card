@@ -94,7 +94,10 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 
 - [ ] Einzel-Item einer Person zuweisen (statt „ganzer Einkauf").
 - [ ] Standort-Erinnerung (Geofence) & Auto-Zuweisung „wer unterwegs ist".
-- [ ] Faire Auto-Rotation wiederkehrender Ämtli („reihum").
+- [x] Faire Auto-Rotation wiederkehrender Ämtli („reihum") – `rotation`: Schalter
+      im Editor, wöchentliche/tägliche Runden aus dem Kalender, Ämtli öffnen sich
+      jede Runde neu, Hinweis „nächste Woche: …"; Ämtli geben keine Punkte (noch
+      keine Historie).
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
       Statistik/Verlauf.

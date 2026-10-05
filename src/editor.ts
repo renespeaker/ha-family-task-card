@@ -20,6 +20,7 @@ const PALETTE = PERSON_PALETTE;
 /** Settings form (flat data). Sort/theme options are localized in `_schema()`. */
 const SORT_VALUES = ["manual", "due", "alpha"] as const;
 const THEME_VALUES = ["auto", "dark", "light"] as const;
+const ROTATION_PERIODS = ["week", "day"] as const;
 
 /** One ha-form per person, with entity pickers filtered by domain. */
 const PERSON_SCHEMA = [
@@ -53,6 +54,11 @@ const LABELS: Record<string, Bi> = {
   parent_pin: { de: "Eltern-PIN (Belohnungen)", en: "Parent PIN (rewards)" },
   level_size: { de: "Punkte pro Level", en: "Points per level" },
   show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
+  rotation: { de: "Auto-Rotation (reihum)", en: "Auto-rotation (take turns)" },
+  rotation_lists: { de: "Ämtli-Listen (reihum)", en: "Chore lists (rotating)" },
+  rotation_period: { de: "Wechsel", en: "Rotate" },
+  rotation_persons: { de: "Wer macht mit?", en: "Who takes part?" },
+  rotation_reset: { de: "Ämtli jede Runde wieder öffnen", en: "Reopen chores every round" },
   scale: { de: "Kartengröße", en: "Card size" },
   font_scale: { de: "Schriftgröße", en: "Font size" },
   avatar_scale: { de: "Avatar-/Bildgröße", en: "Avatar / picture size" },
@@ -126,6 +132,26 @@ const HELPERS: Record<string, Bi> = {
     de: "Rangliste der Personen nach verdienten Punkten unter dem Board anzeigen.",
     en: "Show a ranking of persons by earned points under the board.",
   },
+  rotation: {
+    de: "Ämtli aus gemeinsamen Listen wechseln automatisch reihum zwischen den Personen – täglich oder wöchentlich. Aus = aus.",
+    en: "Chores from shared lists automatically take turns between persons – daily or weekly. Off = off.",
+  },
+  rotation_lists: {
+    de: "Eigene todo.*-Liste(n) nur für Ämtli, z. B. Müll, Spülmaschine, Tisch decken. Nicht zusätzlich bei einer Person eintragen.",
+    en: "Dedicated todo.* list(s) just for chores, e.g. bins, dishwasher, set the table. Don't also add them to a person.",
+  },
+  rotation_period: {
+    de: "Wie oft die Ämtli weiterwandern. Wöchentlich beginnt jede Runde am Montag.",
+    en: "How often chores move on. Weekly rounds start on Monday.",
+  },
+  rotation_persons: {
+    de: "Nichts gewählt = alle Personen der Karte machen mit.",
+    en: "Nothing selected = every person on the card takes part.",
+  },
+  rotation_reset: {
+    de: "Abgehakte Ämtli zu Beginn der nächsten Runde wieder öffnen (die Karte setzt dafür die Fälligkeit auf das Rundenende). Ämtli geben keine Punkte, weil sie jede Runde neu starten.",
+    en: "Reopen checked-off chores when the next round starts (the card sets their due date to the end of the round). Chores earn no points, as they start over every round.",
+  },
   scale: {
     de: "Gesamte Karte vergrößern/verkleinern (Zoom über alles: Layout, Schrift, Bilder). 100 % = Standard.",
     en: "Enlarge/shrink the whole card (zoom over everything: layout, text, pictures). 100 % = default.",
@@ -187,6 +213,10 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     // These default to on -> show the toggles on unless explicitly off.
     const highlight_overdue = this._config.highlight_overdue !== false;
     const allow_add = this._config.allow_add !== false;
+    const r = this._config.rotation_lists;
+    const rotation_lists = Array.isArray(r) ? r : r ? [r] : [];
+    const rotation_period = this._config.rotation_period ?? "week";
+    const rotation_reset = this._config.rotation_reset !== false;
     // Appearance sliders default to 100 % so they start centered, not at min.
     const scale = this._config.scale ?? 100;
     const font_scale = this._config.font_scale ?? 100;
@@ -199,6 +229,9 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       scale,
       font_scale,
       avatar_scale,
+      rotation_lists,
+      rotation_period,
+      rotation_reset,
     };
   }
 
@@ -249,6 +282,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         },
       },
       { name: "due_soon", selector: { number: { min: 0, max: 60, mode: "box", step: 1 } } },
+      { name: "rotation", selector: { boolean: {} } },
+      ...(this._config.rotation ? this._rotationSchema() : []),
       {
         name: "shopping_lists",
         selector: { entity: { filter: { domain: "todo" }, multiple: true } },
@@ -282,6 +317,34 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     ];
   }
 
+  /** Rotation settings, shown only while the switch is on. */
+  private _rotationSchema() {
+    const persons = this._persons.map((p, i) => ({
+      value: p.name || p.person || `${i + 1}`,
+      label: p.name || p.person || `${t(this.hass, "person_fallback")} ${i + 1}`,
+    }));
+    return [
+      {
+        name: "rotation_lists",
+        selector: { entity: { filter: { domain: "todo" }, multiple: true } },
+      },
+      {
+        name: "rotation_period",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: ROTATION_PERIODS.map((v) => ({ value: v, label: t(this.hass, `rot_${v}`) })),
+          },
+        },
+      },
+      {
+        name: "rotation_persons",
+        selector: { select: { multiple: true, mode: "list", options: persons } },
+      },
+      { name: "rotation_reset", selector: { boolean: {} } },
+    ];
+  }
+
   private _emit(config: FamilyTaskConfig): void {
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config } }));
   }
@@ -312,6 +375,15 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.scale || next.scale === 100) delete next.scale;
     if (!next.font_scale || next.font_scale === 100) delete next.font_scale;
     if (!next.avatar_scale || next.avatar_scale === 100) delete next.avatar_scale;
+    // Rotation: switching it off keeps the settings, so switching back on restores them.
+    if (!next.rotation) delete next.rotation;
+    if (!next.rotation_period || next.rotation_period === "week") delete next.rotation_period;
+    if (!next.rotation_persons?.length) delete next.rotation_persons;
+    if (next.rotation_reset !== false) delete next.rotation_reset;
+    if (Array.isArray(next.rotation_lists)) {
+      if (next.rotation_lists.length === 0) delete next.rotation_lists;
+      else if (next.rotation_lists.length === 1) next.rotation_lists = next.rotation_lists[0];
+    }
     // Defaults are on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (next.allow_add) delete next.allow_add;

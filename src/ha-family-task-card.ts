@@ -3,6 +3,7 @@ import { property, state } from "lit/decorators.js";
 import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-card-helpers";
 import { t } from "./localize";
 import { PERSON_PALETTE } from "./shared/person-palette";
+import { assignChores, roundBounds, roundFix, roundIndex, type RotationPeriod } from "./rotation";
 
 /**
  * Family Task Card — a gamified family task / chore card for Home Assistant.
@@ -24,6 +25,8 @@ import { PERSON_PALETTE } from "./shared/person-palette";
  * open a person's tasks, and auto-return to the picker after inactivity. The
  * visual editor also exposes appearance sliders — `scale` (whole card),
  * `font_scale` (text) and `avatar_scale` (avatars/pictures), each in percent.
+ * With `rotation` switched on, chores from shared lists take turns between the
+ * persons, round by round (see rotation.ts).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -35,6 +38,7 @@ const DEFAULT_LEVEL_EMOJIS = ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"];
 // HA TodoListEntityFeature flags.
 const TODO_CREATE_ITEM = 1; // add new items
 const TODO_UPDATE_ITEM = 4; // check off / reopen items
+const TODO_SET_DUE_DATE = 16; // set a due date (rotation keeps chores in their round)
 
 /* Same person palette as the Family Board Card: one mirrored file, so the same
    person is the same colour on both cards. */
@@ -119,6 +123,11 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   scale?: number; // overall card size in % (zoom). default 100
   font_scale?: number; // text size in % on top of the theme. default 100
   avatar_scale?: number; // avatar / picture size in %. default 100
+  rotation?: boolean; // auto-rotation: chores in rotation_lists take turns between persons
+  rotation_lists?: string | string[]; // shared todo.* lists whose chores rotate
+  rotation_period?: RotationPeriod; // how often chores move on. default "week" (Monday)
+  rotation_persons?: string[]; // who takes part (person name or person.*). default everyone
+  rotation_reset?: boolean; // reopen chores at the start of each round. default true
 }
 
 interface LevelInfo {
@@ -388,6 +397,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (!this.hass || !this._config || this._loading) return;
     const entities = new Set<string>();
     for (const p of this._config.persons) for (const e of listsOf(p)) entities.add(e);
+    for (const e of this._rotationLists()) entities.add(e);
 
     const stale: string[] = [];
     for (const e of entities) {
@@ -469,7 +479,108 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** First non-shopping list of a person that supports adding items. */
   private _addEntityFor(p: PersonConfig): string | undefined {
     const shopping = this._shoppingSet();
-    return listsOf(p).find((e) => !shopping.has(e) && this._canCreate(e));
+    return this._ownLists(p).find((e) => !shopping.has(e) && this._canCreate(e));
+  }
+
+  /* ---- auto-rotation ("take turns") -------------------------------- */
+
+  /** Shared chore lists that rotate (empty while the switch is off). */
+  private _rotationLists(): string[] {
+    const c = this._config;
+    if (!c?.rotation || !c.rotation_lists) return [];
+    const raw = Array.isArray(c.rotation_lists) ? c.rotation_lists : [c.rotation_lists];
+    return raw.filter(Boolean);
+  }
+
+  /** A person's own lists; a rotation list belongs to the rotation, not to them. */
+  private _ownLists(p: PersonConfig): string[] {
+    const rot = this._rotationLists();
+    return rot.length ? listsOf(p).filter((e) => !rot.includes(e)) : listsOf(p);
+  }
+
+  /** Indices (into persons) of everyone taking part, in card order. */
+  private _rotationGroup(): number[] {
+    const persons = this._config?.persons ?? [];
+    const pick = this._config?.rotation_persons ?? [];
+    const all = persons.map((_, i) => i);
+    if (pick.length === 0) return all;
+    const wanted = new Set(pick.map((s) => s.toLowerCase()));
+    const group = all.filter((i) => {
+      const p = persons[i];
+      return [p.name, p.person].some((k) => k && wanted.has(k.toLowerCase()));
+    });
+    return group.length ? group : all;
+  }
+
+  private _rotationPeriod(): RotationPeriod {
+    return this._config?.rotation_period === "day" ? "day" : "week";
+  }
+
+  private _rotCache?: {
+    items: Record<string, TodoItem[]>;
+    sig: string;
+    map: Map<string, { now: number; next: number }>;
+  };
+
+  /** "entity|uid" -> person index doing it this round and next round. */
+  private _rotationMap(): Map<string, { now: number; next: number }> {
+    const lists = this._rotationLists();
+    const group = this._rotationGroup();
+    const period = this._rotationPeriod();
+    const round = roundIndex(new Date(), period);
+    const sig = `${lists.join(",")}|${group.join(",")}|${period}|${round}`;
+    if (this._rotCache && this._rotCache.items === this._items && this._rotCache.sig === sig) {
+      return this._rotCache.map;
+    }
+    const chores = lists.flatMap((entity) =>
+      (this._items[entity] ?? []).map((item) => ({ key: `${entity}|${item.uid}`, item })),
+    );
+    const byPos = assignChores(chores, group.length, round);
+    const map = new Map<string, { now: number; next: number }>();
+    for (const [key, a] of byPos) map.set(key, { now: group[a.now], next: group[a.next] });
+    this._rotCache = { items: this._items, sig, map };
+    return map;
+  }
+
+  /** "next week: Ben" for a rotating chore, or undefined. */
+  private _rotationHint(owned: OwnedItem): string | undefined {
+    const persons = this._config?.persons ?? [];
+    if (this._rotationGroup().length < 2) return undefined;
+    const a = this._rotationMap().get(`${owned.entity}|${owned.item.uid}`);
+    if (!a) return undefined;
+    const when = this._t(this._rotationPeriod() === "day" ? "rot_next_day" : "rot_next_week");
+    return `🔄 ${when}: ${this._personName(persons[a.next], a.next)}`;
+  }
+
+  private _canSetDue(entity: string): boolean {
+    const sf = this.hass?.states[entity]?.attributes?.supported_features;
+    if (typeof sf !== "number") return true;
+    return (sf & TODO_SET_DUE_DATE) !== 0;
+  }
+
+  /** Writes already sent this round, so a slow refetch does not repeat them. */
+  private _rotSent = new Set<string>();
+
+  /** Keep every rotation chore in the current round (see rotation.ts). */
+  private _maintainRotation(): void {
+    const c = this._config;
+    if (!c?.rotation || c.rotation_reset === false || !this.hass) return;
+    const period = this._rotationPeriod();
+    const bounds = roundBounds(roundIndex(new Date(), period), period);
+    for (const entity of this._rotationLists()) {
+      const items = this._items[entity];
+      if (!items || !this._canToggle(entity) || !this._canSetDue(entity)) continue;
+      for (const item of items) {
+        const fix = roundFix(item, bounds);
+        if (!fix) continue;
+        const key = `${entity}|${item.uid}|${bounds.end}`;
+        if (this._rotSent.has(key)) continue;
+        this._rotSent.add(key);
+        this.hass
+          .callService("todo", "update_item", { entity_id: entity, item: item.uid, ...fix })
+          .catch(() => this._rotSent.delete(key));
+      }
+    }
   }
 
   private async _addTask(entity: string, input: HTMLInputElement): Promise<void> {
@@ -498,7 +609,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const shopOpen: ShoppingEntry[] = [];
     let earned = 0;
 
-    for (const entity of listsOf(p)) {
+    for (const entity of this._ownLists(p)) {
       const items: OwnedItem[] = (this._items[entity] ?? []).map((item) => ({ entity, item }));
       if (shopping.has(entity)) {
         const open = items.filter((o) => o.item.status !== "completed");
@@ -511,9 +622,22 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         for (const o of items) (o.item.status === "completed" ? tasksDone : rawOpen).push(o);
       }
     }
+    earned += tasksDone.length * pts;
+    // Rotation chores this person has this round. They earn no points: they
+    // reopen every round, and points that vanish each Monday would only hurt.
+    const rot = this._rotationLists();
+    if (rot.length) {
+      const idx = this._config!.persons.indexOf(p);
+      const map = this._rotationMap();
+      for (const entity of rot) {
+        for (const item of this._items[entity] ?? []) {
+          if (map.get(`${entity}|${item.uid}`)?.now !== idx) continue;
+          (item.status === "completed" ? tasksDone : rawOpen).push({ entity, item });
+        }
+      }
+    }
     // Sort, then context rules can hide, highlight or flag open tasks as urgent.
     const tasksOpen = this._decorate(this._sortOpen(rawOpen));
-    earned += tasksDone.length * pts;
 
     const hasWallet = !!p.points_entity;
     const spent = hasWallet ? this._spent(p) : 0;
@@ -684,7 +808,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         status,
       });
       if (status === "completed" && !silent) {
-        this._fireCelebrate("task", { name: this._ownerName(entityId), task: item.summary });
+        this._fireCelebrate("task", { name: this._ownerName(entityId, item), task: item.summary });
       }
     } catch (err) {
       // Revert on failure.
@@ -933,6 +1057,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const { entity, item, flag, label } = owned;
     const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
     const editable = this._canToggle(entity);
+    const sub = label ?? this._rotationHint(owned);
     return html`
       <button
         class="kid-task ${flag}"
@@ -943,7 +1068,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       >
         <span class="kid-emoji">${emoji}</span>
         <span class="kid-task-title">
-          ${item.summary}${label ? html`<span class="kid-sub">${label}</span>` : nothing}
+          ${item.summary}${sub ? html`<span class="kid-sub">${sub}</span>` : nothing}
         </span>
         <span class="kid-check">${editable ? "◯" : "🔒"}</span>
       </button>
@@ -985,11 +1110,15 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /* ---- celebrate: fire HA services on a success moment ------------ */
 
-  /** Name of the person whose lists include this todo entity (for {name}). */
-  private _ownerName(entity: string): string | undefined {
+  /** Name of the person a task belongs to (for {name}); rotation chores go by turn. */
+  private _ownerName(entity: string, item?: TodoItem): string | undefined {
     const persons = this._config?.persons ?? [];
+    if (item && this._rotationLists().includes(entity)) {
+      const a = this._rotationMap().get(`${entity}|${item.uid}`);
+      return a ? this._personName(persons[a.now], a.now) : undefined;
+    }
     for (let i = 0; i < persons.length; i++) {
-      if (listsOf(persons[i]).includes(entity)) return this._personName(persons[i], i);
+      if (this._ownLists(persons[i]).includes(entity)) return this._personName(persons[i], i);
     }
     return undefined;
   }
@@ -1016,6 +1145,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (!this._config) return;
 
     this._applyAppearance();
+    this._maintainRotation();
 
     // Follow active_person_entity: when its state changes (NFC tag, presence,
     // a button), focus that person. Manual taps stay until the entity changes.
@@ -1316,6 +1446,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const { entity, item } = owned;
     const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
     const editable = this._canToggle(entity);
+    const rotHint = completed ? undefined : this._rotationHint(owned);
     return html`
       <div
         class="tile ${completed ? "done" : flag} ${editable ? "" : "readonly"}"
@@ -1342,9 +1473,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           ${
             label
               ? html`<div class="tile-flag">${label}</div>`
-              : item.due
-                ? html`<div class="tile-due">${this._formatDue(item.due)}</div>`
-                : nothing
+              : rotHint
+                ? html`<div class="tile-due">${rotHint}</div>`
+                : item.due
+                  ? html`<div class="tile-due">${this._formatDue(item.due)}</div>`
+                  : nothing
           }
         </div>
       </div>

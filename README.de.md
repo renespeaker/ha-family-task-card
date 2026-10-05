@@ -4,8 +4,8 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.12.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, Kontext-Aufgaben, Belohnungs-Shop,
+> **Status: nutzbar (v0.13.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
 > **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
@@ -45,7 +45,7 @@ Quell-App ab. Kein separater Cloud-Account für Kinder nötig, alles läuft in H
   Punkten; Push öffnet die Bring!-App, Artikel-Abhaken synchron.
 - **Am Handy einrichten** – Aufgaben, Zuständige, Punkte & Wiederholung per UI.
 
-Details, Reihenfolge und Roadmap-Themen (Auto-Rotation „reihum", Einzel-Item-
+Details, Reihenfolge und Roadmap-Themen (Einzel-Item-
 Zuweisung, Geofence, Level/Avatare …) in [ROADMAP.de.md](ROADMAP.de.md).
 
 ## Zusammenspiel mit der Family Board Card
@@ -201,6 +201,11 @@ persons:
 | `scale`           | Zahl (%)           | Gesamte Kartengröße (Zoom über alles). Std. 100.        |
 | `font_scale`      | Zahl (%)           | Nur Schriftgröße. Std. 100.                             |
 | `avatar_scale`    | Zahl (%)           | Nur Avatare/Bilder und Karten-Icon. Std. 100.           |
+| `rotation`        | Bool               | Auto-Rotation: Ämtli aus `rotation_lists` wechseln reihum (siehe unten). |
+| `rotation_lists`  | Entität(en)        | Gemeinsame `todo.*`-Ämtli-Liste(n), die rotieren.       |
+| `rotation_period` | Text               | `week` (Std., ab Montag) oder `day`.                    |
+| `rotation_persons`| Liste              | Wer mitmacht (Personenname oder `person.*`); Std. alle. |
+| `rotation_reset`  | Bool               | Ämtli zu Beginn jeder Runde wieder öffnen (Std. an).    |
 
 ### Darstellung anpassen (Größe, Schrift, Bilder)
 
@@ -234,6 +239,44 @@ fürs Wandtablet: oben ein Avatar-Umschalter (wer ist dran?), darunter XL-Kachel
 mit Emoji, ein Punkte-/Ziel-Balken und ein kurzes Konfetti-Feedback beim Abhaken.
 Ideal als eigene Karte auf einem Kinder-Dashboard, während das volle Board für
 die Eltern bleibt.
+
+### Auto-Rotation (reihum)
+
+Kein Streit mehr, wer letzte Woche die Spülmaschine hatte: Mit **Auto-Rotation**
+wechseln Ämtli aus einer gemeinsamen Liste **reihum** zwischen den Personen –
+wöchentlich (ab Montag) oder täglich. Einschalten im visuellen Editor unter
+**Auto-Rotation (reihum)**; die Einstellungen erscheinen, sobald der Schalter an
+ist.
+
+- **Eine gemeinsame Ämtli-Liste**, z. B. eine lokale To-do-Liste `todo.aemtli`
+  mit „Müll rausbringen", „Spülmaschine ausräumen", „Tisch decken". Nimm eine
+  eigene Liste nur dafür und trag sie nicht zusätzlich bei einer Person ein.
+- **Faire Verteilung, aus dem Kalender berechnet** – jede Person bekommt ihren
+  Teil, in der nächsten Runde wandert jedes Ämtli eins weiter. Alle Geräte
+  (Handy, Wandtablet, Kiosk) zeigen dasselbe; gespeichert wird nichts.
+- Jedes Ämtli zeigt, **wer als Nächstes dran ist** („🔄 nächste Woche: Ben").
+- **Jede Runde wieder offen** – zu Beginn einer Runde öffnen sich abgehakte Ämtli
+  wieder. Die Karte hält dafür jedes Ämtli auf „fällig am letzten Tag der Runde";
+  so zählt auch Abhaken in einer anderen App (z. B. am Handy). Das braucht eine
+  Liste, die ein Fälligkeitsdatum speichern kann (die lokale To-do-Liste kann
+  das); sonst *Ämtli jede Runde wieder öffnen* ausschalten und per Automation
+  zurücksetzen.
+- **Keine Punkte für Ämtli** – sie starten jede Runde neu, und Punkte, die jeden
+  Montag wieder verschwinden, würden nur frustrieren. Punkte gibt es weiter für
+  die eigenen Aufgaben.
+
+```yaml
+type: custom:family-task-card
+rotation: true
+rotation_lists: todo.aemtli        # eine oder mehrere gemeinsame Listen
+rotation_period: week              # week (ab Montag) | day
+rotation_persons: [Lina, Ben]      # optional, Standard: alle Personen der Karte
+# rotation_reset: false            # Ämtli nicht automatisch wieder öffnen
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina }
+  - { name: Ben,  person: person.ben,  lists: todo.ben }
+  - { name: Mama, person: person.mama, lists: todo.mama }
+```
 
 ### Einkaufen mit Bring!
 

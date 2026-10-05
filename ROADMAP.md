@@ -90,7 +90,9 @@ The goal: a usable, coherent card with the core loop.
 
 - [ ] Assign a single item to a person (instead of "the whole shopping trip").
 - [ ] Location reminders (geofence) and auto-assignment to "whoever is out".
-- [ ] Fair auto-rotation of recurring chores ("taking turns").
+- [x] Fair auto-rotation of recurring chores ("taking turns") — `rotation`: switch
+      in the editor, weekly/daily rounds worked out from the calendar, chores reopen
+      each round, "next week: …" hint; chores earn no points (no history yet).
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
       statistics/history.
