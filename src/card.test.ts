@@ -357,3 +357,113 @@ describe("appearance", () => {
     expect(el.style.getPropertyValue("--ftc-fs")).toBe("0.5"); // 50 % floor
   });
 });
+
+describe("auto-rotation", () => {
+  // Monday 5 Oct 2026 starts a round; that week runs to Sunday 11 Oct.
+  const ROT = CREATE | UPDATE | 16; // 16 = SET_DUE_DATE_ON_ITEM
+  const kids = [{ name: "Lina" }, { name: "Ben" }];
+  const on = { persons: kids, rotation: true, rotation_lists: "todo.aemtli" };
+  const chores = (items: unknown[], features = ROT) => ({
+    lists: { "todo.aemtli": { items, features } },
+  });
+  const twoChores = [
+    task("c1", "Müll", { due: "2026-10-11" }),
+    task("c2", "Spülmaschine", { due: "2026-10-11" }),
+  ];
+  const columns = (root: ShadowRoot) =>
+    [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => (n.textContent ?? "").trim()),
+    );
+  const writes = (services: ServiceCall[]) =>
+    services.filter((s) => s.domain === "todo" && s.service === "update_item");
+
+  it("does nothing while the switch is off", async () => {
+    const { root, services } = await mount(
+      { ...on, rotation: false },
+      { ...chores(twoChores), now: "2026-10-05T10:00:00" },
+    );
+    expect(columns(root).flat()).toEqual([]);
+    expect(services).toEqual([]);
+  });
+
+  it("splits the chores and swaps them the next week", async () => {
+    const mon = await mount(on, { ...chores(twoChores), now: "2026-10-07T10:00:00" });
+    const thisWeek = columns(mon.root);
+    expect(thisWeek.map((c) => c.length)).toEqual([1, 1]);
+    const next = await mount(on, { ...chores(twoChores), now: "2026-10-12T10:00:00" });
+    expect(columns(next.root)).toEqual([thisWeek[1], thisWeek[0]]);
+  });
+
+  it("says who is next", async () => {
+    const { text } = await mount(on, { ...chores(twoChores), now: "2026-10-07T10:00:00" });
+    expect(text()).toContain("🔄 nächste Woche: Lina");
+    expect(text()).toContain("🔄 nächste Woche: Ben");
+  });
+
+  it("can rotate daily", async () => {
+    const daily = { ...on, rotation_period: "day" as const };
+    const mon = await mount(daily, { ...chores(twoChores), now: "2026-10-05T10:00:00" });
+    const tue = await mount(daily, { ...chores(twoChores), now: "2026-10-06T10:00:00" });
+    expect(columns(tue.root)).toEqual([columns(mon.root)[1], columns(mon.root)[0]]);
+    expect(tue.text()).toContain("🔄 morgen:");
+  });
+
+  it("only rotates among the persons taking part", async () => {
+    const { root } = await mount(
+      { ...on, persons: [...kids, { name: "Mama" }], rotation_persons: ["Lina", "Ben"] },
+      { ...chores(twoChores), now: "2026-10-07T10:00:00" },
+    );
+    const [lina, ben, mama] = columns(root);
+    expect([lina.length, ben.length, mama.length]).toEqual([1, 1, 0]);
+  });
+
+  it("reopens last week's chore and moves it into this week", async () => {
+    const { services } = await mount(on, {
+      ...chores([task("c1", "Müll", { status: "completed", due: "2026-10-04" })]),
+      now: "2026-10-05T10:00:00",
+    });
+    expect(writes(services)).toEqual([
+      {
+        domain: "todo",
+        service: "update_item",
+        data: {
+          entity_id: "todo.aemtli",
+          item: "c1",
+          status: "needs_action",
+          due_date: "2026-10-11",
+        },
+      },
+    ]);
+  });
+
+  it("keeps this week's done chore done and gives no points for it", async () => {
+    const { services, texts } = await mount(
+      { ...on, persons: [{ name: "Lina" }] },
+      {
+        ...chores([task("c1", "Müll", { status: "completed", due: "2026-10-11" })]),
+        now: "2026-10-07T10:00:00",
+      },
+    );
+    expect(writes(services)).toEqual([]);
+    expect(texts(".col-meta").join(" ")).toContain("⭐ 0");
+  });
+
+  it("leaves a list alone that cannot hold a due date", async () => {
+    const { services } = await mount(on, {
+      ...chores([task("c1", "Müll", { status: "completed" })], CREATE | UPDATE),
+      now: "2026-10-05T10:00:00",
+    });
+    expect(writes(services)).toEqual([]);
+  });
+
+  it("does not reopen anything when told not to", async () => {
+    const { services } = await mount(
+      { ...on, rotation_reset: false },
+      {
+        ...chores([task("c1", "Müll", { status: "completed", due: "2026-10-04" })]),
+        now: "2026-10-05T10:00:00",
+      },
+    );
+    expect(writes(services)).toEqual([]);
+  });
+});

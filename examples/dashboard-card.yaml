@@ -88,6 +88,15 @@ persons:
 # button). The value is matched to each person's name / person.* / display name.
 # active_person_entity: input_select.active_kid
 
+# --- Optional: auto-rotation (chores take turns) ---
+# Switch in the visual editor: "Auto-rotation (take turns)". Chores from a shared
+# list move to the next person every week (from Monday) or day, reopen each
+# round and show who's next. Use a list just for chores; chores earn no points.
+# rotation: true
+# rotation_lists: todo.chores
+# rotation_period: week           # week | day
+# rotation_persons: [Lina, Ben]   # optional, default everyone
+
 # --- Optional: kiosk mode (wall tablet) ---
 # A shared family station: an idle "who's there?" picker with big avatars; tap a
 # face to see that person's tasks; after auto_return seconds of inactivity it

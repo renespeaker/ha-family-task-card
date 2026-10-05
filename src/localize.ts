@@ -64,6 +64,10 @@ const STRINGS: Record<string, Entry> = {
   theme_dark: { de: "Dunkel", en: "Dark" },
   theme_light: { de: "Hell", en: "Light" },
   who_is_it: { de: "Wer ist dran?", en: "Who's there?" },
+  rot_next_week: { de: "nächste Woche", en: "next week" },
+  rot_next_day: { de: "morgen", en: "tomorrow" },
+  rot_week: { de: "Wöchentlich (ab Montag)", en: "Weekly (from Monday)" },
+  rot_day: { de: "Täglich", en: "Daily" },
   err_no_persons: {
     de: '"persons" muss eine Liste sein (mind. eine Person).',
     en: '"persons" must be a list with at least one person.',

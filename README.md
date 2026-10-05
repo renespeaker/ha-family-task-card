@@ -4,8 +4,8 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.12.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, context tasks, reward shop, celebrate actions, levels/badges +
+> **Status: usable (v0.13.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
 > (size/text/pictures)**, **add-task** and sort/hide options. The card reads
@@ -45,7 +45,7 @@ account for kids, everything stays in HA.
   points; a push opens the Bring! app, checked-off items stay in sync.
 - **Set up from a phone** – tasks, owners, points and repetition through the UI.
 
-Details, ordering and roadmap topics (round-robin rotation, per-item assignment,
+Details, ordering and roadmap topics (per-item assignment,
 geofencing, levels/avatars …) live in [ROADMAP.md](ROADMAP.md).
 
 ## How it works with the Family Board Card
@@ -194,6 +194,11 @@ persons:
 | `scale` | number (%) | overall card size (zoom over everything). default 100. |
 | `font_scale` | number (%) | text size only. default 100. |
 | `avatar_scale` | number (%) | avatars/pictures and the card icon only. default 100. |
+| `rotation` | bool | auto-rotation: chores from `rotation_lists` take turns between persons (see below). |
+| `rotation_lists` | entity/entities | shared `todo.*` chore list(s) that rotate. |
+| `rotation_period` | text | `week` (default, from Monday) or `day`. |
+| `rotation_persons` | list | who takes part (person name or `person.*`); default everyone. |
+| `rotation_reset` | bool | reopen chores at the start of each round (default on). |
 
 ### Kid mode
 
@@ -224,6 +229,42 @@ font_scale: 120 # but text at 120 % (easy to read)
 avatar_scale: 140 # big avatars
 persons:
   - { name: Lina, person: person.lina, lists: todo.lina_chores }
+```
+
+### Auto-rotation (take turns)
+
+No more arguing about who did the dishwasher last week: with **auto-rotation**
+on, chores from a shared list **take turns** between persons — weekly (from
+Monday) or daily. Switch it on in the visual editor under
+**Auto-rotation (take turns)**; the settings appear once the switch is on.
+
+- **One shared chore list**, e.g. a local to-do list `todo.chores` with "Take out
+  the bins", "Empty the dishwasher", "Set the table". Use a list just for this and
+  don't also add it to a person.
+- **Fair split, worked out from the calendar** — everyone gets their share, and
+  next round each chore moves on to the next person. Every device (phone, wall
+  tablet, kiosk) shows the same thing; nothing is stored.
+- Each chore shows **who's next** ("🔄 next week: Ben").
+- **Reopens every round** — at the start of a round, checked-off chores open
+  again. The card keeps each chore due on the last day of the round, so a chore
+  checked off in any app (e.g. on the phone) also counts. This needs a list that
+  can hold a due date (the local to-do list can); otherwise turn
+  *Reopen chores every round* off and reopen them with an automation.
+- **No points for chores** — they start over every round, and points that vanish
+  every Monday would only frustrate. Points keep coming from the persons' own
+  tasks.
+
+```yaml
+type: custom:family-task-card
+rotation: true
+rotation_lists: todo.chores        # one or more shared lists
+rotation_period: week              # week (from Monday) | day
+rotation_persons: [Lina, Ben]      # optional, default: everyone on the card
+# rotation_reset: false            # don't reopen chores automatically
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina }
+  - { name: Ben,  person: person.ben,  lists: todo.ben }
+  - { name: Mom,  person: person.mom,  lists: todo.mom }
 ```
 
 ### Shopping with Bring!
