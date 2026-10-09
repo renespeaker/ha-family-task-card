@@ -4,8 +4,8 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.13.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, context tasks, reward shop, celebrate actions, levels/badges +
+> **Status: usable (v0.14.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
 > (size/text/pictures)**, **add-task** and sort/hide options. The card reads
@@ -199,6 +199,7 @@ persons:
 | `rotation_period` | text | `week` (default, from Monday) or `day`. |
 | `rotation_persons` | list | who takes part (person name or `person.*`); default everyone. |
 | `rotation_reset` | bool | reopen chores at the start of each round (default on). |
+| `points_backend` | bool | book points in the optional [Family Tasks](https://github.com/renespeaker/ha-family-tasks) integration (see below). |
 
 ### Kid mode
 
@@ -250,9 +251,10 @@ Monday) or daily. Switch it on in the visual editor under
   checked off in any app (e.g. on the phone) also counts. This needs a list that
   can hold a due date (the local to-do list can); otherwise turn
   *Reopen chores every round* off and reopen them with an automation.
-- **No points for chores** — they start over every round, and points that vanish
-  every Monday would only frustrate. Points keep coming from the persons' own
-  tasks.
+- **Points for chores only with the points ledger** — chores start over every
+  round, so live points would vanish every Monday. With the
+  [points ledger](#points-ledger-optional-family-tasks-integration) chores earn
+  points once per round.
 
 ```yaml
 type: custom:family-task-card
@@ -300,7 +302,8 @@ the card) — a ready template is in
 
 > Note: there is no public deep link to a *specific* Bring! list; the button
 > opens Bring! in general. Shopping points are currently estimated live from the
-> list state — a real points history is on the roadmap with an optional backend.
+> list state — or booked for good with the
+> [points ledger](#points-ledger-optional-family-tasks-integration).
 
 ### Context tasks
 
@@ -378,11 +381,43 @@ Usage: the 🎁 button in the person column (or in kid mode) opens the shop.
 "Redeem" is only active when the balance is enough; then the card asks for the
 **parent PIN** and, on success, raises the `input_number`.
 
-> Without `points_entity` the shop only displays the rewards (redeeming
-> disabled). The **asynchronous approval flow** ("kid requests, parents confirm
-> later via push, optionally with a photo") is on the roadmap with an optional
-> backend. Earned points are computed live from the list state — see the shopping
-> note.
+> Without `points_entity` (or the
+> [points ledger](#points-ledger-optional-family-tasks-integration)) the shop only
+> displays the rewards (redeeming disabled). The **asynchronous approval flow**
+> ("kid requests, parents confirm later via push, optionally with a photo") is on
+> the roadmap for the Family Tasks integration.
+
+### Points ledger (optional Family Tasks integration)
+
+By default the card works out points live from checked-off tasks — nothing to
+install, but points disappear when a list is cleared, and chores that reopen
+every round can't earn any. For points that **stay**, install the separate
+integration [**Family Tasks**](https://github.com/renespeaker/ha-family-tasks)
+and switch on **"Use points ledger (Family Tasks)"** in the visual editor
+(`points_backend: true`).
+
+- **Checked-off tasks are booked** in the ledger — also ones checked off in
+  another app. Every task is booked once, even if phone and wall tablet both
+  report it.
+- **Points stay** when you clear completed tasks; levels and the leaderboard use
+  the booked points.
+- **Chores earn points** — once per round, for whoever had the chore.
+- **Unchecking a task in the card** takes its points back.
+- **Rewards are paid from the ledger** (`family_tasks.redeem`) — no
+  `input_number` helper needed; it refuses when there are too few points. The
+  parent PIN still applies.
+- A **shopping trip** counts when it is completed in the card.
+- Each person gets a sensor like `sensor.lina_points` for history graphs and
+  automations. People are matched by their `person` entity, else by `name`.
+
+Without the integration installed, the switch changes nothing.
+
+```yaml
+type: custom:family-task-card
+points_backend: true
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina }
+```
 
 ### Celebrate actions (make success tangible)
 

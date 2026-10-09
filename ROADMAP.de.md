@@ -96,8 +96,13 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [ ] Standort-Erinnerung (Geofence) & Auto-Zuweisung „wer unterwegs ist".
 - [x] Faire Auto-Rotation wiederkehrender Ämtli („reihum") – `rotation`: Schalter
       im Editor, wöchentliche/tägliche Runden aus dem Kalender, Ämtli öffnen sich
-      jede Runde neu, Hinweis „nächste Woche: …"; Ämtli geben keine Punkte (noch
-      keine Historie).
+      jede Runde neu, Hinweis „nächste Woche: …"; mit Punktekonto geben Ämtli Punkte.
+- [x] **Punktekonto** (optionale Integration
+      [Family Tasks](https://github.com/renespeaker/ha-family-tasks), Phase 1) –
+      `points_backend`: Punkte dauerhaft gebucht, einmal pro Aufgabe (bei Ämtli
+      einmal pro Runde), Haken entfernen nimmt sie zurück, Belohnungen vom Konto
+      bezahlt, ein Punkte-Sensor pro Person. Als Nächstes: Belohnungs-Freigabe per
+      Push, Statistik.
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
       Statistik/Verlauf.

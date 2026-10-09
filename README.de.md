@@ -4,8 +4,8 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.13.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, Kontext-Aufgaben, Belohnungs-Shop,
+> **Status: nutzbar (v0.14.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
 > **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
@@ -206,6 +206,7 @@ persons:
 | `rotation_period` | Text               | `week` (Std., ab Montag) oder `day`.                    |
 | `rotation_persons`| Liste              | Wer mitmacht (Personenname oder `person.*`); Std. alle. |
 | `rotation_reset`  | Bool               | Ämtli zu Beginn jeder Runde wieder öffnen (Std. an).    |
+| `points_backend`  | Bool               | Punkte in der optionalen Integration [Family Tasks](https://github.com/renespeaker/ha-family-tasks) buchen (siehe unten). |
 
 ### Darstellung anpassen (Größe, Schrift, Bilder)
 
@@ -261,9 +262,10 @@ ist.
   Liste, die ein Fälligkeitsdatum speichern kann (die lokale To-do-Liste kann
   das); sonst *Ämtli jede Runde wieder öffnen* ausschalten und per Automation
   zurücksetzen.
-- **Keine Punkte für Ämtli** – sie starten jede Runde neu, und Punkte, die jeden
-  Montag wieder verschwinden, würden nur frustrieren. Punkte gibt es weiter für
-  die eigenen Aufgaben.
+- **Punkte für Ämtli nur mit Punktekonto** – Ämtli starten jede Runde neu, live
+  berechnete Punkte wären also jeden Montag wieder weg. Mit dem
+  [Punktekonto](#punktekonto-optionale-integration-family-tasks) geben Ämtli
+  einmal pro Runde Punkte.
 
 ```yaml
 type: custom:family-task-card
@@ -312,8 +314,8 @@ Assistant-Automation (nicht die Karte) – eine fertige Vorlage liegt unter
 
 > Hinweis: Einen offiziellen Deep-Link auf eine *bestimmte* Bring!-Liste gibt es
 > öffentlich nicht; der Button öffnet Bring! allgemein. Die Punkte für Einkäufe
-> werden aktuell live aus dem Listenzustand geschätzt – eine echte Punkte-
-> Historie kommt laut Roadmap mit einem optionalen Backend.
+> werden live aus dem Listenzustand geschätzt – oder dauerhaft gebucht mit dem
+> [Punktekonto](#punktekonto-optionale-integration-family-tasks).
 
 ### Kontext-Aufgaben
 
@@ -392,11 +394,45 @@ Bedienung: 🎁-Button in der Personen-Spalte (bzw. im Kinder-Modus) öffnet den
 Shop. „Einlösen" ist nur aktiv, wenn das Guthaben reicht; danach fragt die Karte
 die **Eltern-PIN** ab und bucht bei Erfolg vom `input_number` ab.
 
-> Ohne `points_entity` zeigt der Shop die Belohnungen nur an (Einlösen
-> deaktiviert). Der **asynchrone Freigabe-Ablauf** („Kind stellt Antrag, Eltern
-> bestätigen später per Push, evtl. mit Foto") kommt laut Roadmap mit einem
-> optionalen Backend. Die verdienten Punkte werden live aus dem Listenzustand
-> berechnet – siehe Hinweis beim Einkauf.
+> Ohne `points_entity` (oder das
+> [Punktekonto](#punktekonto-optionale-integration-family-tasks)) zeigt der Shop
+> die Belohnungen nur an (Einlösen deaktiviert). Der **asynchrone Freigabe-Ablauf**
+> („Kind stellt Antrag, Eltern bestätigen später per Push, evtl. mit Foto") ist
+> für die Integration Family Tasks geplant.
+
+### Punktekonto (optionale Integration Family Tasks)
+
+Standardmäßig berechnet die Karte Punkte live aus den abgehakten Aufgaben –
+nichts zu installieren, aber Punkte verschwinden, wenn eine Liste geleert wird,
+und Ämtli, die jede Runde wieder öffnen, können keine bekommen. Für Punkte, die
+**bleiben**, installiere die eigene Integration
+[**Family Tasks**](https://github.com/renespeaker/ha-family-tasks) und schalte im
+visuellen Editor **„Punktekonto nutzen (Family Tasks)"** ein
+(`points_backend: true`).
+
+- **Abgehakte Aufgaben werden gebucht** – auch solche, die in einer anderen App
+  abgehakt wurden. Jede Aufgabe wird einmal gebucht, auch wenn Handy und
+  Wandtablet sie beide melden.
+- **Punkte bleiben**, wenn du erledigte Aufgaben löschst; Level und Rangliste
+  nutzen die gebuchten Punkte.
+- **Ämtli geben Punkte** – einmal pro Runde, für die Person, die dran war.
+- **Haken in der Karte entfernen** nimmt die Punkte zurück.
+- **Belohnungen werden vom Konto bezahlt** (`family_tasks.redeem`) – kein
+  `input_number`-Helfer nötig; bei zu wenig Punkten wird abgelehnt. Die
+  Eltern-PIN gilt weiterhin.
+- Ein **Einkauf** zählt, wenn er in der Karte abgeschlossen wird.
+- Jede Person bekommt einen Sensor wie `sensor.lina_punkte` für Verlauf und
+  Automationen. Personen werden über ihre `person`-Entität erkannt, sonst über
+  den `name`.
+
+Ohne installierte Integration ändert der Schalter nichts.
+
+```yaml
+type: custom:family-task-card
+points_backend: true
+persons:
+  - { name: Lina, person: person.lina, lists: todo.lina }
+```
 
 ### Feier-Aktionen (Erfolg fühlbar machen)
 

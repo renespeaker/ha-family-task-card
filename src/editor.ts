@@ -52,6 +52,10 @@ const LABELS: Record<string, Bi> = {
   shopping_points: { de: "Punkte pro Einkauf", en: "Points per shopping trip" },
   bring_deeplink: { de: "Bring!-Link", en: "Bring! link" },
   parent_pin: { de: "Eltern-PIN (Belohnungen)", en: "Parent PIN (rewards)" },
+  points_backend: {
+    de: "Punktekonto nutzen (Family Tasks)",
+    en: "Use points ledger (Family Tasks)",
+  },
   level_size: { de: "Punkte pro Level", en: "Points per level" },
   show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
   rotation: { de: "Auto-Rotation (reihum)", en: "Auto-rotation (take turns)" },
@@ -120,6 +124,10 @@ const HELPERS: Record<string, Bi> = {
     de: "Ziel des 'In Bring! öffnen'-Buttons (Standard web.getbring.com).",
     en: "Target of the 'Open in Bring!' button (default web.getbring.com).",
   },
+  points_backend: {
+    de: "Punkte dauerhaft im Punktekonto der Integration „Family Tasks“ buchen: Sie bleiben, wenn Listen geleert werden, Ämtli geben Punkte, Einlösen läuft übers Konto. Braucht die installierte Integration, sonst bleibt alles wie bisher.",
+    en: "Book points permanently in the ledger of the “Family Tasks” integration: they stay when lists are cleared, chores earn points, rewards are paid from it. Needs the integration installed, otherwise nothing changes.",
+  },
   parent_pin: {
     de: "PIN, die zum Einlösen einer Belohnung abgefragt wird (Eltern-Freigabe). Belohnungen selbst per YAML (rewards).",
     en: "PIN asked when redeeming a reward (parent approval). Rewards themselves via YAML (rewards).",
@@ -149,8 +157,8 @@ const HELPERS: Record<string, Bi> = {
     en: "Nothing selected = every person on the card takes part.",
   },
   rotation_reset: {
-    de: "Abgehakte Ämtli zu Beginn der nächsten Runde wieder öffnen (die Karte setzt dafür die Fälligkeit auf das Rundenende). Ämtli geben keine Punkte, weil sie jede Runde neu starten.",
-    en: "Reopen checked-off chores when the next round starts (the card sets their due date to the end of the round). Chores earn no points, as they start over every round.",
+    de: "Abgehakte Ämtli zu Beginn der nächsten Runde wieder öffnen (die Karte setzt dafür die Fälligkeit auf das Rundenende). Ämtli geben nur mit Punktekonto (Family Tasks) Punkte, weil sie jede Runde neu starten.",
+    en: "Reopen checked-off chores when the next round starts (the card sets their due date to the end of the round). Chores only earn points with the points ledger (Family Tasks), as they start over every round.",
   },
   scale: {
     de: "Gesamte Karte vergrößern/verkleinern (Zoom über alles: Layout, Schrift, Bilder). 100 % = Standard.",
@@ -294,6 +302,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       },
       { name: "bring_deeplink", selector: { text: {} } },
       { name: "parent_pin", selector: { text: {} } },
+      { name: "points_backend", selector: { boolean: {} } },
       { name: "level_size", selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } } },
       { name: "show_leaderboard", selector: { boolean: {} } },
       {
@@ -363,6 +372,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.shopping_points) delete next.shopping_points;
     if (!next.bring_deeplink) delete next.bring_deeplink;
     if (!next.parent_pin) delete next.parent_pin;
+    if (!next.points_backend) delete next.points_backend;
     if (!next.show_leaderboard) delete next.show_leaderboard;
     if (!next.hide_empty) delete next.hide_empty;
     if (!next.due_soon) delete next.due_soon;
