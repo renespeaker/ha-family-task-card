@@ -4,8 +4,8 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.14.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto**, Kontext-Aufgaben, Belohnungs-Shop,
+> **Status: nutzbar (v0.15.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
 > **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
@@ -207,6 +207,7 @@ persons:
 | `rotation_persons`| Liste              | Wer mitmacht (Personenname oder `person.*`); Std. alle. |
 | `rotation_reset`  | Bool               | Ämtli zu Beginn jeder Runde wieder öffnen (Std. an).    |
 | `points_backend`  | Bool               | Punkte in der optionalen Integration [Family Tasks](https://github.com/renespeaker/ha-family-tasks) buchen (siehe unten). |
+| `reward_approval` | Bool               | Mit `points_backend`: Belohnungen werden angefragt und per Push freigegeben (siehe unten). |
 
 ### Darstellung anpassen (Größe, Schrift, Bilder)
 
@@ -397,8 +398,9 @@ die **Eltern-PIN** ab und bucht bei Erfolg vom `input_number` ab.
 > Ohne `points_entity` (oder das
 > [Punktekonto](#punktekonto-optionale-integration-family-tasks)) zeigt der Shop
 > die Belohnungen nur an (Einlösen deaktiviert). Der **asynchrone Freigabe-Ablauf**
-> („Kind stellt Antrag, Eltern bestätigen später per Push, evtl. mit Foto") ist
-> für die Integration Family Tasks geplant.
+> („Kind stellt Antrag, Eltern bestätigen später per Push") ist
+> mit dem [Punktekonto](#punktekonto-optionale-integration-family-tasks)
+> verfügbar (`reward_approval`); Foto-Beweis ist geplant.
 
 ### Punktekonto (optionale Integration Family Tasks)
 
@@ -427,9 +429,29 @@ visuellen Editor **„Punktekonto nutzen (Family Tasks)"** ein
 
 Ohne installierte Integration ändert der Schalter nichts.
 
+#### Belohnungs-Freigabe per Push
+
+Mit Punktekonto kannst du **„Belohnungs-Freigabe per Push"** einschalten
+(`reward_approval: true`). Dann steht im Shop **Anfragen** statt *Einlösen*:
+
+- Die Punkte werden sofort **reserviert** – niemand kann mehr anfragen, als
+  übrig ist – und die Eltern bekommen eine **Push-Nachricht mit „Freigeben" /
+  „Ablehnen"** aufs Handy.
+- Bis dahin steht bei der Belohnung **„⏳ wartet auf Freigabe"**, und das
+  Guthaben zeigt nur die noch freien Punkte.
+- **Freigeben** gibt die Punkte aus, **Ablehnen** gibt sie wieder frei; danach
+  verschwindet die Push auch von den Handys der anderen Eltern.
+- Mit gesetzter **Eltern-PIN** können Eltern auch direkt in der Karte
+  entscheiden (✓ / ✕, mit PIN). Ohne PIN gibt es diese Knöpfe nicht – Kinder
+  können ihre Anfragen also nicht selbst freigeben.
+
+Wer die Push bekommt, stellst du in der Integration ein: Einstellungen → Geräte &
+Dienste → Family Tasks → **Konfigurieren**.
+
 ```yaml
 type: custom:family-task-card
 points_backend: true
+reward_approval: true               # optional: Belohnungen per Push freigeben
 persons:
   - { name: Lina, person: person.lina, lists: todo.lina }
 ```

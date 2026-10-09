@@ -130,7 +130,28 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rotation_persons?: string[]; // who takes part (person name or person.*). default everyone
   rotation_reset?: boolean; // reopen chores at the start of each round. default true
   points_backend?: boolean; // book points in the Family Tasks integration (when installed). default off
+  reward_approval?: boolean; // with points_backend: rewards are requested, parents approve by push. default off
 }
+
+/** A person's points as the ledger sensor reports them. */
+interface LedgerView {
+  earned: number;
+  redeemed: number;
+  reserved: number; // held by open reward requests
+  pending: PendingRequest[];
+}
+
+/** A reward request waiting for a parent (from the ledger sensor). */
+interface PendingRequest {
+  id: string;
+  reward: string;
+  points: number;
+}
+
+/** What the parent PIN confirms: a redemption, or a decision on a request. */
+type PinAction =
+  | { personIdx: number; reward: Reward }
+  | { personIdx: number; requestId: string; approve: boolean };
 
 interface LevelInfo {
   level: number; // 1-based level
@@ -203,6 +224,7 @@ interface PersonView {
   spent: number; // points already redeemed (from points_entity), 0 if none
   balance: number; // earned - spent, the spendable total
   hasWallet: boolean; // true when a points_entity is configured for this person
+  requests?: PendingRequest[]; // open reward requests (points ledger only)
 }
 
 function personColor(p: PersonConfig, idx: number): string {
@@ -344,7 +366,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** Reward shop: which person's shop is open (board), PIN entry + feedback. */
   @state() private _shopPerson: number | null = null;
   @state() private _kidShopOpen = false;
-  @state() private _pending: { personIdx: number; reward: Reward } | null = null;
+  @state() private _pending: PinAction | null = null;
   @state() private _pin = "";
   @state() private _pinError = false;
 
@@ -653,7 +675,15 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       const l = this._ledger(this._personKey(p, idx));
       const booked = l?.earned ?? 0;
       const spent = l?.redeemed ?? 0;
-      return { ...counts, earned: booked, spent, balance: booked - spent, hasWallet: true };
+      const reserved = l?.reserved ?? 0;
+      return {
+        ...counts,
+        earned: booked,
+        spent,
+        balance: booked - spent - reserved, // what is still spendable
+        hasWallet: true,
+        requests: l?.pending ?? [],
+      };
     }
     const hasWallet = !!p.points_entity;
     const spent = hasWallet ? this._spent(p) : 0;
@@ -672,21 +702,23 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return p.person || p.name || `person_${idx + 1}`;
   }
 
-  private _ledgerCache?: {
-    states: unknown;
-    map: Map<string, { earned: number; redeemed: number }>;
-  };
+  private _ledgerCache?: { states: unknown; map: Map<string, LedgerView> };
 
-  /** Earned/redeemed points of a person, read from their Family Tasks sensor. */
-  private _ledger(key: string): { earned: number; redeemed: number } | undefined {
+  /** Points and open requests of a person, read from their Family Tasks sensor. */
+  private _ledger(key: string): LedgerView | undefined {
     const states = this.hass?.states ?? {};
     if (this._ledgerCache?.states !== states) {
-      const map = new Map<string, { earned: number; redeemed: number }>();
+      const map = new Map<string, LedgerView>();
       for (const st of Object.values(states)) {
         const a = st.attributes ?? {};
         if (!st.entity_id?.startsWith("sensor.") || typeof a.person !== "string") continue;
         if (typeof a.earned !== "number") continue;
-        map.set(a.person, { earned: a.earned, redeemed: Number(a.redeemed) || 0 });
+        map.set(a.person, {
+          earned: a.earned,
+          redeemed: Number(a.redeemed) || 0,
+          reserved: Number(a.reserved) || 0,
+          pending: Array.isArray(a.pending) ? (a.pending as PendingRequest[]) : [],
+        });
       }
       this._ledgerCache = { states, map };
     }
@@ -844,8 +876,56 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return this._config?.rewards ?? [];
   }
 
+  /** Rewards are requested and approved by push (needs the points ledger). */
+  private _approvalOn(): boolean {
+    return (
+      this._backendOn() &&
+      !!this._config?.reward_approval &&
+      !!this.hass?.services?.family_tasks?.request_reward
+    );
+  }
+
+  private _hasPin(): boolean {
+    const pin = this._config?.parent_pin;
+    return pin !== undefined && pin !== null && pin !== "";
+  }
+
+  /** Ask for a reward: points are reserved, the parents decide by push. */
+  private async _requestReward(personIdx: number, reward: Reward): Promise<void> {
+    const p = this._config?.persons[personIdx];
+    if (!p || !this.hass) return;
+    this._celebrate();
+    try {
+      await this.hass.callService("family_tasks", "request_reward", {
+        person: this._personKey(p, personIdx),
+        points: reward.cost,
+        reward: reward.name,
+      });
+    } catch (err) {
+      this._shopPerson = personIdx; // e.g. too few points left
+    }
+  }
+
+  /** A parent decides a request in the card (only offered with a parent PIN). */
+  private _startDecide(personIdx: number, requestId: string, approve: boolean): void {
+    this._pending = { personIdx, requestId, approve };
+    this._pin = "";
+    this._pinError = false;
+  }
+
+  private async _decide(requestId: string, approve: boolean): Promise<void> {
+    if (!this.hass) return;
+    await this.hass.callService("family_tasks", approve ? "approve" : "deny", {
+      request_id: requestId,
+    });
+  }
+
   /** Start redeeming: ask for the parent PIN, or redeem directly if none set. */
   private _startRedeem(personIdx: number, reward: Reward): void {
+    if (this._approvalOn()) {
+      this._requestReward(personIdx, reward);
+      return;
+    }
     const pin = this._config?.parent_pin;
     if (pin === undefined || pin === null || pin === "") {
       this._doRedeem(personIdx, reward);
@@ -859,8 +939,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private _confirmRedeem(): void {
     if (!this._pending) return;
     if (this._pin === String(this._config?.parent_pin ?? "")) {
-      const { personIdx, reward } = this._pending;
-      this._doRedeem(personIdx, reward);
+      const action = this._pending;
+      if ("requestId" in action) {
+        this._cancelRedeem();
+        this._decide(action.requestId, action.approve);
+      } else {
+        this._doRedeem(action.personIdx, action.reward);
+      }
     } else {
       this._pinError = true;
     }
@@ -1146,7 +1231,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         }
         ${
           hasShop && this._kidShopOpen
-            ? this._shopPanel(idx, view.balance, view.hasWallet)
+            ? this._shopPanel(idx, view.balance, view.hasWallet, view.requests)
             : html`<div class="kid-tasks">
                 ${
                   allDone
@@ -1456,14 +1541,20 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
               </div>`
             : nothing
         }
-        ${shopOpen ? this._shopPanel(idx, view.balance, view.hasWallet) : nothing}
+        ${shopOpen ? this._shopPanel(idx, view.balance, view.hasWallet, view.requests) : nothing}
       </div>
     `;
   }
 
-  private _shopPanel(personIdx: number, balance: number, hasWallet: boolean) {
+  private _shopPanel(
+    personIdx: number,
+    balance: number,
+    hasWallet: boolean,
+    requests: PendingRequest[] = [],
+  ) {
     const rewards = this._rewards();
     const pending = this._pending?.personIdx === personIdx ? this._pending : null;
+    const approval = this._approvalOn();
     return html`
       <div class="shop">
         <div class="shop-head">
@@ -1492,11 +1583,40 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                 ?disabled=${!affordable}
                 @click=${() => this._startRedeem(personIdx, r)}
               >
-                ${this._t("redeem")}
+                ${this._t(approval ? "request" : "redeem")}
               </button>
             </div>
           `;
         })}
+        ${requests.map(
+          (q) => html`
+            <div class="reward waiting">
+              <span class="reward-emoji">⏳</span>
+              <span class="reward-name"
+                >${q.reward}<span class="reward-wait">${this._t("waiting")}</span></span
+              >
+              <span class="reward-cost">⭐ ${q.points}</span>
+              ${
+                this._hasPin()
+                  ? html`<button
+                        class="reward-btn approve"
+                        title=${this._t("approve")}
+                        @click=${() => this._startDecide(personIdx, q.id, true)}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        class="reward-btn deny"
+                        title=${this._t("deny")}
+                        @click=${() => this._startDecide(personIdx, q.id, false)}
+                      >
+                        ✕
+                      </button>`
+                  : nothing
+              }
+            </div>
+          `,
+        )}
         ${pending ? this._pinRow() : nothing}
       </div>
     `;
@@ -2261,6 +2381,23 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     }
     .reward.locked {
       opacity: 0.55;
+    }
+    /* A requested reward waiting for a parent (reward approval). */
+    .reward.waiting {
+      background: color-mix(in srgb, var(--pc) 10%, transparent);
+      border-radius: 10px;
+    }
+    .reward-wait {
+      display: block;
+      font-size: 0.8em;
+      font-weight: 400;
+      color: var(--secondary-text-color);
+    }
+    .reward-btn.approve,
+    .reward-btn.deny {
+      min-width: 0;
+      padding-left: 10px;
+      padding-right: 10px;
     }
     .reward-emoji {
       font-size: 20px;

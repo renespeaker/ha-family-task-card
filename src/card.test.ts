@@ -581,3 +581,119 @@ describe("points ledger (Family Tasks integration)", () => {
     expect(["Lina", "Ben"]).toContain(awards[0].person);
   });
 });
+
+describe("reward approval by push", () => {
+  const FT = {
+    family_tasks: { award: {}, revoke: {}, redeem: {}, request_reward: {}, approve: {}, deny: {} },
+  };
+  const lina = { name: "Lina", person: "person.lina", lists: "todo.lina" };
+  const ledger = (pending: unknown[] = [], reserved = 0) => ({
+    "sensor.lina_points": {
+      entity_id: "sensor.lina_points",
+      state: String(50 - reserved),
+      last_changed: "x",
+      attributes: { person: "person.lina", earned: 50, redeemed: 0, reserved, pending },
+    },
+  });
+  const base = {
+    persons: [lina],
+    points_backend: true,
+    reward_approval: true,
+    rewards: [{ name: "Eis", cost: 20, emoji: "🍦" }],
+  };
+  const opts = (pending: unknown[] = [], reserved = 0) => ({
+    lists: { "todo.lina": { items: [] } },
+    services: FT,
+    states: ledger(pending, reserved),
+  });
+  const calls = (services: ServiceCall[], name: string) =>
+    services.filter((s) => s.domain === "family_tasks" && s.service === name).map((s) => s.data);
+  const openShop = async (root: ShadowRoot, settle: () => Promise<void>) => {
+    (root.querySelector(".shop-toggle") as HTMLElement).click();
+    await settle();
+  };
+
+  it("requests the reward instead of redeeming it, without a PIN prompt", async () => {
+    const { services, root, settle, text } = await mount({ ...base, parent_pin: "1234" }, opts());
+    await openShop(root, settle);
+    expect(text()).toContain("Anfragen");
+    (root.querySelector(".reward-btn") as HTMLElement).click();
+    await settle();
+    expect(calls(services, "request_reward")).toEqual([
+      { person: "person.lina", points: 20, reward: "Eis" },
+    ]);
+    expect(calls(services, "redeem")).toEqual([]);
+    expect(root.querySelector(".pin")).toBeNull();
+  });
+
+  it("shows waiting requests and only the points still free", async () => {
+    const { root, settle, text } = await mount(
+      base,
+      opts([{ id: "r1", reward: "Eis", points: 20 }], 20),
+    );
+    await openShop(root, settle);
+    expect(text()).toContain("wartet auf Freigabe");
+    expect(root.querySelector(".shop-balance")!.textContent).toContain("30");
+    // without a parent PIN nobody can decide in the card
+    expect(root.querySelector(".reward-btn.approve")).toBeNull();
+  });
+
+  it("lets a parent decide in the card with the PIN", async () => {
+    const { services, root, settle } = await mount(
+      { ...base, parent_pin: "1234" },
+      opts([{ id: "r1", reward: "Eis", points: 20 }], 20),
+    );
+    await openShop(root, settle);
+    (root.querySelector(".reward-btn.approve") as HTMLElement).click();
+    await settle();
+    const pin = root.querySelector(".pin-input") as HTMLInputElement;
+    pin.value = "0000";
+    pin.dispatchEvent(new Event("input"));
+    (root.querySelector(".pin-ok") as HTMLElement).click();
+    await settle();
+    expect(calls(services, "approve")).toEqual([]); // wrong PIN
+    pin.value = "1234";
+    pin.dispatchEvent(new Event("input"));
+    (root.querySelector(".pin-ok") as HTMLElement).click();
+    await settle();
+    expect(calls(services, "approve")).toEqual([{ request_id: "r1" }]);
+  });
+
+  it("can deny with the PIN", async () => {
+    const { services, root, settle } = await mount(
+      { ...base, parent_pin: "1234" },
+      opts([{ id: "r1", reward: "Eis", points: 20 }], 20),
+    );
+    await openShop(root, settle);
+    (root.querySelector(".reward-btn.deny") as HTMLElement).click();
+    await settle();
+    const pin = root.querySelector(".pin-input") as HTMLInputElement;
+    pin.value = "1234";
+    pin.dispatchEvent(new Event("input"));
+    (root.querySelector(".pin-ok") as HTMLElement).click();
+    await settle();
+    expect(calls(services, "deny")).toEqual([{ request_id: "r1" }]);
+  });
+
+  it("redeems as before while the points ledger is off", async () => {
+    const { services, root, settle } = await mount(
+      {
+        ...base,
+        points_backend: false,
+        persons: [{ ...lina, points_entity: "input_number.lina" }],
+      },
+      {
+        lists: { "todo.lina": { items: [done("a1", "x"), done("a2", "y")] } },
+        services: FT,
+        states: {
+          "input_number.lina": { entity_id: "input_number.lina", state: "0", attributes: {} },
+        },
+      },
+    );
+    await openShop(root, settle);
+    (root.querySelector(".reward-btn") as HTMLElement).click();
+    await settle();
+    expect(calls(services, "request_reward")).toEqual([]);
+    expect(services.some((s) => s.domain === "input_number")).toBe(true);
+  });
+});
