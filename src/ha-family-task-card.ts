@@ -26,7 +26,8 @@ import { assignChores, roundBounds, roundFix, roundIndex, type RotationPeriod } 
  * visual editor also exposes appearance sliders — `scale` (whole card),
  * `font_scale` (text) and `avatar_scale` (avatars/pictures), each in percent.
  * With `rotation` switched on, chores from shared lists take turns between the
- * persons, round by round (see rotation.ts).
+ * persons, round by round (see rotation.ts). With `points_backend` on and the
+ * optional Family Tasks integration installed, points are booked in its ledger.
  */
 
 const CARD_NAME = "Family Task Card";
@@ -128,6 +129,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rotation_period?: RotationPeriod; // how often chores move on. default "week" (Monday)
   rotation_persons?: string[]; // who takes part (person name or person.*). default everyone
   rotation_reset?: boolean; // reopen chores at the start of each round. default true
+  points_backend?: boolean; // book points in the Family Tasks integration (when installed). default off
 }
 
 interface LevelInfo {
@@ -639,18 +641,119 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     // Sort, then context rules can hide, highlight or flag open tasks as urgent.
     const tasksOpen = this._decorate(this._sortOpen(rawOpen));
 
-    const hasWallet = !!p.points_entity;
-    const spent = hasWallet ? this._spent(p) : 0;
-    return {
+    const counts = {
       tasksOpen,
       tasksDone,
       shopOpen,
-      earned,
       openCount: tasksOpen.length + shopOpen.length,
-      spent,
-      balance: earned - spent,
-      hasWallet,
     };
+    if (this._backendOn()) {
+      // Points live in the ledger: kept when lists are cleared, chores count too.
+      const idx = this._config!.persons.indexOf(p);
+      const l = this._ledger(this._personKey(p, idx));
+      const booked = l?.earned ?? 0;
+      const spent = l?.redeemed ?? 0;
+      return { ...counts, earned: booked, spent, balance: booked - spent, hasWallet: true };
+    }
+    const hasWallet = !!p.points_entity;
+    const spent = hasWallet ? this._spent(p) : 0;
+    return { ...counts, earned, spent, balance: earned - spent, hasWallet };
+  }
+
+  /* ---- points ledger (optional Family Tasks integration) ------------ */
+
+  /** Opt-in, and only while the integration is actually installed. */
+  private _backendOn(): boolean {
+    return !!this._config?.points_backend && !!this.hass?.services?.family_tasks?.award;
+  }
+
+  /** How a person is named in the ledger: their person.* entity, else their name. */
+  private _personKey(p: PersonConfig, idx: number): string {
+    return p.person || p.name || `person_${idx + 1}`;
+  }
+
+  private _ledgerCache?: {
+    states: unknown;
+    map: Map<string, { earned: number; redeemed: number }>;
+  };
+
+  /** Earned/redeemed points of a person, read from their Family Tasks sensor. */
+  private _ledger(key: string): { earned: number; redeemed: number } | undefined {
+    const states = this.hass?.states ?? {};
+    if (this._ledgerCache?.states !== states) {
+      const map = new Map<string, { earned: number; redeemed: number }>();
+      for (const st of Object.values(states)) {
+        const a = st.attributes ?? {};
+        if (!st.entity_id?.startsWith("sensor.") || typeof a.person !== "string") continue;
+        if (typeof a.earned !== "number") continue;
+        map.set(a.person, { earned: a.earned, redeemed: Number(a.redeemed) || 0 });
+      }
+      this._ledgerCache = { states, map };
+    }
+    return this._ledgerCache.map.get(key);
+  }
+
+  /** The ledger key of a checked-off task; a rotating chore counts once per round. */
+  private _awardKey(entity: string, item: TodoItem): string {
+    if (!this._rotationLists().includes(entity)) return `${entity}|${item.uid}`;
+    const period = this._rotationPeriod();
+    return `${entity}|${item.uid}|${roundBounds(roundIndex(new Date(), period), period).end}`;
+  }
+
+  /** Keys already sent this session; the integration ignores repeats anyway. */
+  private _reported = new Set<string>();
+
+  private _award(key: string, personIdx: number, points: number, task: string): void {
+    if (this._reported.has(key) || !this.hass) return;
+    this._reported.add(key);
+    const p = this._config!.persons[personIdx];
+    // On failure the key stays marked; the next page load tries again.
+    this.hass
+      .callService("family_tasks", "award", {
+        key,
+        person: this._personKey(p, personIdx),
+        points,
+        task,
+      })
+      .catch(() => undefined);
+  }
+
+  /**
+   * Report every checked-off task the card can see, also ones checked off in
+   * another app. Repeats are harmless: the ledger books each key once.
+   */
+  private _reportCompletions(): void {
+    if (!this._backendOn()) return;
+    const cfg = this._config!;
+    const pts = cfg.points_per_task ?? DEFAULT_POINTS;
+    const shopping = this._shoppingSet();
+    cfg.persons.forEach((p, idx) => {
+      for (const entity of this._ownLists(p)) {
+        if (shopping.has(entity)) continue; // trips are booked when completed in the card
+        for (const item of this._items[entity] ?? []) {
+          if (item.status === "completed")
+            this._award(`${entity}|${item.uid}`, idx, pts, item.summary);
+        }
+      }
+    });
+    const rot = this._rotationLists();
+    if (!rot.length) return;
+    const period = this._rotationPeriod();
+    const bounds = roundBounds(roundIndex(new Date(), period), period);
+    const map = this._rotationMap();
+    for (const entity of rot) {
+      for (const item of this._items[entity] ?? []) {
+        // Only chores of this round: last round's are reopened, not credited again.
+        if (item.status !== "completed" || roundFix(item, bounds)) continue;
+        const a = map.get(`${entity}|${item.uid}`);
+        if (a) this._award(this._awardKey(entity, item), a.now, pts, item.summary);
+      }
+    }
+  }
+
+  /** Index of the person a (non-rotation) list belongs to, or -1. */
+  private _ownerIndex(entity: string): number {
+    return (this._config?.persons ?? []).findIndex((p) => this._ownLists(p).includes(entity));
   }
 
   /** Points already redeemed, read from the person's input_number (0 if unset). */
@@ -725,6 +828,13 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** Complete a whole shopping trip: check off every open item (syncs to source). */
   private async _completeShopping(entry: ShoppingEntry): Promise<void> {
     await Promise.all(entry.open.map((o) => this._toggle(o.entity, o.item, true)));
+    const owner = this._ownerIndex(entry.entity);
+    if (this._backendOn() && owner >= 0) {
+      const cfg = this._config!;
+      const pts = cfg.shopping_points ?? cfg.points_per_task ?? DEFAULT_POINTS;
+      const today = new Date().toLocaleDateString("sv"); // YYYY-MM-DD, local
+      this._award(`${entry.entity}|trip|${today}`, owner, pts, entry.name);
+    }
     this._fireCelebrate("task", { name: this._ownerName(entry.entity), task: entry.name });
   }
 
@@ -765,7 +875,25 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** Deduct the reward's cost by raising the person's SPENT input_number. */
   private async _doRedeem(personIdx: number, reward: Reward): Promise<void> {
     const p = this._config?.persons[personIdx];
-    if (!p?.points_entity || !this.hass) return;
+    if (!p || !this.hass) return;
+    if (this._backendOn()) {
+      this._pending = null;
+      this._pin = "";
+      this._pinError = false;
+      this._celebrate();
+      try {
+        await this.hass.callService("family_tasks", "redeem", {
+          person: this._personKey(p, personIdx),
+          points: reward.cost,
+          reward: reward.name,
+        });
+        this._fireCelebrate("reward", { name: this._personName(p, personIdx), task: reward.name });
+      } catch (err) {
+        this._shopPerson = personIdx; // e.g. too few points: leave the shop open
+      }
+      return;
+    }
+    if (!p.points_entity) return;
     const newSpent = this._spent(p) + reward.cost;
     this._pending = null;
     this._pin = "";
@@ -807,6 +935,12 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         item: item.uid,
         status,
       });
+      if (status === "needs_action" && this._backendOn()) {
+        // Unchecked in the card: take the points back (a reopened chore keeps them).
+        const key = this._awardKey(entityId, item);
+        this._reported.delete(key);
+        await this.hass.callService("family_tasks", "revoke", { key });
+      }
       if (status === "completed" && !silent) {
         this._fireCelebrate("task", { name: this._ownerName(entityId, item), task: item.summary });
       }
@@ -1146,6 +1280,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
     this._applyAppearance();
     this._maintainRotation();
+    this._reportCompletions();
 
     // Follow active_person_entity: when its state changes (NFC tag, presence,
     // a button), focus that person. Manual taps stay until the entity changes.

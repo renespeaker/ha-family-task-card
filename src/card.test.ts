@@ -28,6 +28,10 @@ interface MountOpts {
   lists?: Record<string, { items: unknown[]; features?: number }>;
   lang?: string;
   now?: string;
+  /** Extra entity states, e.g. the points sensors of the Family Tasks integration. */
+  states?: Record<string, unknown>;
+  /** Services HA knows about (hass.services), e.g. { family_tasks: { award: {} } }. */
+  services?: Record<string, Record<string, unknown>>;
 }
 
 interface ServiceCall {
@@ -55,6 +59,7 @@ async function mount(config: Partial<FamilyTaskConfig>, opts: MountOpts = {}) {
       },
     };
   }
+  Object.assign(states, opts.states ?? {});
   const services: ServiceCall[] = [];
   const el = document.createElement("family-task-card") as HTMLElement & {
     setConfig(c: unknown): void;
@@ -65,6 +70,7 @@ async function mount(config: Partial<FamilyTaskConfig>, opts: MountOpts = {}) {
   el.hass = {
     locale: { language: opts.lang ?? "de" },
     states,
+    services: opts.services ?? {},
     callWS: async (msg: Record<string, unknown>) => {
       if (msg.type === "todo/item/list") {
         return { items: lists[msg.entity_id as string]?.items ?? [] };
@@ -465,5 +471,113 @@ describe("auto-rotation", () => {
       },
     );
     expect(writes(services)).toEqual([]);
+  });
+});
+
+describe("points ledger (Family Tasks integration)", () => {
+  const FT = { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } };
+  const lina = { name: "Lina", person: "person.lina", lists: "todo.lina" };
+  const sensor = (person: string, balance: number, earned: number, redeemed: number) => ({
+    "sensor.lina_points": {
+      entity_id: "sensor.lina_points",
+      state: String(balance),
+      last_changed: "x",
+      attributes: { person, earned, redeemed },
+    },
+  });
+  const lists = {
+    "todo.lina": { items: [done("a1", "Zimmer"), task("a2", "Müll"), done("a3", "Bett")] },
+  };
+  const calls = (services: ServiceCall[], name: string) =>
+    services.filter((s) => s.domain === "family_tasks" && s.service === name).map((s) => s.data);
+
+  it("stays off unless switched on, even with the integration installed", async () => {
+    const { services, texts } = await mount({ persons: [lina] }, { lists, services: FT });
+    expect(calls(services, "award")).toEqual([]);
+    expect(texts(".col-meta").join(" ")).toContain("⭐ 20"); // live: 2 done × 10
+  });
+
+  it("reports every checked-off task once, keyed by list and task", async () => {
+    const { services, el, settle } = await mount(
+      { persons: [lina], points_backend: true },
+      { lists, services: FT },
+    );
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle();
+    expect(calls(services, "award")).toEqual([
+      { key: "todo.lina|a1", person: "person.lina", points: 10, task: "Zimmer" },
+      { key: "todo.lina|a3", person: "person.lina", points: 10, task: "Bett" },
+    ]);
+  });
+
+  it("takes the points from the ledger sensor", async () => {
+    const { texts } = await mount(
+      { persons: [lina], points_backend: true },
+      { lists, services: FT, states: sensor("person.lina", 25, 40, 15) },
+    );
+    // the ledger knows more than the list (e.g. cleared tasks): 40, not 20
+    expect(texts(".col-meta").join(" ")).toContain("💰 25");
+  });
+
+  it("falls back to live points when the integration is missing", async () => {
+    const { services, texts } = await mount({ persons: [lina], points_backend: true }, { lists });
+    expect(services).toEqual([]);
+    expect(texts(".col-meta").join(" ")).toContain("⭐ 20");
+  });
+
+  it("takes the points back when a task is unchecked in the card", async () => {
+    const { services, all, settle } = await mount(
+      { persons: [lina], points_backend: true, show_completed: true },
+      { lists, services: FT },
+    );
+    (all(".tile.done")[0] as HTMLElement).click();
+    await settle();
+    expect(calls(services, "revoke")).toEqual([{ key: "todo.lina|a1" }]);
+  });
+
+  it("pays rewards from the ledger", async () => {
+    const { services, root, settle } = await mount(
+      {
+        persons: [lina],
+        points_backend: true,
+        rewards: [{ name: "Eis", cost: 20, emoji: "🍦" }],
+      },
+      { lists, services: FT, states: sensor("person.lina", 25, 25, 0) },
+    );
+    (root.querySelector(".shop-toggle") as HTMLElement).click();
+    await settle();
+    (root.querySelector(".reward:not([disabled]) button, button.redeem") as HTMLElement).click();
+    await settle();
+    expect(calls(services, "redeem")).toEqual([
+      { person: "person.lina", points: 20, reward: "Eis" },
+    ]);
+  });
+
+  it("credits a rotating chore once per round to whoever had it", async () => {
+    const { services } = await mount(
+      {
+        persons: [{ name: "Lina" }, { name: "Ben" }],
+        points_backend: true,
+        rotation: true,
+        rotation_lists: "todo.aemtli",
+      },
+      {
+        lists: {
+          "todo.aemtli": {
+            items: [
+              task("c1", "Müll", { status: "completed", due: "2026-10-11" }), // this round
+              task("c2", "Spülen", { status: "completed", due: "2026-10-04" }), // last round
+            ],
+            features: CREATE | UPDATE | 16,
+          },
+        },
+        services: FT,
+        now: "2026-10-07T10:00:00",
+      },
+    );
+    const awards = calls(services, "award");
+    expect(awards).toHaveLength(1);
+    expect(awards[0]).toMatchObject({ key: "todo.aemtli|c1|2026-10-11", points: 10, task: "Müll" });
+    expect(["Lina", "Ben"]).toContain(awards[0].person);
   });
 });

@@ -92,7 +92,12 @@ The goal: a usable, coherent card with the core loop.
 - [ ] Location reminders (geofence) and auto-assignment to "whoever is out".
 - [x] Fair auto-rotation of recurring chores ("taking turns") — `rotation`: switch
       in the editor, weekly/daily rounds worked out from the calendar, chores reopen
-      each round, "next week: …" hint; chores earn no points (no history yet).
+      each round, "next week: …" hint; chores earn points with the points ledger.
+- [x] **Points ledger** (optional integration
+      [Family Tasks](https://github.com/renespeaker/ha-family-tasks), phase 1) —
+      `points_backend`: points booked for good, once per task (and once per round
+      for chores), unchecking takes them back, rewards paid from the ledger, a
+      points sensor per person. Next: reward approval by push, statistics.
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
       statistics/history.

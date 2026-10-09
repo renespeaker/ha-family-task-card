@@ -97,6 +97,13 @@ persons:
 # rotation_period: week           # week | day
 # rotation_persons: [Lina, Ben]   # optional, default everyone
 
+# --- Optional: points ledger (separate Family Tasks integration) ---
+# Points are booked for good instead of computed live: they stay when lists are
+# cleared, chores earn points once per round, rewards are paid from the ledger.
+# Install https://github.com/renespeaker/ha-family-tasks first; without it this
+# switch changes nothing.
+# points_backend: true
+
 # --- Optional: kiosk mode (wall tablet) ---
 # A shared family station: an idle "who's there?" picker with big avatars; tap a
 # face to see that person's tasks; after auto_return seconds of inactivity it
