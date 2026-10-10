@@ -4,8 +4,8 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.14.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger**, context tasks, reward shop, celebrate actions, levels/badges +
+> **Status: usable (v0.15.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
 > (size/text/pictures)**, **add-task** and sort/hide options. The card reads
@@ -200,6 +200,7 @@ persons:
 | `rotation_persons` | list | who takes part (person name or `person.*`); default everyone. |
 | `rotation_reset` | bool | reopen chores at the start of each round (default on). |
 | `points_backend` | bool | book points in the optional [Family Tasks](https://github.com/renespeaker/ha-family-tasks) integration (see below). |
+| `reward_approval` | bool | with `points_backend`: rewards are requested and approved by push (see below). |
 
 ### Kid mode
 
@@ -384,8 +385,9 @@ Usage: the 🎁 button in the person column (or in kid mode) opens the shop.
 > Without `points_entity` (or the
 > [points ledger](#points-ledger-optional-family-tasks-integration)) the shop only
 > displays the rewards (redeeming disabled). The **asynchronous approval flow**
-> ("kid requests, parents confirm later via push, optionally with a photo") is on
-> the roadmap for the Family Tasks integration.
+> ("kid requests, parents confirm later via push") is
+> available with the [points ledger](#points-ledger-optional-family-tasks-integration)
+> (`reward_approval`); photo proof is on the roadmap.
 
 ### Points ledger (optional Family Tasks integration)
 
@@ -412,9 +414,28 @@ and switch on **"Use points ledger (Family Tasks)"** in the visual editor
 
 Without the integration installed, the switch changes nothing.
 
+#### Reward approval by push
+
+With the ledger on, switch on **"Reward approval by push"** (`reward_approval:
+true`). Then the shop button says **Request** instead of *Redeem*:
+
+- The points are **reserved** at once — nobody can ask for more than is left —
+  and the parents get a **push with "Approve" / "Deny"** on their phones.
+- Until then the reward shows **"⏳ waiting for approval"**, and the balance
+  shows only the points still free.
+- **Approve** spends the points, **Deny** frees them again; the push then
+  disappears from the other parents' phones.
+- With a **parent PIN** set, parents can also decide right in the card (✓ / ✕,
+  PIN required). Without a PIN the buttons are not shown, so kids can't approve
+  their own requests.
+
+Who gets the push is set in the integration: Settings → Devices & services →
+Family Tasks → **Configure**.
+
 ```yaml
 type: custom:family-task-card
 points_backend: true
+reward_approval: true               # optional: approve rewards by push
 persons:
   - { name: Lina, person: person.lina, lists: todo.lina }
 ```

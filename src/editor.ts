@@ -56,6 +56,10 @@ const LABELS: Record<string, Bi> = {
     de: "Punktekonto nutzen (Family Tasks)",
     en: "Use points ledger (Family Tasks)",
   },
+  reward_approval: {
+    de: "Belohnungs-Freigabe per Push",
+    en: "Reward approval by push",
+  },
   level_size: { de: "Punkte pro Level", en: "Points per level" },
   show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
   rotation: { de: "Auto-Rotation (reihum)", en: "Auto-rotation (take turns)" },
@@ -123,6 +127,10 @@ const HELPERS: Record<string, Bi> = {
   bring_deeplink: {
     de: "Ziel des 'In Bring! öffnen'-Buttons (Standard web.getbring.com).",
     en: "Target of the 'Open in Bring!' button (default web.getbring.com).",
+  },
+  reward_approval: {
+    de: "Kinder fragen Belohnungen an, die Punkte werden reserviert, und die Eltern geben per Push frei oder lehnen ab. Wer die Push bekommt, stellst du in der Integration Family Tasks ein (Konfigurieren). Mit Eltern-PIN geht die Freigabe auch in der Karte.",
+    en: "Kids request rewards, the points are reserved, and the parents approve or deny by push. Who gets the push is set in the Family Tasks integration (Configure). With a parent PIN, requests can also be decided in the card.",
   },
   points_backend: {
     de: "Punkte dauerhaft im Punktekonto der Integration „Family Tasks“ buchen: Sie bleiben, wenn Listen geleert werden, Ämtli geben Punkte, Einlösen läuft übers Konto. Braucht die installierte Integration, sonst bleibt alles wie bisher.",
@@ -303,6 +311,9 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       { name: "bring_deeplink", selector: { text: {} } },
       { name: "parent_pin", selector: { text: {} } },
       { name: "points_backend", selector: { boolean: {} } },
+      ...(this._config.points_backend
+        ? [{ name: "reward_approval", selector: { boolean: {} } }]
+        : []),
       { name: "level_size", selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } } },
       { name: "show_leaderboard", selector: { boolean: {} } },
       {
@@ -373,6 +384,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.bring_deeplink) delete next.bring_deeplink;
     if (!next.parent_pin) delete next.parent_pin;
     if (!next.points_backend) delete next.points_backend;
+    if (!next.reward_approval) delete next.reward_approval;
     if (!next.show_leaderboard) delete next.show_leaderboard;
     if (!next.hide_empty) delete next.hide_empty;
     if (!next.due_soon) delete next.due_soon;

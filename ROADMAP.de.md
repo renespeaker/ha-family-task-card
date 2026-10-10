@@ -76,8 +76,8 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Belohnungs-Shop mit Eltern-Freigabe** – `rewards` in der Config, Guthaben
       = verdient − eingelöst (eingelöst in einem `input_number` je Person),
       Einlösen mit **Eltern-PIN** direkt in der Karte (Board & Kinder-Modus).
-      Offen (Backend): asynchrone Freigabe per Push, Foto-Beweis, Taschengeld-
-      Automatik.
+      Offen (Backend): Foto-Beweis, Taschengeld-Automatik. Freigabe per Push:
+      siehe unten.
 - [x] **Feier-Aktionen** – Erfolg über HA fühlbar machen: `celebrate.actions`
       ruft beliebige HA-Services (Licht/Sound/TTS/Push) bei `all_done` / `task` /
       `reward`, mit `{name}`/`{task}`-Platzhaltern.
@@ -101,8 +101,11 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       [Family Tasks](https://github.com/renespeaker/ha-family-tasks), Phase 1) –
       `points_backend`: Punkte dauerhaft gebucht, einmal pro Aufgabe (bei Ämtli
       einmal pro Runde), Haken entfernen nimmt sie zurück, Belohnungen vom Konto
-      bezahlt, ein Punkte-Sensor pro Person. Als Nächstes: Belohnungs-Freigabe per
-      Push, Statistik.
+      bezahlt, ein Punkte-Sensor pro Person.
+- [x] **Belohnungs-Freigabe per Push** (Family Tasks v0.2.0) – `reward_approval`:
+      Kinder fragen an, Punkte werden reserviert, Eltern geben per Push frei oder
+      lehnen ab (oder in der Karte mit Eltern-PIN). Als Nächstes: Statistik,
+      Foto-Beweis.
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
       Statistik/Verlauf.

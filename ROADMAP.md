@@ -73,7 +73,7 @@ The goal: a usable, coherent card with the core loop.
 - [x] **Reward shop with parental approval** — `rewards` in the config, balance =
       earned − redeemed (redeemed held in an `input_number` per person), redeeming
       behind a **parent PIN** right in the card (board and kid mode). Open
-      (backend): asynchronous approval by push, photo proof, automatic pocket money.
+      (backend): photo proof, automatic pocket money. Approval by push: see below.
 - [x] **Celebrate actions** — make success tangible through HA:
       `celebrate.actions` calls any HA service (light/sound/TTS/push) on
       `all_done` / `task` / `reward`, with `{name}`/`{task}` placeholders.
@@ -97,7 +97,10 @@ The goal: a usable, coherent card with the core loop.
       [Family Tasks](https://github.com/renespeaker/ha-family-tasks), phase 1) —
       `points_backend`: points booked for good, once per task (and once per round
       for chores), unchecking takes them back, rewards paid from the ledger, a
-      points sensor per person. Next: reward approval by push, statistics.
+      points sensor per person.
+- [x] **Reward approval by push** (Family Tasks v0.2.0) — `reward_approval`: kids
+      request, points are reserved, parents approve/deny from the push (or in the
+      card with the parent PIN). Next: statistics, photo proof.
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
       statistics/history.

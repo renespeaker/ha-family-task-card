@@ -103,6 +103,7 @@ persons:
 # Install https://github.com/renespeaker/ha-family-tasks first; without it this
 # switch changes nothing.
 # points_backend: true
+# reward_approval: true           # kids request rewards, parents approve by push
 
 # --- Optional: kiosk mode (wall tablet) ---
 # A shared family station: an idle "who's there?" picker with big avatars; tap a
