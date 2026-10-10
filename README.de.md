@@ -4,8 +4,8 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.15.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push**, Kontext-Aufgaben, Belohnungs-Shop,
+> **Status: nutzbar (v0.16.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
 > **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
@@ -208,6 +208,8 @@ persons:
 | `rotation_reset`  | Bool               | Ämtli zu Beginn jeder Runde wieder öffnen (Std. an).    |
 | `points_backend`  | Bool               | Punkte in der optionalen Integration [Family Tasks](https://github.com/renespeaker/ha-family-tasks) buchen (siehe unten). |
 | `reward_approval` | Bool               | Mit `points_backend`: Belohnungen werden angefragt und per Push freigegeben (siehe unten). |
+| `leaderboard_period` | Text            | Mit `points_backend`: Rangliste nach `all` (Std.), `week` oder `month`. |
+| `show_streak`     | Bool               | Mit `points_backend`: „⚡ 5" neben dem Namen – Tage am Stück mit einer Aufgabe. |
 
 ### Darstellung anpassen (Größe, Schrift, Bilder)
 
@@ -447,6 +449,17 @@ Mit Punktekonto kannst du **„Belohnungs-Freigabe per Push"** einschalten
 
 Wer die Push bekommt, stellst du in der Integration ein: Einstellungen → Geräte &
 Dienste → Family Tasks → **Konfigurieren**.
+
+#### Statistik
+
+Mit Punktekonto (Family Tasks ab v0.3.0) gibt es zwei weitere Opt-in-Optionen:
+
+- **Rangliste für** *diese Woche* oder *diesen Monat* (`leaderboard_period:
+  week` / `month`, Standard: gesamt) – jeden Montag ein neues Rennen, so hat
+  auch wer insgesamt hinten liegt eine Chance.
+- **Serien anzeigen (⚡)** (`show_streak: true`) – „⚡ 5" neben dem Namen: Tage am
+  Stück mit mindestens einer Aufgabe, ab 2 Tagen. Zählt weiter, bis heute die
+  erste Aufgabe erledigt ist, und endet nach einem ausgelassenen Tag.
 
 ```yaml
 type: custom:family-task-card

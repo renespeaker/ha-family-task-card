@@ -697,3 +697,76 @@ describe("reward approval by push", () => {
     expect(services.some((s) => s.domain === "input_number")).toBe(true);
   });
 });
+
+describe("statistics (points ledger)", () => {
+  const FT = { family_tasks: { award: {}, revoke: {}, redeem: {} } };
+  const lina = { name: "Lina", person: "person.lina", lists: "todo.lina" };
+  const ben = { name: "Ben", person: "person.ben", lists: "todo.ben" };
+  const sensor = (who: string, earned: number, week: number, month: number, streak: number) => ({
+    [`sensor.${who}_points`]: {
+      entity_id: `sensor.${who}_points`,
+      state: String(earned),
+      last_changed: "x",
+      attributes: {
+        person: `person.${who}`,
+        earned,
+        redeemed: 0,
+        reserved: 0,
+        pending: [],
+        week_points: week,
+        month_points: month,
+        streak,
+      },
+    },
+  });
+  // Lina leads all-time, Ben leads this week
+  const opts = {
+    lists: { "todo.lina": { items: [] }, "todo.ben": { items: [] } },
+    services: FT,
+    states: { ...sensor("lina", 200, 10, 60, 5), ...sensor("ben", 80, 40, 50, 1) },
+  };
+  const board = { persons: [lina, ben], points_backend: true, show_leaderboard: true };
+  const rows = (texts: (sel: string) => string[]) => texts(".lb-row");
+
+  it("ranks all-time by default", async () => {
+    const { texts } = await mount(board, opts);
+    expect(rows(texts)[0]).toContain("Lina");
+    expect(rows(texts)[0]).toContain("200");
+  });
+
+  it("ranks by this week's points", async () => {
+    const { texts } = await mount({ ...board, leaderboard_period: "week" }, opts);
+    expect(texts(".lb-title")[0]).toContain("diese Woche");
+    expect(rows(texts)[0]).toContain("Ben");
+    expect(rows(texts)[0]).toContain("40");
+  });
+
+  it("ranks by this month's points", async () => {
+    const { texts } = await mount({ ...board, leaderboard_period: "month" }, opts);
+    expect(rows(texts)[0]).toContain("Lina");
+    expect(rows(texts)[0]).toContain("60");
+  });
+
+  it("falls back to all-time without the points ledger", async () => {
+    const { texts } = await mount(
+      { ...board, points_backend: false, leaderboard_period: "week" },
+      opts,
+    );
+    expect(texts(".lb-title")[0]).not.toContain("Woche");
+  });
+
+  it("shows a streak only when switched on, from two days on", async () => {
+    const off = await mount(board, opts);
+    expect(off.all(".streak")).toHaveLength(0);
+    const on = await mount({ ...board, show_streak: true }, opts);
+    expect(on.texts(".streak")).toEqual(["⚡ 5"]); // Ben's single day earns no flame
+  });
+
+  it("shows the streak big in kid mode", async () => {
+    const { texts } = await mount(
+      { persons: [lina], points_backend: true, show_streak: true, kid_mode: true },
+      opts,
+    );
+    expect(texts(".kid-name .streak")).toEqual(["⚡ 5"]);
+  });
+});

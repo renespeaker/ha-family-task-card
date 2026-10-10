@@ -104,6 +104,8 @@ persons:
 # switch changes nothing.
 # points_backend: true
 # reward_approval: true           # kids request rewards, parents approve by push
+# leaderboard_period: week       # with show_leaderboard: rank this week (or month)
+# show_streak: true               # "⚡ 5" = days in a row with a task
 
 # --- Optional: kiosk mode (wall tablet) ---
 # A shared family station: an idle "who's there?" picker with big avatars; tap a

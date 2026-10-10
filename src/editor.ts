@@ -21,6 +21,7 @@ const PALETTE = PERSON_PALETTE;
 const SORT_VALUES = ["manual", "due", "alpha"] as const;
 const THEME_VALUES = ["auto", "dark", "light"] as const;
 const ROTATION_PERIODS = ["week", "day"] as const;
+const LEADERBOARD_PERIODS = ["all", "week", "month"] as const;
 
 /** One ha-form per person, with entity pickers filtered by domain. */
 const PERSON_SCHEMA = [
@@ -62,6 +63,8 @@ const LABELS: Record<string, Bi> = {
   },
   level_size: { de: "Punkte pro Level", en: "Points per level" },
   show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
+  leaderboard_period: { de: "Rangliste für", en: "Leaderboard for" },
+  show_streak: { de: "Serien anzeigen (⚡)", en: "Show streaks (⚡)" },
   rotation: { de: "Auto-Rotation (reihum)", en: "Auto-rotation (take turns)" },
   rotation_lists: { de: "Ämtli-Listen (reihum)", en: "Chore lists (rotating)" },
   rotation_period: { de: "Wechsel", en: "Rotate" },
@@ -143,6 +146,14 @@ const HELPERS: Record<string, Bi> = {
   level_size: {
     de: "Punkte pro Level (aus verdienten Punkten). Standard 100, 0 = keine Level. Abzeichen optional per YAML (level_emojis).",
     en: "Points per level (from earned points). Default 100, 0 = no levels. Badges optional via YAML (level_emojis).",
+  },
+  leaderboard_period: {
+    de: "Gesamt, diese Woche oder diesen Monat. Woche/Monat braucht das Punktekonto (Family Tasks), sonst wird gesamt gezählt.",
+    en: "All time, this week or this month. Week/month needs the points ledger (Family Tasks), otherwise all time is used.",
+  },
+  show_streak: {
+    de: "Zeigt „⚡ 5“ neben dem Namen: an wie vielen Tagen am Stück jemand mindestens eine Aufgabe erledigt hat (ab 2 Tagen). Braucht das Punktekonto (Family Tasks).",
+    en: "Shows “⚡ 5” next to the name: how many days in a row someone has done at least one task (from 2 days). Needs the points ledger (Family Tasks).",
   },
   show_leaderboard: {
     de: "Rangliste der Personen nach verdienten Punkten unter dem Board anzeigen.",
@@ -316,6 +327,23 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         : []),
       { name: "level_size", selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } } },
       { name: "show_leaderboard", selector: { boolean: {} } },
+      ...(this._config.show_leaderboard
+        ? [
+            {
+              name: "leaderboard_period",
+              selector: {
+                select: {
+                  mode: "dropdown",
+                  options: LEADERBOARD_PERIODS.map((v) => ({
+                    value: v,
+                    label: t(this.hass, v === "all" ? "lb_all" : `lb_${v}`),
+                  })),
+                },
+              },
+            },
+          ]
+        : []),
+      { name: "show_streak", selector: { boolean: {} } },
       {
         name: "scale",
         selector: {
@@ -386,6 +414,9 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.points_backend) delete next.points_backend;
     if (!next.reward_approval) delete next.reward_approval;
     if (!next.show_leaderboard) delete next.show_leaderboard;
+    if (!next.leaderboard_period || next.leaderboard_period === "all")
+      delete next.leaderboard_period;
+    if (!next.show_streak) delete next.show_streak;
     if (!next.hide_empty) delete next.hide_empty;
     if (!next.due_soon) delete next.due_soon;
     if (!next.sort || next.sort === "manual") delete next.sort;

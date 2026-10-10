@@ -131,6 +131,8 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rotation_reset?: boolean; // reopen chores at the start of each round. default true
   points_backend?: boolean; // book points in the Family Tasks integration (when installed). default off
   reward_approval?: boolean; // with points_backend: rewards are requested, parents approve by push. default off
+  leaderboard_period?: "all" | "week" | "month"; // rank by points of this week/month (points ledger). default all
+  show_streak?: boolean; // "⚡ 5" next to the name: days in a row with a task (points ledger). default off
 }
 
 /** A person's points as the ledger sensor reports them. */
@@ -139,6 +141,9 @@ interface LedgerView {
   redeemed: number;
   reserved: number; // held by open reward requests
   pending: PendingRequest[];
+  weekPoints: number;
+  monthPoints: number;
+  streak: number;
 }
 
 /** A reward request waiting for a parent (from the ledger sensor). */
@@ -225,6 +230,9 @@ interface PersonView {
   balance: number; // earned - spent, the spendable total
   hasWallet: boolean; // true when a points_entity is configured for this person
   requests?: PendingRequest[]; // open reward requests (points ledger only)
+  weekPoints?: number; // points ledger only: earned this week / month
+  monthPoints?: number;
+  streak?: number; // points ledger only: days in a row with a task
 }
 
 function personColor(p: PersonConfig, idx: number): string {
@@ -683,6 +691,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         balance: booked - spent - reserved, // what is still spendable
         hasWallet: true,
         requests: l?.pending ?? [],
+        weekPoints: l?.weekPoints ?? 0,
+        monthPoints: l?.monthPoints ?? 0,
+        streak: l?.streak ?? 0,
       };
     }
     const hasWallet = !!p.points_entity;
@@ -718,6 +729,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           redeemed: Number(a.redeemed) || 0,
           reserved: Number(a.reserved) || 0,
           pending: Array.isArray(a.pending) ? (a.pending as PendingRequest[]) : [],
+          weekPoints: Number(a.week_points) || 0,
+          monthPoints: Number(a.month_points) || 0,
+          streak: Number(a.streak) || 0,
         });
       }
       this._ledgerCache = { states, map };
@@ -1072,22 +1086,47 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private _leaderboard(columns: { p: PersonConfig; idx: number; view: PersonView }[]) {
     if (!this._config?.show_leaderboard || columns.length < 2) return nothing;
     const medals = ["🥇", "🥈", "🥉"];
-    const ranked = [...columns].sort((a, b) => b.view.earned - a.view.earned);
+    // This week / month needs the points ledger; without it, rank all-time.
+    const period = this._backendOn() ? (this._config?.leaderboard_period ?? "all") : "all";
+    const score = (v: PersonView): number =>
+      period === "week"
+        ? (v.weekPoints ?? 0)
+        : period === "month"
+          ? (v.monthPoints ?? 0)
+          : v.earned;
+    const ranked = [...columns].sort((a, b) => score(b.view) - score(a.view));
     return html`
       <div class="leaderboard">
-        <div class="lb-title">${this._t("leaderboard")}</div>
+        <div class="lb-title">
+          ${this._t("leaderboard")}${
+            period === "all"
+              ? nothing
+              : html` · ${this._t(period === "week" ? "lb_week" : "lb_month")}`
+          }
+        </div>
         ${ranked.map(
           (r, i) => html`
             <div class="lb-row">
               <span class="lb-rank">${medals[i] ?? `${i + 1}.`}</span>
               <span class="lb-dot" style="background:${personColor(r.p, r.idx)}"></span>
               <span class="lb-name">${this._personName(r.p, r.idx)}</span>
-              <span class="lb-pts">⭐ ${r.view.earned}</span>
+              <span class="lb-pts">⭐ ${score(r.view)}</span>
             </div>
           `,
         )}
       </div>
     `;
+  }
+
+  /** "⚡ 5": days in a row with a task, from two days on (points ledger only). */
+  private _streakChip(view: PersonView, big = false) {
+    const n = view.streak ?? 0;
+    if (!this._config?.show_streak || !this._backendOn() || n < 2) return nothing;
+    return html`<span
+      class="lvl streak ${big ? "kid-lvl" : ""}"
+      title=${this._t("streak_title").replace("{n}", String(n))}
+      >⚡ ${n}</span
+    >`;
   }
 
   /* ---- kiosk mode (wall tablet) ----------------------------------- */
@@ -1201,7 +1240,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           ${this._kidAvatar(p, idx, false, true)}
           <div class="kid-hero-text">
             <div class="kid-name">
-              ${name}${lvl ? html`<span class="lvl kid-lvl">${lvl.emoji} L${lvl.level}</span>` : nothing}
+              ${name}${lvl ? html`<span class="lvl kid-lvl">${lvl.emoji} L${lvl.level}</span>` : nothing}${this._streakChip(view, true)}
             </div>
             <div class="kid-stars">
               ${view.hasWallet ? "💰" : "⭐"}
@@ -1499,6 +1538,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                     >`
                   : nothing
               }
+              ${this._streakChip(view)}
             </div>
             <div class="pstatus">
               ${view.openCount} ${this._t("open")} · ${view.hasWallet ? "💰" : "⭐"} ${points}
@@ -2515,6 +2555,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .lvl.streak {
+      background: color-mix(in srgb, #ff7043 16%, transparent);
+      color: #e64a19;
     }
     .lb-pts {
       flex: none;

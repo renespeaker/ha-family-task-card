@@ -104,7 +104,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       bezahlt, ein Punkte-Sensor pro Person.
 - [x] **Belohnungs-Freigabe per Push** (Family Tasks v0.2.0) – `reward_approval`:
       Kinder fragen an, Punkte werden reserviert, Eltern geben per Push frei oder
-      lehnen ab (oder in der Karte mit Eltern-PIN). Als Nächstes: Statistik,
+      lehnen ab (oder in der Karte mit Eltern-PIN).
+- [x] **Statistik** (Family Tasks v0.3.0) – Rangliste für diese Woche/diesen
+      Monat (`leaderboard_period`), Serien „⚡ 5" (`show_streak`). Als Nächstes:
       Foto-Beweis.
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
