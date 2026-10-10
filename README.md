@@ -4,8 +4,8 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.15.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push**, context tasks, reward shop, celebrate actions, levels/badges +
+> **Status: usable (v0.16.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
 > (size/text/pictures)**, **add-task** and sort/hide options. The card reads
@@ -201,6 +201,8 @@ persons:
 | `rotation_reset` | bool | reopen chores at the start of each round (default on). |
 | `points_backend` | bool | book points in the optional [Family Tasks](https://github.com/renespeaker/ha-family-tasks) integration (see below). |
 | `reward_approval` | bool | with `points_backend`: rewards are requested and approved by push (see below). |
+| `leaderboard_period` | text | with `points_backend`: rank by `all` (default), `week` or `month`. |
+| `show_streak` | bool | with `points_backend`: "⚡ 5" next to the name — days in a row with a task. |
 
 ### Kid mode
 
@@ -431,6 +433,17 @@ true`). Then the shop button says **Request** instead of *Redeem*:
 
 Who gets the push is set in the integration: Settings → Devices & services →
 Family Tasks → **Configure**.
+
+#### Statistics
+
+With the ledger on (Family Tasks v0.3.0 or newer), two more opt-in options:
+
+- **Leaderboard for** *this week* or *this month* (`leaderboard_period: week` /
+  `month`, default all time) — a fresh race every Monday, so whoever is behind
+  all-time still has a chance.
+- **Show streaks (⚡)** (`show_streak: true`) — "⚡ 5" next to the name: days in
+  a row with at least one task, from two days on. It still counts until the
+  day's first task is done and ends after a missed day.
 
 ```yaml
 type: custom:family-task-card

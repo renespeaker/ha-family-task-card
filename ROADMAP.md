@@ -100,7 +100,9 @@ The goal: a usable, coherent card with the core loop.
       points sensor per person.
 - [x] **Reward approval by push** (Family Tasks v0.2.0) — `reward_approval`: kids
       request, points are reserved, parents approve/deny from the push (or in the
-      card with the parent PIN). Next: statistics, photo proof.
+      card with the parent PIN).
+- [x] **Statistics** (Family Tasks v0.3.0) — leaderboard for this week/month
+      (`leaderboard_period`), streaks "⚡ 5" (`show_streak`). Next: photo proof.
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
       statistics/history.
