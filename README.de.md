@@ -4,7 +4,7 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.17.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.18.0).** Personen-Board, visueller Editor, Kinder-Modus,
 > Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
@@ -144,8 +144,16 @@ im selben Stil wie die Family Board Card mit `persons`. Am einfachsten geht das
 über den **visuellen Editor** (Karte im Dashboard bearbeiten): Personen
 hinzufügen/sortieren, `person.*` & `todo.*`-Listen per Auswahlfeld zuordnen,
 Farbe wählen, Punkte & Ziel setzen – funktioniert auch am Handy. Ein Klick auf
-**„Personen erkennen"** übernimmt vorhandene `person.*`-Entitäten. Wer lieber
-YAML schreibt:
+**„Personen erkennen"** übernimmt vorhandene `person.*`-Entitäten.
+
+**Jede Option lässt sich im Editor einstellen** – YAML ist nicht nötig. Die
+Einstellungen sind in aufklappbare Bereiche gegliedert (*Allgemein · Modus ·
+Aufgaben & Filter · Ämtli-Rotation · Punkte & Level · Einkauf · Darstellung*),
+dazu kommen Bereiche für **Belohnungen**, **Kontext-Regeln** und
+**Feier-Aktionen** (mit dem Aktions-Editor von Home Assistant für Licht, Ton,
+Ansagen und Pushes). Jede Person hat **Listen-Einstellungen** für jede Liste:
+*wichtig* (Eisenhower-Ansicht), *Aufgaben ohne Termin ausblenden* und *nur
+fällig in … Tagen*. Wer lieber YAML schreibt:
 
 ```yaml
 type: custom:family-task-card
@@ -201,6 +209,8 @@ persons:
 | `group_by_due`    | Bool               | Board: offene Aufgaben nach Fälligkeit gruppieren; Später/Ohne Termin zugeklappt (siehe unten). |
 | `hide_undated`    | Bool               | Offene Aufgaben ohne Termin ausblenden (pro Liste überschreibbar). |
 | `show_within`     | Zahl               | Nur Aufgaben zeigen, die in N Tagen fällig sind, Überfälliges immer; `0` = heute (pro Liste überschreibbar). |
+| `eisenhower`      | Bool               | Eltern-Ansicht: Raster dringend × wichtig statt Spalten (siehe unten). |
+| `urgent_within`   | Zahl               | Eisenhower: in N Tagen fällig gilt als dringend (Std. 2). |
 | `scale`           | Zahl (%)           | Gesamte Kartengröße (Zoom über alles). Std. 100.        |
 | `font_scale`      | Zahl (%)           | Nur Schriftgröße. Std. 100.                             |
 | `avatar_scale`    | Zahl (%)           | Nur Avatare/Bilder und Karten-Icon. Std. 100.           |
@@ -596,6 +606,42 @@ Die **Erkennung** macht Home Assistant und setzt die Entität – z. B.:
 Matching: der Wert der Entität wird mit `name`, der `person.*`-Entität und dem
 Anzeigenamen jeder Person verglichen (Groß-/Kleinschreibung egal). Leeres Feld =
 klassisches manuelles Umschalten.
+
+### Eisenhower-Ansicht (für Eltern)
+
+Ein eigener Modus für Erwachsene, die priorisieren wollen: **„Eisenhower-Ansicht
+(für Eltern)"** einschalten (`eisenhower: true`), dann zeigt die Karte alle
+offenen Aufgaben ihrer Personen in einem 2×2-Raster statt in Spalten:
+
+| | dringend | nicht dringend |
+|---|---|---|
+| **wichtig** | 🔴 Jetzt erledigen | 🗓 Einplanen |
+| **nicht wichtig** | 👥 Delegieren | 💤 Später |
+
+- **Dringend** ergibt sich aus der Fälligkeit: überfällig oder in
+  `urgent_within` Tagen fällig (Standard 2).
+- **Wichtig** setzt du selbst: ein **„!" am Titelanfang** („!Steuer abgeben" –
+  das „!" wird im Raster nicht angezeigt) oder eine ganze Liste mit
+  `important: true`.
+- Jede Kachel zeigt Farbe und Namen der Person; Abhaken funktioniert wie immer.
+  Die Filter (`hide_undated`, `show_within`) gelten auch hier.
+- Zwei Spalten, sobald die Karte breit genug ist, auf dem Handy untereinander.
+- Gedacht als eigene Karte für Eltern – Kinder- und Kiosk-Modus haben Vorrang
+  und bleiben, wie sie sind.
+
+```yaml
+type: custom:family-task-card
+title: Eltern
+eisenhower: true
+urgent_within: 2
+persons:
+  - name: Mama
+    lists:
+      - todo.mama
+      - entity: todo.papierkram  # alles hier gilt als wichtig
+        important: true
+  - { name: Papa, lists: todo.papa }
+```
 
 ### Gruppen & Filter nach Fälligkeit
 

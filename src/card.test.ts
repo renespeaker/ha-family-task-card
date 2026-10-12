@@ -911,3 +911,258 @@ describe("editor", () => {
     expect(emitted!.persons[0].lists).toEqual(["todo.a", filtered, "todo.c"]);
   });
 });
+
+describe("Eisenhower view", () => {
+  // "now" is Monday 21 Sep 2026; urgent = overdue or due within 2 days (by 23 Sep)
+  const opts = {
+    lists: {
+      "todo.mama": {
+        items: [
+          task("1", "!Steuer abgeben", { due: "2026-09-22" }),
+          task("2", "!Urlaub planen", { due: "2026-10-30" }),
+          task("3", "Müll rausbringen", { due: "2026-09-21" }),
+          task("4", "Fotos sortieren"),
+        ],
+      },
+      "todo.arzt": { items: [task("5", "Zahnarzt", { due: "2026-10-10" })] },
+    },
+  };
+  const persons = [
+    { name: "Mama", lists: ["todo.mama", { entity: "todo.arzt", important: true }] },
+  ];
+  const quad = (root: ShadowRoot, q: string) =>
+    [...root.querySelectorAll(`.quad.${q} .tile-title`)].map((n) => n.textContent!.trim());
+
+  it("sorts every open task into urgent × important", async () => {
+    const { root } = await mount({ persons, eisenhower: true }, opts);
+    expect(quad(root, "do")).toEqual(["Steuer abgeben"]);
+    expect(quad(root, "plan")).toEqual(["Zahnarzt", "Urlaub planen"]); // list marked important
+    expect(quad(root, "delegate")).toEqual(["Müll rausbringen"]);
+    expect(quad(root, "later")).toEqual(["Fotos sortieren"]);
+  });
+
+  it("names the person on every tile and drops the '!'", async () => {
+    const { root } = await mount({ persons, eisenhower: true }, opts);
+    const tile = root.querySelector(".quad.do .tile")!;
+    expect(tile.querySelector(".tile-title")!.textContent!.trim()).toBe("Steuer abgeben");
+    expect(tile.querySelector(".tile-due")!.textContent).toContain("Mama");
+  });
+
+  it("can count only today and overdue as urgent", async () => {
+    const { root } = await mount({ persons, eisenhower: true, urgent_within: 0 }, opts);
+    expect(quad(root, "do")).toEqual([]);
+    expect(quad(root, "plan")).toContain("Steuer abgeben");
+  });
+
+  it("checks a task off from the grid", async () => {
+    const { root, services, settle } = await mount({ persons, eisenhower: true }, opts);
+    (root.querySelector(".quad.delegate .tile") as HTMLElement).click();
+    await settle();
+    expect(services).toContainEqual({
+      domain: "todo",
+      service: "update_item",
+      data: { entity_id: "todo.mama", item: "3", status: "completed" },
+    });
+  });
+
+  it("keeps the filters", async () => {
+    const { root } = await mount({ persons, eisenhower: true, hide_undated: true }, opts);
+    expect(quad(root, "later")).toEqual([]);
+  });
+
+  it("leaves the board and kid mode alone", async () => {
+    const board = await mount({ persons }, opts);
+    expect(board.all(".quad")).toHaveLength(0);
+    expect(board.texts(".tile-title")).toContain("!Steuer abgeben");
+    const kid = await mount({ persons, eisenhower: true, kid_mode: true }, opts);
+    expect(kid.all(".quad")).toHaveLength(0);
+    expect(kid.all(".kid")).toHaveLength(1);
+  });
+});
+
+describe("Eisenhower view: the urgency boundary", () => {
+  it("counts a task due in exactly urgent_within days as urgent, one day later not", async () => {
+    const { root } = await mount(
+      { persons: [{ name: "Mama", lists: "todo.mama" }], eisenhower: true },
+      {
+        lists: {
+          "todo.mama": {
+            items: [
+              task("a", "Mittwoch", { due: "2026-09-23" }), // in 2 days
+              task("b", "Donnerstag", { due: "2026-09-24" }), // in 3 days
+            ],
+          },
+        },
+      },
+    );
+    const titles = (q: string) =>
+      [...root.querySelectorAll(`.quad.${q} .tile-title`)].map((n) => n.textContent!.trim());
+    expect(titles("delegate")).toEqual(["Mittwoch"]);
+    expect(titles("later")).toEqual(["Donnerstag"]);
+  });
+});
+
+describe("visual editor covers everything", () => {
+  type Ed = HTMLElement & {
+    setConfig(c: unknown): void;
+    hass: unknown;
+    [k: string]: unknown;
+  };
+  const value = (v: unknown) => new CustomEvent("value-changed", { detail: { value: v } });
+
+  async function editor(config: Record<string, unknown>) {
+    await import("./editor");
+    const ed = document.createElement("family-task-card-editor") as Ed;
+    ed.hass = {
+      locale: { language: "de" },
+      states: { "todo.a": { attributes: { friendly_name: "Haushalt" } } },
+    };
+    ed.setConfig({ type: "custom:family-task-card", persons: [], ...config });
+    const out: { last?: Record<string, any> } = {};
+    ed.addEventListener("config-changed", (e) => {
+      out.last = (e as CustomEvent).detail.config;
+      ed.setConfig(out.last); // like the HA dashboard editor does
+    });
+    const call = (name: string, ...args: unknown[]) =>
+      (ed[name] as (...a: unknown[]) => unknown).apply(ed, args);
+    return { ed, out, call };
+  }
+
+  const names = (schema: any[]): string[] =>
+    schema.flatMap((s) => (Array.isArray(s.schema) ? names(s.schema) : [s.name]));
+
+  it("offers every option from the README in the menu", async () => {
+    const { readFileSync } = await import("node:fs");
+    const readme = readFileSync(`${process.cwd()}/README.md`, "utf8");
+    const documented = [...readme.matchAll(/^\| `([a-z_.[\]]+)` \|/gm)].map((m) => m[1]);
+    expect(documented.length).toBeGreaterThan(40);
+
+    // every switch on, so the options that depend on one are shown too
+    const { call } = await editor({
+      eisenhower: true,
+      kiosk: true,
+      rotation: true,
+      show_leaderboard: true,
+      points_backend: true,
+    });
+    const menu = new Set([
+      ...names(call("_schema") as any[]),
+      "parent_pin", // rewards panel
+      ...((call("_ruleSchema") as any[]).length ? ["context_rules"] : []),
+      ...((call("_celebrateSchema") as any[]).length ? ["celebrate"] : []),
+      "rewards",
+      "persons",
+      // persons[].x: the person form, plus the colour swatches
+      ...["name", "person", "lists", "goal", "points_entity", "color"].map((k) => `persons[].${k}`),
+    ]);
+    const missing = documented.filter((k) => !menu.has(k));
+    expect(missing).toEqual([]);
+  });
+
+  it("groups the settings into sections", async () => {
+    const { call } = await editor({});
+    const schema = call("_schema") as any[];
+    expect(schema.every((s) => s.type === "expandable" && s.flatten)).toBe(true);
+    expect(schema.map((s) => s.title)).toEqual([
+      "Allgemein",
+      "Modus",
+      "Aufgaben & Filter",
+      "Ämtli-Rotation",
+      "Punkte & Level",
+      "Einkauf (Bring!)",
+      "Darstellung",
+    ]);
+  });
+
+  it("adds, edits and removes rewards", async () => {
+    const { call, out } = await editor({});
+    call("_addReward");
+    expect(out.last!.rewards).toEqual([{ name: "", cost: 50, emoji: "🎁" }]);
+    call("_rewardChanged", 0, value({ name: "Eis", cost: "30", emoji: "" }));
+    expect(out.last!.rewards).toEqual([{ name: "Eis", cost: 30 }]);
+    call("_removeReward", 0);
+    expect(out.last!.rewards).toBeUndefined();
+  });
+
+  it("edits context rules without losing YAML-only options", async () => {
+    const { call, out } = await editor({
+      context_rules: [{ entity: "weather.home", effect: "hide", lists: ["todo.a"], above: 3 }],
+    });
+    call("_ruleChanged", 0, value({ match: "gieß", state: "rainy, pouring", invert: false }));
+    expect(out.last!.context_rules).toEqual([
+      {
+        entity: "weather.home",
+        effect: "hide",
+        lists: ["todo.a"],
+        above: 3,
+        match: "gieß",
+        state: ["rainy", "pouring"],
+      },
+    ]);
+    call("_ruleChanged", 0, value({ state: "snowy" }));
+    expect(out.last!.context_rules[0].state).toBe("snowy");
+    call("_addRule");
+    expect(out.last!.context_rules[1]).toEqual({ entity: "", effect: "highlight" });
+  });
+
+  it("stores celebrate actions from the HA action editor", async () => {
+    const { call, out } = await editor({});
+    const actions = [{ action: "light.turn_on", target: { entity_id: "light.kids" } }];
+    call("_celebrateChanged", value({ on: ["all_done"], actions }));
+    expect(out.last!.celebrate).toEqual({ actions }); // "all done" is the default
+    call("_celebrateChanged", value({ on: ["task"], actions }));
+    expect(out.last!.celebrate).toEqual({ on: "task", actions });
+    call("_celebrateChanged", value({ on: ["task"], actions: [] }));
+    expect(out.last!.celebrate).toBeUndefined();
+  });
+
+  it("sets per-list switches and drops them again", async () => {
+    const { call, out } = await editor({
+      persons: [{ name: "Anna", lists: ["todo.a", "todo.b"] }],
+    });
+    call("_listSettingsChanged", 0, "todo.b", value({ important: true, show_within: 0 }));
+    expect(out.last!.persons[0].lists).toEqual([
+      "todo.a",
+      { entity: "todo.b", important: true, show_within: 0 },
+    ]);
+    call("_listSettingsChanged", 0, "todo.b", value({ important: false }));
+    expect(out.last!.persons[0].lists).toEqual(["todo.a", "todo.b"]);
+  });
+
+  it("switches options off and empties fields for good", async () => {
+    // ha-form sends the whole form data with the change
+    const { ed, call, out } = await editor({ kid_mode: true, title: "Alt", theme: "dark" });
+    const data = ed["_settingsData"] as Record<string, unknown>;
+    call("_settingsChanged", value({ ...data, kid_mode: false, title: "", theme: "auto" }));
+    expect(out.last!.kid_mode).toBeUndefined();
+    expect(out.last!.title).toBeUndefined();
+    expect(out.last!.theme).toBeUndefined();
+    expect(out.last!.persons).toEqual([]); // untouched parts stay
+  });
+
+  it("takes level badges as text", async () => {
+    const { call, out } = await editor({});
+    call("_settingsChanged", value({ level_emojis: "🌱, ⭐ 🔥" }));
+    expect(out.last!.level_emojis).toEqual(["🌱", "⭐", "🔥"]);
+    call("_settingsChanged", value({ level_emojis: "" }));
+    expect(out.last!.level_emojis).toBeUndefined();
+  });
+});
+
+describe("celebrate actions from the HA action editor", () => {
+  it("runs actions written as `action:`", async () => {
+    const { services, all, settle } = await mount(
+      {
+        persons: [{ name: "Anna", lists: "todo.anna" }],
+        celebrate: {
+          on: "task",
+          actions: [{ action: "light.turn_on", target: { entity_id: "light.kids" } }],
+        },
+      },
+      { lists: { "todo.anna": { items: [task("a1", "Zimmer")] } } },
+    );
+    (all(".tile")[0] as HTMLElement).click();
+    await settle();
+    expect(services).toContainEqual({ domain: "light", service: "turn_on", data: {} });
+  });
+});

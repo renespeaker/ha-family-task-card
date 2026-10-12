@@ -112,8 +112,12 @@ The goal: a usable, coherent card with the core loop.
 - [x] **Due-date groups & filters** — `group_by_due` (Overdue / Today / Soon /
       Later / No date, the last two collapsed), `hide_undated`, `show_within`;
       lists can override the card (`- entity: …`).
-- [ ] **Eisenhower view** (own mode for parents, not for kids) — urgent from the
-      due date, important via a marker (e.g. "!" in the title or a whole list).
+- [x] **Eisenhower view** (own mode for parents, not for kids) — `eisenhower`:
+      urgent from the due date (`urgent_within`), important via "!" at the start
+      of the title or `important: true` on a list.
+- [x] **Everything in the visual editor** — settings in collapsible sections,
+      panels for rewards, context rules and celebrate actions (HA action editor),
+      per-list switches; a test checks that every documented option is in the menu.
 - [x] **Bilingual (EN/DE)** — the language follows the HA interface (`localize.ts`).
 - [x] **Theme-aware plus a dark-mode switch** — follows the HA theme; `theme:
       auto|dark|light` forces a colour scheme inside the card (for a wall tablet, say).

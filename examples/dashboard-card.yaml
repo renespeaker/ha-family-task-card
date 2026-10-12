@@ -123,6 +123,12 @@ persons:
 # hide_undated: true              # hide tasks without a due date
 # show_within: 7                  # only tasks due within 7 days (overdue always)
 # A list can override the card:   - { entity: todo.inbox, hide_undated: true, show_within: 0 }
+
+# --- Optional: Eisenhower view (a card for the parents) ---
+# urgent = overdue or due within urgent_within days; important = "!" at the start
+# of the title ("!File taxes") or a list with important: true.
+# eisenhower: true
+# urgent_within: 2
 # The card follows the Home Assistant UI language (German / English).
 
 # --- Optional: celebrate actions (make success tangible) ---
