@@ -9,7 +9,8 @@ Sister project: Family Board Card (`renespeaker/ha-family-board-card`).
 - Show drafts of anything posted on GitHub (issue replies, comments) **before**
   posting. Open PRs, merge and release only when asked.
 - The maintainer publishes releases. Claude prepares notes and verifies the
-  result afterwards; see the `release` skill.
+  result afterwards; see the `release` skill. Hand over link, title and notes
+  as separate code blocks, ready to copy.
 - The maintainer also develops here in other sessions – pull `main` first.
 - If you suggest an idea, check the code and `ROADMAP.md` first.
 
