@@ -770,3 +770,144 @@ describe("statistics (points ledger)", () => {
     expect(texts(".kid-name .streak")).toEqual(["⚡ 5"]);
   });
 });
+
+describe("due-date filters and groups", () => {
+  // "now" is Monday 21 Sep 2026, 10:00
+  const items = [
+    task("o", "Überfällig", { due: "2026-09-18" }),
+    task("t", "Heute", { due: "2026-09-21" }),
+    task("s", "Bald", { due: "2026-09-25" }),
+    task("l", "Später", { due: "2026-10-15" }),
+    task("u", "Ohne Termin"),
+  ];
+  const one = { lists: { "todo.a": { items } } };
+  const anna = (extra = {}) => ({ persons: [{ name: "Anna", lists: "todo.a" }], ...extra });
+  const titles = (texts: (sel: string) => string[]) => texts(".tile-title");
+
+  it("shows everything, ungrouped, by default", async () => {
+    const { texts, all } = await mount(anna(), one);
+    expect(titles(texts)).toHaveLength(5);
+    expect(all(".grp-head")).toHaveLength(0);
+  });
+
+  it("hides tasks without a date", async () => {
+    const { texts } = await mount(anna({ hide_undated: true }), one);
+    expect(titles(texts)).not.toContain("Ohne Termin");
+    expect(titles(texts)).toHaveLength(4);
+  });
+
+  it("shows only what is due within N days, overdue always", async () => {
+    const { texts } = await mount(anna({ show_within: 7 }), one);
+    expect(titles(texts).sort()).toEqual(["Bald", "Heute", "Ohne Termin", "Überfällig"]);
+  });
+
+  it("shows only today and overdue with 0", async () => {
+    const { texts } = await mount(anna({ show_within: 0, hide_undated: true }), one);
+    expect(titles(texts).sort()).toEqual(["Heute", "Überfällig"]);
+  });
+
+  it("lets a list override the card", async () => {
+    const { texts } = await mount(
+      {
+        persons: [
+          {
+            name: "Anna",
+            lists: ["todo.a", { entity: "todo.b", hide_undated: true, show_within: 0 }],
+          },
+        ],
+        show_within: 30,
+      },
+      {
+        lists: {
+          "todo.a": {
+            items: [task("a1", "A ohne"), task("a2", "A Oktober", { due: "2026-10-15" })],
+          },
+          "todo.b": {
+            items: [task("b1", "B ohne"), task("b2", "B Freitag", { due: "2026-09-25" })],
+          },
+        },
+      },
+    );
+    // todo.a follows the card (30 days, undated shown); todo.b only today
+    expect(titles(texts).sort()).toEqual(["A Oktober", "A ohne"]);
+  });
+
+  it("keeps points for hidden tasks", async () => {
+    const { texts } = await mount(anna({ hide_undated: true }), {
+      lists: { "todo.a": { items: [done("d1", "Erledigt"), task("u1", "Ohne Termin")] } },
+    });
+    expect(texts(".col-meta").join(" ")).toContain("⭐ 10");
+  });
+
+  it("does not filter rotating chores", async () => {
+    const { texts } = await mount(
+      {
+        persons: [{ name: "Anna" }],
+        rotation: true,
+        rotation_lists: "todo.aemtli",
+        show_within: 0,
+        hide_undated: true,
+      },
+      {
+        lists: {
+          "todo.aemtli": {
+            items: [task("c1", "Müll", { due: "2026-09-27" })],
+            features: CREATE | UPDATE | 16,
+          },
+        },
+      },
+    );
+    expect(titles(texts)).toEqual(["Müll"]);
+  });
+
+  it("groups by due date, later and undated collapsed", async () => {
+    const { texts, all, root, settle } = await mount(anna({ group_by_due: true }), one);
+    expect(texts(".grp-head")).toEqual([
+      "🔴 Überfällig 1",
+      "📌 Heute 1",
+      "📅 Bald 1",
+      "🗓 Später 1 ▸",
+      "📥 Ohne Termin 1 ▸",
+    ]);
+    expect(titles(texts)).toEqual(["Überfällig", "Heute", "Bald"]);
+    (root.querySelector(".grp-head.undated") as HTMLElement).click();
+    await settle();
+    expect(titles(texts)).toEqual(["Überfällig", "Heute", "Bald", "Ohne Termin"]);
+    expect(all(".grp-head.undated")[0].getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("does not group in kid mode, but filters", async () => {
+    const { all, texts } = await mount(
+      anna({ group_by_due: true, hide_undated: true, kid_mode: true }),
+      one,
+    );
+    expect(all(".grp-head")).toHaveLength(0);
+    expect(texts(".kid-task-title").join(" ")).not.toContain("Ohne Termin");
+  });
+});
+
+describe("editor", () => {
+  it("keeps per-list settings when the lists are edited", async () => {
+    await import("./editor"); // the card loads its editor on demand
+    const ed = document.createElement("family-task-card-editor") as HTMLElement & {
+      setConfig(c: unknown): void;
+      hass: unknown;
+    };
+    ed.hass = { locale: { language: "de" }, states: {} };
+    const filtered = { entity: "todo.b", hide_undated: true };
+    ed.setConfig({
+      type: "custom:family-task-card",
+      persons: [{ name: "Anna", lists: ["todo.a", filtered] }],
+    });
+    let emitted: { persons: { lists: unknown }[] } | undefined;
+    ed.addEventListener("config-changed", (e) => (emitted = (e as CustomEvent).detail.config));
+    // the picker hands back plain entity ids; add todo.c, keep a and b
+    (ed as unknown as { _personChanged(i: number, e: CustomEvent): void })._personChanged(
+      0,
+      new CustomEvent("value-changed", {
+        detail: { value: { name: "Anna", lists: ["todo.a", "todo.b", "todo.c"] } },
+      }),
+    );
+    expect(emitted!.persons[0].lists).toEqual(["todo.a", filtered, "todo.c"]);
+  });
+});

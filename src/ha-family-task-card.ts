@@ -28,6 +28,8 @@ import { assignChores, roundBounds, roundFix, roundIndex, type RotationPeriod } 
  * With `rotation` switched on, chores from shared lists take turns between the
  * persons, round by round (see rotation.ts). With `points_backend` on and the
  * optional Family Tasks integration installed, points are booked in its ledger.
+ * Open tasks can be grouped by due date and filtered (`group_by_due`,
+ * `hide_undated`, `show_within`, also per list).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -64,11 +66,21 @@ const EMOJI_RULES: Array<[RegExp, string]> = [
   [/auto|car|tanken/i, "🚗"],
 ];
 
+/** Which open tasks to show (card-wide, or per list). */
+interface ListFilter {
+  hide_undated?: boolean; // hide tasks without a due date
+  show_within?: number; // only tasks due within N days (overdue always shown)
+}
+
+export type ListRef = string | ({ entity: string } & ListFilter);
+
 interface PersonConfig {
   name?: string;
   person?: string; // person.* entity -> avatar (entity_picture) + friendly name
   color?: string; // optional override; default falls back to the palette
-  lists?: string | string[]; // todo.* entity/entities that belong to this person
+  // todo.* entity/entities that belong to this person; an entry may also be
+  // { entity, hide_undated, show_within } to filter just that list
+  lists?: ListRef | ListRef[];
   goal?: number; // optional per-person points goal
   points_entity?: string; // input_number holding this person's SPENT points (reward shop)
 }
@@ -132,6 +144,9 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   points_backend?: boolean; // book points in the Family Tasks integration (when installed). default off
   reward_approval?: boolean; // with points_backend: rewards are requested, parents approve by push. default off
   leaderboard_period?: "all" | "week" | "month"; // rank by points of this week/month (points ledger). default all
+  hide_undated?: boolean; // hide open tasks without a due date (lists can override). default off
+  show_within?: number; // only show open tasks due within N days; overdue always (lists can override)
+  group_by_due?: boolean; // board: group open tasks by due date, later/undated collapsed. default off
   show_streak?: boolean; // "⚡ 5" next to the name: days in a row with a task (points ledger). default off
 }
 
@@ -239,9 +254,29 @@ function personColor(p: PersonConfig, idx: number): string {
   return p.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
 }
 
-function listsOf(p: PersonConfig): string[] {
+function listRefs(p: PersonConfig): ListRef[] {
   if (!p.lists) return [];
   return (Array.isArray(p.lists) ? p.lists : [p.lists]).filter(Boolean);
+}
+
+function listsOf(p: PersonConfig): string[] {
+  return listRefs(p)
+    .map((r) => (typeof r === "string" ? r : r.entity))
+    .filter(Boolean);
+}
+
+/** Due-date groups for the board (group_by_due). */
+type DueGroup = "overdue" | "today" | "soon" | "later" | "undated";
+const DUE_GROUPS: DueGroup[] = ["overdue", "today", "soon", "later", "undated"];
+const COLLAPSED_GROUPS = new Set<DueGroup>(["later", "undated"]);
+const SOON_DAYS = 7;
+
+function dueGroup(item: TodoItem): DueGroup {
+  const due = parseDue(item.due);
+  if (!due) return "undated";
+  if (isOverdue(item)) return "overdue";
+  const d = daysFromToday(due.day);
+  return d <= 0 ? "today" : d <= SOON_DAYS ? "soon" : "later";
 }
 
 function emojiFor(summary: string): string {
@@ -651,7 +686,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         // off and none remain open. Real points history moves to the integration.
         else if (done.length > 0) earned += shopPts;
       } else {
-        for (const o of items) (o.item.status === "completed" ? tasksDone : rawOpen).push(o);
+        const filter = this._listFilter(p, entity);
+        for (const o of items) {
+          if (o.item.status === "completed") tasksDone.push(o);
+          else if (this._visible(o.item, filter)) rawOpen.push(o);
+        }
       }
     }
     earned += tasksDone.length * pts;
@@ -795,6 +834,24 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         if (a) this._award(this._awardKey(entity, item), a.now, pts, item.summary);
       }
     }
+  }
+
+  /** The filter for one of a person's lists: its own settings, else the card's. */
+  private _listFilter(p: PersonConfig, entity: string): ListFilter {
+    const ref = listRefs(p).find((r) => typeof r !== "string" && r.entity === entity);
+    const own: ListFilter = typeof ref === "object" ? ref : {};
+    return {
+      hide_undated: own.hide_undated ?? this._config?.hide_undated,
+      show_within: own.show_within ?? this._config?.show_within,
+    };
+  }
+
+  /** Should an open task show? Overdue tasks always do. */
+  private _visible(item: TodoItem, f: ListFilter): boolean {
+    const due = parseDue(item.due);
+    if (!due) return !f.hide_undated;
+    if (typeof f.show_within !== "number" || f.show_within < 0) return true;
+    return isOverdue(item) || daysFromToday(due.day) <= f.show_within;
   }
 
   /** Index of the person a (non-rotation) list belongs to, or -1. */
@@ -1563,7 +1620,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <div class="tiles">
           ${isEmpty ? html`<div class="empty">${this._t("all_done_board")}</div>` : nothing}
           ${view.shopOpen.map((s) => this._shoppingTile(s, color))}
-          ${view.tasksOpen.map((o) => this._tile(o, color, false, o.flag, o.label))}
+          ${
+            this._config!.group_by_due
+              ? this._groupedTiles(idx, view.tasksOpen, color)
+              : view.tasksOpen.map((o) => this._tile(o, color, false, o.flag, o.label))
+          }
           ${showDone ? view.tasksDone.map((o) => this._tile(o, color, true)) : nothing}
         </div>
 
@@ -1584,6 +1645,51 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         ${shopOpen ? this._shopPanel(idx, view.balance, view.hasWallet, view.requests) : nothing}
       </div>
     `;
+  }
+
+  /** Expanded collapsible groups, as "personIdx|group". */
+  @state() private _expanded: Record<string, boolean> = {};
+
+  /** Open tasks under due-date headings; "later" and "no date" start collapsed. */
+  private _groupedTiles(idx: number, tasks: DecoratedItem[], color: string) {
+    const groups = new Map<DueGroup, DecoratedItem[]>();
+    for (const o of tasks) {
+      const g = dueGroup(o.item);
+      groups.set(g, [...(groups.get(g) ?? []), o]);
+    }
+    return DUE_GROUPS.filter((g) => groups.has(g)).map((g) => {
+      const items = groups.get(g)!;
+      const key = `${idx}|${g}`;
+      const collapsible = COLLAPSED_GROUPS.has(g);
+      const open = !collapsible || !!this._expanded[key];
+      return html`
+        <div
+          class="grp-head ${g} ${collapsible ? "collapsible" : ""}"
+          role=${collapsible ? "button" : nothing}
+          tabindex=${collapsible ? 0 : nothing}
+          aria-expanded=${collapsible ? String(open) : nothing}
+          @click=${collapsible ? () => this._toggleGroup(key) : nothing}
+          @keydown=${
+            collapsible
+              ? (e: KeyboardEvent) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    this._toggleGroup(key);
+                  }
+                }
+              : nothing
+          }
+        >
+          <span>${this._t(`grp_${g}`)}</span>
+          <span class="grp-count">${items.length}${collapsible ? (open ? " ▾" : " ▸") : ""}</span>
+        </div>
+        ${open ? items.map((o) => this._tile(o, color, false, o.flag, o.label)) : nothing}
+      `;
+    });
+  }
+
+  private _toggleGroup(key: string): void {
+    this._expanded = { ...this._expanded, [key]: !this._expanded[key] };
   }
 
   private _shopPanel(
@@ -2559,6 +2665,30 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     .lvl.streak {
       background: color-mix(in srgb, #ff7043 16%, transparent);
       color: #e64a19;
+    }
+    /* Due-date groups on the board (group_by_due). */
+    .grp-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--secondary-text-color);
+      margin: 6px 2px 0;
+    }
+    .grp-head.overdue {
+      color: var(--error-color, #db4437);
+    }
+    .grp-head.collapsible {
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: var(--secondary-background-color, #f3f4f6);
+    }
+    .grp-count {
+      font-weight: 600;
     }
     .lb-pts {
       flex: none;

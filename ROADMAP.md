@@ -109,6 +109,11 @@ The goal: a usable, coherent card with the core loop.
 - [x] **Add a task** right in the card (`todo.add_item`, wherever the list
       supports CREATE; `allow_add`).
 - [x] **Sorting and filtering** of open tasks (`sort`, `hide_empty`, `due_soon`).
+- [x] **Due-date groups & filters** — `group_by_due` (Overdue / Today / Soon /
+      Later / No date, the last two collapsed), `hide_undated`, `show_within`;
+      lists can override the card (`- entity: …`).
+- [ ] **Eisenhower view** (own mode for parents, not for kids) — urgent from the
+      due date, important via a marker (e.g. "!" in the title or a whole list).
 - [x] **Bilingual (EN/DE)** — the language follows the HA interface (`localize.ts`).
 - [x] **Theme-aware plus a dark-mode switch** — follows the HA theme; `theme:
       auto|dark|light` forces a colour scheme inside the card (for a wall tablet, say).

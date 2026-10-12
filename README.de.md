@@ -4,7 +4,7 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.16.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.17.0).** Personen-Board, visueller Editor, Kinder-Modus,
 > Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
@@ -198,6 +198,9 @@ persons:
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
 | `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
+| `group_by_due`    | Bool               | Board: offene Aufgaben nach Fälligkeit gruppieren; Später/Ohne Termin zugeklappt (siehe unten). |
+| `hide_undated`    | Bool               | Offene Aufgaben ohne Termin ausblenden (pro Liste überschreibbar). |
+| `show_within`     | Zahl               | Nur Aufgaben zeigen, die in N Tagen fällig sind, Überfälliges immer; `0` = heute (pro Liste überschreibbar). |
 | `scale`           | Zahl (%)           | Gesamte Kartengröße (Zoom über alles). Std. 100.        |
 | `font_scale`      | Zahl (%)           | Nur Schriftgröße. Std. 100.                             |
 | `avatar_scale`    | Zahl (%)           | Nur Avatare/Bilder und Karten-Icon. Std. 100.           |
@@ -593,6 +596,41 @@ Die **Erkennung** macht Home Assistant und setzt die Entität – z. B.:
 Matching: der Wert der Entität wird mit `name`, der `person.*`-Entität und dem
 Anzeigenamen jeder Person verglichen (Groß-/Kleinschreibung egal). Leeres Feld =
 klassisches manuelles Umschalten.
+
+### Gruppen & Filter nach Fälligkeit
+
+Lange Listen – z. B. Todoist mit Aufgaben, die Monate im Voraus geplant sind
+oder gar kein Datum haben – lassen sich übersichtlich halten. Alle drei Optionen
+sind standardmäßig aus:
+
+- **Nach Fälligkeit gruppieren** (`group_by_due: true`, Board) – offene Aufgaben
+  unter 🔴 *Überfällig* · 📌 *Heute* · 📅 *Bald* (7 Tage) · 🗓 *Später* ·
+  📥 *Ohne Termin*. *Später* und *Ohne Termin* sind zugeklappt; ein Tipp öffnet
+  sie. Nicht im Kinder-Modus.
+- **Aufgaben ohne Termin ausblenden** (`hide_undated: true`).
+- **Nur zeigen, was bald fällig ist** (`show_within: 7`) – Aufgaben, die in den
+  nächsten 7 Tagen fällig sind; Überfälliges bleibt immer. `show_within: 0`
+  zeigt nur heute und Überfälliges.
+
+Die Filter gelten für die eigenen Listen einer Person (auch im Kinder- und
+Kiosk-Modus), nicht für Ämtli der Rotation oder Einkäufe, und sie ändern keine
+Punkte. Jede Liste kann die Einstellung der Karte überschreiben:
+
+```yaml
+type: custom:family-task-card
+group_by_due: true
+show_within: 30                     # für die ganze Karte
+persons:
+  - name: Mama
+    lists:
+      - todo.haushalt               # folgt der Karte
+      - entity: todo.todoist_inbox  # eigene Einstellungen
+        hide_undated: true
+        show_within: 7
+```
+
+So können dieselben Listen auf einer Karte als volle Liste und auf einer zweiten
+als Übersicht „was ansteht" dienen (`hide_undated: true`, `show_within: 0`).
 
 ### Aufgaben hinzufügen, Sortierung & Sprache
 

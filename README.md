@@ -4,7 +4,7 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.16.0).** Per-person board, visual editor, kid mode, Bring!
+> **Status: usable (v0.17.0).** Per-person board, visual editor, kid mode, Bring!
 > shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
@@ -191,6 +191,9 @@ persons:
 | `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
 | `hide_empty` | bool | hide persons with no open tasks. |
 | `due_soon` | number | mark tasks due within X days as "due soon". |
+| `group_by_due` | bool | board: group open tasks by due date; later/undated collapsed (see below). |
+| `hide_undated` | bool | hide open tasks without a due date (lists can override). |
+| `show_within` | number | only show tasks due within N days, overdue always; `0` = today (lists can override). |
 | `scale` | number (%) | overall card size (zoom over everything). default 100. |
 | `font_scale` | number (%) | text size only. default 100. |
 | `avatar_scale` | number (%) | avatars/pictures and the card icon only. default 100. |
@@ -576,6 +579,39 @@ persons:
 
 That makes the wall tablet a "tap → my chores → done" station that resets itself
 back to the neutral state.
+
+### Due-date groups & filters
+
+Long lists — e.g. Todoist with tasks planned months ahead or without a date —
+can be kept tidy. All three options are off by default:
+
+- **Group by due date** (`group_by_due: true`, board) — open tasks under
+  🔴 *Overdue* · 📌 *Today* · 📅 *Soon* (7 days) · 🗓 *Later* · 📥 *No date*.
+  *Later* and *No date* start collapsed; a tap opens them. Not used in kid mode.
+- **Hide tasks without a date** (`hide_undated: true`).
+- **Only show what's due soon** (`show_within: 7`) — tasks due within the next
+  7 days; overdue tasks always stay. `show_within: 0` shows only today and
+  overdue.
+
+The filters apply to a person's own lists (also in kid and kiosk mode), not to
+rotating chores or shopping trips, and they don't change any points. Each list
+can override the card's setting:
+
+```yaml
+type: custom:family-task-card
+group_by_due: true
+show_within: 30                     # card-wide
+persons:
+  - name: Mom
+    lists:
+      - todo.chores                 # follows the card
+      - entity: todo.todoist_inbox  # its own settings
+        hide_undated: true
+        show_within: 7
+```
+
+The same lists can serve as a full list on one card and as a "what's due"
+overview on another (`hide_undated: true`, `show_within: 0`).
 
 ### Add tasks, sorting & language
 
