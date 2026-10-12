@@ -119,6 +119,10 @@ persons:
 # sort: due                       # manual (default) | due | alpha
 # hide_empty: true                # hide persons with no open tasks
 # due_soon: 2                     # mark tasks due within 2 days as "due soon"
+# group_by_due: true              # board: Overdue / Today / Soon / Later / No date
+# hide_undated: true              # hide tasks without a due date
+# show_within: 7                  # only tasks due within 7 days (overdue always)
+# A list can override the card:   - { entity: todo.inbox, hide_undated: true, show_within: 0 }
 # The card follows the Home Assistant UI language (German / English).
 
 # --- Optional: celebrate actions (make success tangible) ---

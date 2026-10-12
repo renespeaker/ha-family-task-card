@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import type { HomeAssistant, LovelaceCardEditor } from "custom-card-helpers";
-import type { FamilyTaskConfig } from "./ha-family-task-card";
+import type { FamilyTaskConfig, ListRef } from "./ha-family-task-card";
 import { langOf, t, type Lang } from "./localize";
 import { PERSON_PALETTE } from "./shared/person-palette";
 
@@ -9,7 +9,7 @@ interface PersonConfig {
   name?: string;
   person?: string;
   color?: string;
-  lists?: string | string[];
+  lists?: ListRef | ListRef[];
   goal?: number;
   points_entity?: string;
 }
@@ -76,6 +76,9 @@ const LABELS: Record<string, Bi> = {
   sort: { de: "Sortierung", en: "Sort" },
   hide_empty: { de: "Leere Personen ausblenden", en: "Hide empty persons" },
   due_soon: { de: "Bald fällig (Tage)", en: "Due soon (days)" },
+  group_by_due: { de: "Nach Fälligkeit gruppieren", en: "Group by due date" },
+  hide_undated: { de: "Aufgaben ohne Termin ausblenden", en: "Hide tasks without a date" },
+  show_within: { de: "Nur fällig in den nächsten … Tagen", en: "Only due within … days" },
   allow_add: { de: "Aufgabe-hinzufügen-Feld", en: "Add-task field" },
   name: { de: "Name", en: "Name" },
   person: { de: "Person (Avatar)", en: "Person (avatar)" },
@@ -199,6 +202,18 @@ const HELPERS: Record<string, Bi> = {
     de: "Personen ohne offene Aufgaben ausblenden.",
     en: "Hide persons that have no open tasks.",
   },
+  group_by_due: {
+    de: "Board: offene Aufgaben unter Überfällig / Heute / Bald / Später / Ohne Termin; Später und Ohne Termin sind zugeklappt. Nicht im Kinder-Modus.",
+    en: "Board: open tasks under Overdue / Today / Soon / Later / No date; Later and No date start collapsed. Not in kid mode.",
+  },
+  hide_undated: {
+    de: "Offene Aufgaben ohne Fälligkeitsdatum nicht anzeigen. Pro Liste per YAML überschreibbar.",
+    en: "Don't show open tasks without a due date. Can be overridden per list in YAML.",
+  },
+  show_within: {
+    de: "Nur Aufgaben zeigen, die in so vielen Tagen fällig sind; Überfälliges immer. 0 = nur heute. Leer = alle. Pro Liste per YAML überschreibbar.",
+    en: "Only show tasks due within this many days; overdue always. 0 = today only. Empty = all. Can be overridden per list in YAML.",
+  },
   due_soon: {
     de: "Aufgaben, die in den nächsten X Tagen fällig sind, hervorheben. 0 = aus.",
     en: "Highlight tasks due within the next X days. 0 = off.",
@@ -309,6 +324,9 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         },
       },
       { name: "due_soon", selector: { number: { min: 0, max: 60, mode: "box", step: 1 } } },
+      { name: "group_by_due", selector: { boolean: {} } },
+      { name: "hide_undated", selector: { boolean: {} } },
+      { name: "show_within", selector: { number: { min: 0, max: 365, mode: "box", step: 1 } } },
       { name: "rotation", selector: { boolean: {} } },
       ...(this._config.rotation ? this._rotationSchema() : []),
       {
@@ -419,6 +437,10 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.show_streak) delete next.show_streak;
     if (!next.hide_empty) delete next.hide_empty;
     if (!next.due_soon) delete next.due_soon;
+    if (!next.group_by_due) delete next.group_by_due;
+    if (!next.hide_undated) delete next.hide_undated;
+    // 0 is meaningful ("only today and overdue"), so only drop an empty field
+    if (typeof next.show_within !== "number" || isNaN(next.show_within)) delete next.show_within;
     if (!next.sort || next.sort === "manual") delete next.sort;
     if (!next.theme || next.theme === "auto") delete next.theme;
     if (!next.active_person_entity) delete next.active_person_entity;
@@ -453,18 +475,28 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!value.color) delete value.color;
     if (!value.goal) delete value.goal;
     if (!value.points_entity) delete value.points_entity;
-    // Collapse a single-list array back to a string for tidy YAML.
+    // The picker only knows entity ids: keep per-list settings ({ entity, … })
+    // for lists that are still picked.
     if (Array.isArray(value.lists)) {
-      if (value.lists.length === 0) delete value.lists;
-      else if (value.lists.length === 1) value.lists = value.lists[0];
+      const old = this._persons[idx]?.lists;
+      const before = (Array.isArray(old) ? old : old ? [old] : []).filter(
+        (r): r is Exclude<ListRef, string> => typeof r === "object" && !!r,
+      );
+      const lists: ListRef[] = (value.lists as string[]).map(
+        (e) => before.find((r) => r.entity === e) ?? e,
+      );
+      // Collapse a single plain list back to a string for tidy YAML.
+      if (lists.length === 0) delete value.lists;
+      else value.lists = lists.length === 1 && typeof lists[0] === "string" ? lists[0] : lists;
     }
     const persons = this._persons.map((p, i) => (i === idx ? value : p));
     this._emit({ ...this._config, persons });
   }
 
-  /** Normalize a person's lists to an array for the multi-entity picker. */
+  /** Normalize a person's lists to entity ids for the multi-entity picker. */
   private _personData(p: PersonConfig): PersonConfig {
-    const lists = Array.isArray(p.lists) ? p.lists : p.lists ? [p.lists] : [];
+    const refs = Array.isArray(p.lists) ? p.lists : p.lists ? [p.lists] : [];
+    const lists = refs.map((r) => (typeof r === "string" ? r : r.entity));
     return { ...p, lists };
   }
 
@@ -509,7 +541,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         lists: "",
       }));
     if (detected.length === 0) return;
-    const base = this._persons.filter((p) => p.name || p.person || (p.lists && p.lists.length));
+    const hasLists = (p: PersonConfig) => (Array.isArray(p.lists) ? p.lists.length > 0 : !!p.lists);
+    const base = this._persons.filter((p) => p.name || p.person || hasLists(p));
     this._emit({ ...this._config, persons: [...base, ...detected] });
   }
 

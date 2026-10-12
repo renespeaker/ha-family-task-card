@@ -114,6 +114,12 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Aufgabe hinzufügen** direkt in der Karte (`todo.add_item`, wo die Liste
       CREATE unterstützt; `allow_add`).
 - [x] **Sortierung & Filter** offener Aufgaben (`sort`, `hide_empty`, `due_soon`).
+- [x] **Gruppen & Filter nach Fälligkeit** – `group_by_due` (Überfällig / Heute /
+      Bald / Später / Ohne Termin, die letzten beiden zugeklappt), `hide_undated`,
+      `show_within`; Listen können die Karte überschreiben (`- entity: …`).
+- [ ] **Eisenhower-Ansicht** (eigener Modus für Eltern, nicht für Kinder) –
+      dringend aus der Fälligkeit, wichtig über eine Markierung (z. B. „!" im
+      Titel oder eine ganze Liste).
 - [x] **Zweisprachig (DE/EN)** – Sprache aus der HA-Oberfläche (`localize.ts`).
 - [x] **Theme-aware + Dark-Mode-Schalter** – folgt dem HA-Theme; `theme:
       auto|dark|light` erzwingt ein Farbschema karten-intern (z. B. Wandtablet).
