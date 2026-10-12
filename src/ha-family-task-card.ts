@@ -29,7 +29,8 @@ import { assignChores, roundBounds, roundFix, roundIndex, type RotationPeriod } 
  * persons, round by round (see rotation.ts). With `points_backend` on and the
  * optional Family Tasks integration installed, points are booked in its ledger.
  * Open tasks can be grouped by due date and filtered (`group_by_due`,
- * `hide_undated`, `show_within`, also per list).
+ * `hide_undated`, `show_within`, also per list). For parents there is an
+ * Eisenhower view (`eisenhower`): urgent × important instead of columns.
  */
 
 const CARD_NAME = "Family Task Card";
@@ -70,6 +71,7 @@ const EMOJI_RULES: Array<[RegExp, string]> = [
 interface ListFilter {
   hide_undated?: boolean; // hide tasks without a due date
   show_within?: number; // only tasks due within N days (overdue always shown)
+  important?: boolean; // Eisenhower view: every task of this list counts as important
 }
 
 export type ListRef = string | ({ entity: string } & ListFilter);
@@ -147,6 +149,8 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   hide_undated?: boolean; // hide open tasks without a due date (lists can override). default off
   show_within?: number; // only show open tasks due within N days; overdue always (lists can override)
   group_by_due?: boolean; // board: group open tasks by due date, later/undated collapsed. default off
+  eisenhower?: boolean; // parents' view: urgent/important matrix instead of the board. default off
+  urgent_within?: number; // Eisenhower: due within N days (or overdue) counts as urgent. default 2
   show_streak?: boolean; // "⚡ 5" next to the name: days in a row with a task (points ledger). default off
 }
 
@@ -263,6 +267,25 @@ function listsOf(p: PersonConfig): string[] {
   return listRefs(p)
     .map((r) => (typeof r === "string" ? r : r.entity))
     .filter(Boolean);
+}
+
+/** Eisenhower quadrants: urgent × important. */
+type Quadrant = "do" | "plan" | "delegate" | "later";
+const QUADRANTS: Quadrant[] = ["do", "plan", "delegate", "later"];
+const DEFAULT_URGENT_DAYS = 2;
+
+function quadrantOf(urgent: boolean, important: boolean): Quadrant {
+  if (important) return urgent ? "do" : "plan";
+  return urgent ? "delegate" : "later";
+}
+
+/** "!Steuer abgeben" marks a task as important (Eisenhower view). */
+function isMarkedImportant(summary: string): boolean {
+  return summary.trimStart().startsWith("!");
+}
+
+function stripImportant(summary: string): string {
+  return summary.trimStart().replace(/^!+\s*/, "");
 }
 
 /** Due-date groups for the board (group_by_due). */
@@ -1112,6 +1135,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const cfg = this._config;
     if (cfg.kiosk && cfg.persons.length > 0) return this._renderKiosk();
     if (cfg.kid_mode && cfg.persons.length > 0) return this._renderKid();
+    if (cfg.eisenhower) return this._renderMatrix();
     let familyEarned = 0;
     const columns = cfg.persons.map((p, idx) => {
       const view = this._personView(p);
@@ -1138,6 +1162,85 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         ${this._leaderboard(columns)}
       </ha-card>
     `;
+  }
+
+  /* ---- Eisenhower view (parents) ------------------------------------ */
+
+  /**
+   * Every open task of the card in a 2×2 grid. Urgent comes from the due date
+   * (overdue or due within `urgent_within` days); important is set by hand —
+   * a "!" at the start of the title, or `important: true` on a list.
+   */
+  private _renderMatrix() {
+    const cfg = this._config!;
+    const urgentDays = cfg.urgent_within ?? DEFAULT_URGENT_DAYS;
+    const cells = new Map<Quadrant, { o: DecoratedItem; idx: number }[]>(
+      QUADRANTS.map((q) => [q, []]),
+    );
+    cfg.persons.forEach((p, idx) => {
+      for (const o of this._personView(p).tasksOpen) {
+        const due = parseDue(o.item.due);
+        const urgent = isOverdue(o.item) || (!!due && daysFromToday(due.day) <= urgentDays);
+        const important = isMarkedImportant(o.item.summary) || this._listImportant(p, o.entity);
+        cells.get(quadrantOf(urgent, important))!.push({ o, idx });
+      }
+    });
+    const byDue = (a: { o: DecoratedItem }, b: { o: DecoratedItem }) => {
+      const da = parseDue(a.o.item.due);
+      const db = parseDue(b.o.item.due);
+      return (
+        ((da?.at ?? da?.day)?.getTime() ?? Infinity) - ((db?.at ?? db?.day)?.getTime() ?? Infinity)
+      );
+    };
+    return html`
+      <ha-card class=${this._themeClass()}>
+        <div class="head">
+          <div class="badge">🧭</div>
+          <div class="head-text">
+            <div class="title">${cfg.title || CARD_NAME}</div>
+            <div class="sub">${this._t("matrix_sub")}</div>
+          </div>
+        </div>
+        <div class="matrix">
+          <div class="quad-grid">
+            ${QUADRANTS.map((q) => {
+              const list = cells.get(q)!.sort(byDue);
+              return html`
+                <div class="quad ${q}">
+                  <div class="quad-head">
+                    <span>${this._t(`quad_${q}`)}</span
+                    ><span class="grp-count">${list.length}</span>
+                  </div>
+                  <div class="quad-hint">${this._t(`quad_${q}_hint`)}</div>
+                  ${
+                    list.length
+                      ? list.map(({ o, idx }) =>
+                          this._tile(
+                            o,
+                            personColor(cfg.persons[idx], idx),
+                            false,
+                            o.flag,
+                            undefined,
+                            {
+                              title: stripImportant(o.item.summary),
+                              who: this._personName(cfg.persons[idx], idx),
+                            },
+                          ),
+                        )
+                      : html`<div class="quad-empty">—</div>`
+                  }
+                </div>
+              `;
+            })}
+          </div>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  /** Is this list marked important (`- entity: …, important: true`)? */
+  private _listImportant(p: PersonConfig, entity: string): boolean {
+    return listRefs(p).some((r) => typeof r === "object" && r.entity === entity && !!r.important);
   }
 
   private _leaderboard(columns: { p: PersonConfig; idx: number; view: PersonView }[]) {
@@ -1843,6 +1946,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     completed: boolean,
     flag: ContextFlag = "none",
     label?: string,
+    matrix?: { title: string; who: string },
   ) {
     const { entity, item } = owned;
     const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
@@ -1870,15 +1974,19 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <div class="check">${completed ? "✓" : editable ? "" : "🔒"}</div>
         <div class="tile-emoji">${emoji}</div>
         <div class="tile-text">
-          <div class="tile-title">${item.summary}</div>
+          <div class="tile-title">${matrix ? matrix.title : item.summary}</div>
           ${
-            label
-              ? html`<div class="tile-flag">${label}</div>`
-              : rotHint
-                ? html`<div class="tile-due">${rotHint}</div>`
-                : item.due
-                  ? html`<div class="tile-due">${this._formatDue(item.due)}</div>`
-                  : nothing
+            matrix
+              ? html`<div class="tile-due">
+                  ${matrix.who}${item.due ? ` · ${this._formatDue(item.due)}` : ""}
+                </div>`
+              : label
+                ? html`<div class="tile-flag">${label}</div>`
+                : rotHint
+                  ? html`<div class="tile-due">${rotHint}</div>`
+                  : item.due
+                    ? html`<div class="tile-due">${this._formatDue(item.due)}</div>`
+                    : nothing
           }
         </div>
       </div>
@@ -2665,6 +2773,63 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     .lvl.streak {
       background: color-mix(in srgb, #ff7043 16%, transparent);
       color: #e64a19;
+    }
+    /* Eisenhower view: 2×2 on wide cards, stacked on phones. */
+    .matrix {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+      container-type: inline-size;
+    }
+    .quad-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+    /* two columns once the card itself is wide enough, not the window
+       (after the base rule, so it wins) */
+    @container (min-width: 520px) {
+      .quad-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+    }
+    .quad {
+      min-width: 0;
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: var(--secondary-background-color, #f3f4f6);
+      border-top: 4px solid var(--q, var(--divider-color));
+    }
+    .quad.do {
+      --q: var(--error-color, #db4437);
+    }
+    .quad.plan {
+      --q: var(--primary-color, #03a9f4);
+    }
+    .quad.delegate {
+      --q: var(--warning-color, #ffa600);
+    }
+    .quad.later {
+      --q: var(--disabled-text-color, #9aa0a6);
+    }
+    .quad-head {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+    }
+    .quad-hint {
+      font-size: 0.78em;
+      color: var(--secondary-text-color);
+      margin-top: -4px;
+    }
+    .quad-empty {
+      color: var(--secondary-text-color);
+      text-align: center;
+      padding: 6px 0;
     }
     /* Due-date groups on the board (group_by_due). */
     .grp-head {

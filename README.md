@@ -4,7 +4,7 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.17.0).** Per-person board, visual editor, kid mode, Bring!
+> **Status: usable (v0.18.0).** Per-person board, visual editor, kid mode, Bring!
 > shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
@@ -194,6 +194,8 @@ persons:
 | `group_by_due` | bool | board: group open tasks by due date; later/undated collapsed (see below). |
 | `hide_undated` | bool | hide open tasks without a due date (lists can override). |
 | `show_within` | number | only show tasks due within N days, overdue always; `0` = today (lists can override). |
+| `eisenhower` | bool | parents' view: urgent × important grid instead of columns (see below). |
+| `urgent_within` | number | Eisenhower: due within N days counts as urgent (default 2). |
 | `scale` | number (%) | overall card size (zoom over everything). default 100. |
 | `font_scale` | number (%) | text size only. default 100. |
 | `avatar_scale` | number (%) | avatars/pictures and the card icon only. default 100. |
@@ -579,6 +581,42 @@ persons:
 
 That makes the wall tablet a "tap → my chores → done" station that resets itself
 back to the neutral state.
+
+### Eisenhower view (for parents)
+
+A separate mode for grown-ups who want to prioritise: switch on **"Eisenhower
+view (for parents)"** (`eisenhower: true`) and the card shows all open tasks of
+its persons in a 2×2 grid instead of columns:
+
+| | urgent | not urgent |
+|---|---|---|
+| **important** | 🔴 Do now | 🗓 Schedule |
+| **not important** | 👥 Delegate | 💤 Later |
+
+- **Urgent** comes from the due date: overdue, or due within `urgent_within`
+  days (default 2).
+- **Important** is set by you: a **"!" at the start of the title**
+  ("!File taxes" — the "!" is not shown in the grid), or a whole list with
+  `important: true`.
+- Each tile shows the person's colour and name; checking off works as usual.
+  The filters (`hide_undated`, `show_within`) apply too.
+- Two columns once the card is wide enough, stacked on phones.
+- Meant as its own card for parents — kid and kiosk mode take precedence and
+  stay as they are.
+
+```yaml
+type: custom:family-task-card
+title: Parents
+eisenhower: true
+urgent_within: 2
+persons:
+  - name: Mom
+    lists:
+      - todo.mom
+      - entity: todo.paperwork   # everything here counts as important
+        important: true
+  - { name: Dad, lists: todo.dad }
+```
 
 ### Due-date groups & filters
 

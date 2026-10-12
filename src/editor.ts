@@ -45,6 +45,8 @@ const LABELS: Record<string, Bi> = {
   goal: { de: "Ziel (Punkte)", en: "Goal (points)" },
   show_completed: { de: "Erledigte anzeigen", en: "Show completed" },
   kid_mode: { de: "Kinder-Modus", en: "Kid mode" },
+  eisenhower: { de: "Eisenhower-Ansicht (für Eltern)", en: "Eisenhower view (for parents)" },
+  urgent_within: { de: "Dringend: fällig in … Tagen", en: "Urgent: due within … days" },
   active_person_entity: { de: "Aktive Person (Entität)", en: "Active person (entity)" },
   kiosk: { de: "Kiosk-Modus (Wandtablet)", en: "Kiosk mode (wall tablet)" },
   auto_return: { de: "Auto-Rückkehr (Sek.)", en: "Auto-return (sec)" },
@@ -101,6 +103,14 @@ const HELPERS: Record<string, Bi> = {
   show_completed: {
     de: "Erledigte Aufgaben ausgegraut mitanzeigen.",
     en: "Also show completed tasks (dimmed).",
+  },
+  eisenhower: {
+    de: "Statt Spalten pro Person ein 2×2-Raster: Jetzt erledigen / Einplanen / Delegieren / Später. Dringend = überfällig oder bald fällig; wichtig = „!“ am Titelanfang oder Liste mit important: true (YAML). Kinder- und Kiosk-Modus haben Vorrang.",
+    en: "Instead of person columns, a 2×2 grid: Do now / Schedule / Delegate / Later. Urgent = overdue or due soon; important = “!” at the start of the title or a list with important: true (YAML). Kid and kiosk mode take precedence.",
+  },
+  urgent_within: {
+    de: "Aufgaben, die in so vielen Tagen fällig sind, gelten als dringend (Überfälliges immer). Standard 2.",
+    en: "Tasks due within this many days count as urgent (overdue always). Default 2.",
   },
   kid_mode: {
     de: "Großes, tippbares Layout fürs Kinder-Tablet (Avatar oben zum Wechseln).",
@@ -301,6 +311,15 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
       { name: "show_completed", selector: { boolean: {} } },
       { name: "kid_mode", selector: { boolean: {} } },
+      { name: "eisenhower", selector: { boolean: {} } },
+      ...(this._config.eisenhower
+        ? [
+            {
+              name: "urgent_within",
+              selector: { number: { min: 0, max: 60, mode: "box", step: 1 } },
+            },
+          ]
+        : []),
       {
         name: "active_person_entity",
         selector: {
@@ -426,6 +445,9 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.goal) delete next.goal;
     if (!next.show_completed) delete next.show_completed;
     if (!next.kid_mode) delete next.kid_mode;
+    if (!next.eisenhower) delete next.eisenhower;
+    if (typeof next.urgent_within !== "number" || isNaN(next.urgent_within))
+      delete next.urgent_within;
     if (!next.shopping_points) delete next.shopping_points;
     if (!next.bring_deeplink) delete next.bring_deeplink;
     if (!next.parent_pin) delete next.parent_pin;

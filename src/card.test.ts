@@ -911,3 +911,93 @@ describe("editor", () => {
     expect(emitted!.persons[0].lists).toEqual(["todo.a", filtered, "todo.c"]);
   });
 });
+
+describe("Eisenhower view", () => {
+  // "now" is Monday 21 Sep 2026; urgent = overdue or due within 2 days (by 23 Sep)
+  const opts = {
+    lists: {
+      "todo.mama": {
+        items: [
+          task("1", "!Steuer abgeben", { due: "2026-09-22" }),
+          task("2", "!Urlaub planen", { due: "2026-10-30" }),
+          task("3", "Müll rausbringen", { due: "2026-09-21" }),
+          task("4", "Fotos sortieren"),
+        ],
+      },
+      "todo.arzt": { items: [task("5", "Zahnarzt", { due: "2026-10-10" })] },
+    },
+  };
+  const persons = [
+    { name: "Mama", lists: ["todo.mama", { entity: "todo.arzt", important: true }] },
+  ];
+  const quad = (root: ShadowRoot, q: string) =>
+    [...root.querySelectorAll(`.quad.${q} .tile-title`)].map((n) => n.textContent!.trim());
+
+  it("sorts every open task into urgent × important", async () => {
+    const { root } = await mount({ persons, eisenhower: true }, opts);
+    expect(quad(root, "do")).toEqual(["Steuer abgeben"]);
+    expect(quad(root, "plan")).toEqual(["Zahnarzt", "Urlaub planen"]); // list marked important
+    expect(quad(root, "delegate")).toEqual(["Müll rausbringen"]);
+    expect(quad(root, "later")).toEqual(["Fotos sortieren"]);
+  });
+
+  it("names the person on every tile and drops the '!'", async () => {
+    const { root } = await mount({ persons, eisenhower: true }, opts);
+    const tile = root.querySelector(".quad.do .tile")!;
+    expect(tile.querySelector(".tile-title")!.textContent!.trim()).toBe("Steuer abgeben");
+    expect(tile.querySelector(".tile-due")!.textContent).toContain("Mama");
+  });
+
+  it("can count only today and overdue as urgent", async () => {
+    const { root } = await mount({ persons, eisenhower: true, urgent_within: 0 }, opts);
+    expect(quad(root, "do")).toEqual([]);
+    expect(quad(root, "plan")).toContain("Steuer abgeben");
+  });
+
+  it("checks a task off from the grid", async () => {
+    const { root, services, settle } = await mount({ persons, eisenhower: true }, opts);
+    (root.querySelector(".quad.delegate .tile") as HTMLElement).click();
+    await settle();
+    expect(services).toContainEqual({
+      domain: "todo",
+      service: "update_item",
+      data: { entity_id: "todo.mama", item: "3", status: "completed" },
+    });
+  });
+
+  it("keeps the filters", async () => {
+    const { root } = await mount({ persons, eisenhower: true, hide_undated: true }, opts);
+    expect(quad(root, "later")).toEqual([]);
+  });
+
+  it("leaves the board and kid mode alone", async () => {
+    const board = await mount({ persons }, opts);
+    expect(board.all(".quad")).toHaveLength(0);
+    expect(board.texts(".tile-title")).toContain("!Steuer abgeben");
+    const kid = await mount({ persons, eisenhower: true, kid_mode: true }, opts);
+    expect(kid.all(".quad")).toHaveLength(0);
+    expect(kid.all(".kid")).toHaveLength(1);
+  });
+});
+
+describe("Eisenhower view: the urgency boundary", () => {
+  it("counts a task due in exactly urgent_within days as urgent, one day later not", async () => {
+    const { root } = await mount(
+      { persons: [{ name: "Mama", lists: "todo.mama" }], eisenhower: true },
+      {
+        lists: {
+          "todo.mama": {
+            items: [
+              task("a", "Mittwoch", { due: "2026-09-23" }), // in 2 days
+              task("b", "Donnerstag", { due: "2026-09-24" }), // in 3 days
+            ],
+          },
+        },
+      },
+    );
+    const titles = (q: string) =>
+      [...root.querySelectorAll(`.quad.${q} .tile-title`)].map((n) => n.textContent!.trim());
+    expect(titles("delegate")).toEqual(["Mittwoch"]);
+    expect(titles("later")).toEqual(["Donnerstag"]);
+  });
+});
