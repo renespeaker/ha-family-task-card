@@ -138,7 +138,15 @@ The card is configured per person with one or more `todo.*` lists — the same w
 the Family Board Card uses `persons`. Easiest via the **visual editor** (edit the
 card on the dashboard): add/sort persons, assign `person.*` & `todo.*` lists from
 pickers, choose a color, set points & a goal — works on the phone too. **"Detect
-persons"** imports existing `person.*` entities. If you prefer YAML:
+persons"** imports existing `person.*` entities.
+
+**Every option can be set in the editor** — no YAML needed. The settings are
+grouped into collapsible sections (*General · Mode · Tasks & filters · Chore
+rotation · Points & levels · Shopping · Appearance*), followed by panels for
+**rewards**, **context rules** and **celebrate actions** (with Home Assistant's
+own action editor for lights, sounds, announcements and pushes). Each person
+has **list settings** for every list: *important* (Eisenhower view), *hide tasks
+without a date* and *only due within … days*. If you prefer YAML:
 
 ```yaml
 type: custom:family-task-card

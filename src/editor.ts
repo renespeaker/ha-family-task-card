@@ -1,7 +1,13 @@
 import { LitElement, html, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import type { HomeAssistant, LovelaceCardEditor } from "custom-card-helpers";
-import type { FamilyTaskConfig, ListRef } from "./ha-family-task-card";
+import type {
+  CelebrateConfig,
+  ContextRule,
+  FamilyTaskConfig,
+  ListRef,
+  Reward,
+} from "./ha-family-task-card";
 import { langOf, t, type Lang } from "./localize";
 import { PERSON_PALETTE } from "./shared/person-palette";
 
@@ -36,6 +42,38 @@ const PERSON_SCHEMA = [
 ];
 
 type Bi = { de: string; en: string };
+
+/** Titles of the collapsible sections. */
+const SECTIONS: Record<string, Bi> = {
+  general: { de: "Allgemein", en: "General" },
+  mode: { de: "Modus", en: "Mode" },
+  tasks: { de: "Aufgaben & Filter", en: "Tasks & filters" },
+  rotation: { de: "Ämtli-Rotation", en: "Chore rotation" },
+  points: { de: "Punkte & Level", en: "Points & levels" },
+  shopping: { de: "Einkauf (Bring!)", en: "Shopping (Bring!)" },
+  look: { de: "Darstellung", en: "Appearance" },
+  rewards: { de: "Belohnungen", en: "Rewards" },
+  rules: { de: "Kontext-Regeln", en: "Context rules" },
+  celebrate: { de: "Feier-Aktionen", en: "Celebrate actions" },
+  list_settings: { de: "Listen-Einstellungen", en: "List settings" },
+};
+
+const EFFECTS = ["highlight", "urgent", "hide"] as const;
+const CELEBRATE_ON = ["all_done", "task", "reward"] as const;
+
+/** One reward in the shop. */
+const REWARD_SCHEMA = [
+  { name: "name", selector: { text: {} } },
+  { name: "cost", selector: { number: { min: 1, max: 100000, mode: "box", step: 1 } } },
+  { name: "emoji", selector: { text: {} } },
+];
+
+/** Per-list settings under a person (filters, Eisenhower importance). */
+const LIST_SCHEMA = [
+  { name: "important", selector: { boolean: {} } },
+  { name: "hide_undated", selector: { boolean: {} } },
+  { name: "show_within", selector: { number: { min: 0, max: 365, mode: "box", step: 1 } } },
+];
 
 /** Bilingual labels / helpers for the forms (falls back to the raw key). */
 const LABELS: Record<string, Bi> = {
@@ -83,6 +121,18 @@ const LABELS: Record<string, Bi> = {
   show_within: { de: "Nur fällig in den nächsten … Tagen", en: "Only due within … days" },
   allow_add: { de: "Aufgabe-hinzufügen-Feld", en: "Add-task field" },
   name: { de: "Name", en: "Name" },
+  level_emojis: { de: "Level-Abzeichen", en: "Level badges" },
+  cost: { de: "Preis (Punkte)", en: "Price (points)" },
+  emoji: { de: "Emoji", en: "Emoji" },
+  important: { de: "Wichtig (Eisenhower)", en: "Important (Eisenhower)" },
+  match: { de: "Titel enthält", en: "Title contains" },
+  entity: { de: "Entität", en: "Entity" },
+  state: { de: "Wenn Zustand", en: "When state" },
+  effect: { de: "Wirkung", en: "Effect" },
+  label: { de: "Hinweis", en: "Note" },
+  invert: { de: "Umkehren (wenn NICHT)", en: "Invert (when NOT)" },
+  on: { de: "Wann feiern", en: "When to celebrate" },
+  actions: { de: "Aktionen", en: "Actions" },
   person: { de: "Person (Avatar)", en: "Person (avatar)" },
   lists: { de: "Aufgabenlisten (todo.*)", en: "Task lists (todo.*)" },
   points_entity: { de: "Guthaben-Helfer (input_number)", en: "Points helper (input_number)" },
@@ -232,6 +282,30 @@ const HELPERS: Record<string, Bi> = {
     de: "Ein Eingabefeld pro Person zum Anlegen neuer Aufgaben (nur wo die Liste es unterstützt).",
     en: "An input field per person to add new tasks (only where the list supports it).",
   },
+  level_emojis: {
+    de: "Ein Abzeichen pro Level, durch Leerzeichen getrennt, z. B. 🌱 ⭐ 🔥 🏅 🏆 👑. Leer = Standard.",
+    en: "One badge per level, separated by spaces, e.g. 🌱 ⭐ 🔥 🏅 🏆 👑. Empty = default.",
+  },
+  important: {
+    de: "Alle Aufgaben dieser Liste gelten in der Eisenhower-Ansicht als wichtig.",
+    en: "Every task of this list counts as important in the Eisenhower view.",
+  },
+  match: {
+    de: "Ein Wort oder mehrere mit | getrennt, z. B. gieß|blumen. Leer = alle Aufgaben.",
+    en: "A word or several separated by |, e.g. water|plants. Empty = all tasks.",
+  },
+  state: {
+    de: "Zustand der Entität, z. B. rainy. Mehrere mit Komma = einer davon.",
+    en: "State of the entity, e.g. rainy. Several with commas = any of them.",
+  },
+  label: {
+    de: "Kurzer Hinweis auf der Kachel, z. B. „Morgen Abfuhr!“ (bei Hervorheben/Dringend).",
+    en: "Short note on the tile, e.g. “Bins tomorrow!” (with highlight/urgent).",
+  },
+  on: {
+    de: "Alles geschafft = wenn eine Person alles erledigt hat; Aufgabe = bei jeder Aufgabe; Belohnung = beim Einlösen. In Texten stehen {name} und {task} für Person und Aufgabe.",
+    en: "All done = when a person finished everything; task = on every task; reward = when redeeming. In texts, {name} and {task} stand for person and task.",
+  },
   person: {
     de: "Optional: person.* liefert Avatarbild & Anzeigename.",
     en: "Optional: person.* provides the avatar picture & display name.",
@@ -259,7 +333,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
   }
 
   /** Settings data with shopping_lists normalized and defaults reflected. */
-  private get _settingsData(): FamilyTaskConfig {
+  private get _settingsData(): Record<string, unknown> {
     const s = this._config.shopping_lists;
     const shopping_lists = Array.isArray(s) ? s : s ? [s] : [];
     // These default to on -> show the toggles on unless explicitly off.
@@ -269,6 +343,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     const rotation_lists = Array.isArray(r) ? r : r ? [r] : [];
     const rotation_period = this._config.rotation_period ?? "week";
     const rotation_reset = this._config.rotation_reset !== false;
+    const level_emojis = (this._config.level_emojis ?? []).join(" ");
     // Appearance sliders default to 100 % so they start centered, not at min.
     const scale = this._config.scale ?? 100;
     const font_scale = this._config.font_scale ?? 100;
@@ -284,6 +359,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       rotation_lists,
       rotation_period,
       rotation_reset,
+      level_emojis, // shown as text, stored as a list
     };
   }
 
@@ -291,114 +367,106 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     return langOf(this.hass);
   }
 
-  /** Settings schema; sort options are localized here. */
+  /** One collapsible section of the settings form; values stay flat. */
+  private _section(name: string, icon: string, schema: unknown[], expanded = false) {
+    return {
+      type: "expandable",
+      name: "",
+      title: SECTIONS[name]?.[this._lang] ?? name,
+      icon,
+      flatten: true,
+      expanded,
+      schema,
+    };
+  }
+
+  /** Settings schema in sections; select options are localized here. */
   private _schema() {
+    const c = this._config;
+    const num = (min: number, max: number, step = 1) => ({
+      number: { min, max, mode: "box", step },
+    });
+    const pct = (min: number, max: number) => ({
+      number: { min, max, mode: "slider", step: 5, unit_of_measurement: "%" },
+    });
+    const select = (values: readonly string[], key: (v: string) => string) => ({
+      select: {
+        mode: "dropdown",
+        options: values.map((v) => ({ value: v, label: t(this.hass, key(v)) })),
+      },
+    });
+    const bool = { boolean: {} };
     return [
-      { name: "title", selector: { text: {} } },
-      {
-        name: "theme",
-        selector: {
-          select: {
-            mode: "dropdown",
-            options: THEME_VALUES.map((v) => ({ value: v, label: t(this.hass, `theme_${v}`) })),
-          },
-        },
-      },
-      {
-        name: "points_per_task",
-        selector: { number: { min: 0, max: 1000, mode: "box", step: 1 } },
-      },
-      { name: "goal", selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } } },
-      { name: "show_completed", selector: { boolean: {} } },
-      { name: "kid_mode", selector: { boolean: {} } },
-      { name: "eisenhower", selector: { boolean: {} } },
-      ...(this._config.eisenhower
-        ? [
-            {
-              name: "urgent_within",
-              selector: { number: { min: 0, max: 60, mode: "box", step: 1 } },
+      this._section(
+        "general",
+        "mdi:card-text-outline",
+        [
+          { name: "title", selector: { text: {} } },
+          { name: "theme", selector: select(THEME_VALUES, (v) => `theme_${v}`) },
+        ],
+        true,
+      ),
+      this._section("mode", "mdi:view-dashboard-variant-outline", [
+        { name: "kid_mode", selector: bool },
+        { name: "eisenhower", selector: bool },
+        ...(c.eisenhower ? [{ name: "urgent_within", selector: num(0, 60) }] : []),
+        { name: "kiosk", selector: bool },
+        ...(c.kiosk ? [{ name: "auto_return", selector: num(0, 3600, 5) }] : []),
+        {
+          name: "active_person_entity",
+          selector: {
+            entity: {
+              filter: [{ domain: "input_select" }, { domain: "sensor" }, { domain: "person" }],
             },
-          ]
-        : []),
-      {
-        name: "active_person_entity",
-        selector: {
-          entity: {
-            filter: [{ domain: "input_select" }, { domain: "sensor" }, { domain: "person" }],
           },
         },
-      },
-      { name: "kiosk", selector: { boolean: {} } },
-      { name: "auto_return", selector: { number: { min: 0, max: 3600, mode: "box", step: 5 } } },
-      { name: "highlight_overdue", selector: { boolean: {} } },
-      { name: "allow_add", selector: { boolean: {} } },
-      { name: "hide_empty", selector: { boolean: {} } },
-      {
-        name: "sort",
-        selector: {
-          select: {
-            mode: "dropdown",
-            options: SORT_VALUES.map((v) => ({ value: v, label: t(this.hass, `sort_${v}`) })),
-          },
-        },
-      },
-      { name: "due_soon", selector: { number: { min: 0, max: 60, mode: "box", step: 1 } } },
-      { name: "group_by_due", selector: { boolean: {} } },
-      { name: "hide_undated", selector: { boolean: {} } },
-      { name: "show_within", selector: { number: { min: 0, max: 365, mode: "box", step: 1 } } },
-      { name: "rotation", selector: { boolean: {} } },
-      ...(this._config.rotation ? this._rotationSchema() : []),
-      {
-        name: "shopping_lists",
-        selector: { entity: { filter: { domain: "todo" }, multiple: true } },
-      },
-      {
-        name: "shopping_points",
-        selector: { number: { min: 0, max: 100000, mode: "box", step: 1 } },
-      },
-      { name: "bring_deeplink", selector: { text: {} } },
-      { name: "parent_pin", selector: { text: {} } },
-      { name: "points_backend", selector: { boolean: {} } },
-      ...(this._config.points_backend
-        ? [{ name: "reward_approval", selector: { boolean: {} } }]
-        : []),
-      { name: "level_size", selector: { number: { min: 0, max: 100000, mode: "box", step: 10 } } },
-      { name: "show_leaderboard", selector: { boolean: {} } },
-      ...(this._config.show_leaderboard
-        ? [
-            {
-              name: "leaderboard_period",
-              selector: {
-                select: {
-                  mode: "dropdown",
-                  options: LEADERBOARD_PERIODS.map((v) => ({
-                    value: v,
-                    label: t(this.hass, v === "all" ? "lb_all" : `lb_${v}`),
-                  })),
-                },
+      ]),
+      this._section("tasks", "mdi:format-list-checks", [
+        { name: "show_completed", selector: bool },
+        { name: "allow_add", selector: bool },
+        { name: "hide_empty", selector: bool },
+        { name: "highlight_overdue", selector: bool },
+        { name: "sort", selector: select(SORT_VALUES, (v) => `sort_${v}`) },
+        { name: "due_soon", selector: num(0, 60) },
+        { name: "group_by_due", selector: bool },
+        { name: "hide_undated", selector: bool },
+        { name: "show_within", selector: num(0, 365) },
+      ]),
+      this._section("rotation", "mdi:rotate-3d-variant", [
+        { name: "rotation", selector: bool },
+        ...(c.rotation ? this._rotationSchema() : []),
+      ]),
+      this._section("points", "mdi:star-circle-outline", [
+        { name: "points_per_task", selector: num(0, 1000) },
+        { name: "goal", selector: num(0, 100000) },
+        { name: "level_size", selector: num(0, 100000, 10) },
+        { name: "level_emojis", selector: { text: {} } },
+        { name: "show_leaderboard", selector: bool },
+        ...(c.show_leaderboard
+          ? [
+              {
+                name: "leaderboard_period",
+                selector: select(LEADERBOARD_PERIODS, (v) => (v === "all" ? "lb_all" : `lb_${v}`)),
               },
-            },
-          ]
-        : []),
-      { name: "show_streak", selector: { boolean: {} } },
-      {
-        name: "scale",
-        selector: {
-          number: { min: 50, max: 200, mode: "slider", step: 5, unit_of_measurement: "%" },
+            ]
+          : []),
+        { name: "show_streak", selector: bool },
+        { name: "points_backend", selector: bool },
+        ...(c.points_backend ? [{ name: "reward_approval", selector: bool }] : []),
+      ]),
+      this._section("shopping", "mdi:cart-outline", [
+        {
+          name: "shopping_lists",
+          selector: { entity: { filter: { domain: "todo" }, multiple: true } },
         },
-      },
-      {
-        name: "font_scale",
-        selector: {
-          number: { min: 70, max: 200, mode: "slider", step: 5, unit_of_measurement: "%" },
-        },
-      },
-      {
-        name: "avatar_scale",
-        selector: {
-          number: { min: 50, max: 250, mode: "slider", step: 5, unit_of_measurement: "%" },
-        },
-      },
+        { name: "shopping_points", selector: num(0, 100000) },
+        { name: "bring_deeplink", selector: { text: {} } },
+      ]),
+      this._section("look", "mdi:palette-outline", [
+        { name: "scale", selector: pct(50, 200) },
+        { name: "font_scale", selector: pct(70, 200) },
+        { name: "avatar_scale", selector: pct(50, 250) },
+      ]),
     ];
   }
 
@@ -439,7 +507,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
 
   private _settingsChanged(ev: CustomEvent): void {
     ev.stopPropagation();
-    const next = { ...ev.detail.value } as FamilyTaskConfig;
+    const raw = ev.detail.value as Record<string, unknown>;
+    const next = { ...raw } as FamilyTaskConfig;
     // Drop empty optional fields so the YAML stays tidy.
     if (!next.title) delete next.title;
     if (!next.goal) delete next.goal;
@@ -481,6 +550,12 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       if (next.rotation_lists.length === 0) delete next.rotation_lists;
       else if (next.rotation_lists.length === 1) next.rotation_lists = next.rotation_lists[0];
     }
+    // Level badges: typed as "🌱 ⭐ 🔥" (spaces or commas), stored as a list.
+    const emojis = String((next as { level_emojis?: unknown }).level_emojis ?? "")
+      .split(/[\s,]+/)
+      .filter(Boolean);
+    if (emojis.length) next.level_emojis = emojis;
+    else delete next.level_emojis;
     // Defaults are on: store only the explicit "off"; drop the redundant "on".
     if (next.highlight_overdue) delete next.highlight_overdue;
     if (next.allow_add) delete next.allow_add;
@@ -488,7 +563,11 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       if (next.shopping_lists.length === 0) delete next.shopping_lists;
       else if (next.shopping_lists.length === 1) next.shopping_lists = next.shopping_lists[0];
     }
-    this._emit({ ...this._config, ...next, persons: this._persons });
+    // A field the tidy-up removed (switched off, emptied, back to default) must
+    // leave the config too – merging alone would bring the old value back.
+    const merged = { ...this._config, ...next, persons: this._persons } as Record<string, unknown>;
+    for (const key of Object.keys(raw)) if (!(key in next)) delete merged[key];
+    this._emit(merged as unknown as FamilyTaskConfig);
   }
 
   private _personChanged(idx: number, ev: CustomEvent): void {
@@ -572,6 +651,195 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     return p.color || PALETTE[idx % PALETTE.length];
   }
 
+  /* ---- rewards ---------------------------------------------------- */
+
+  private get _rewardList(): Reward[] {
+    return Array.isArray(this._config.rewards) ? this._config.rewards : [];
+  }
+
+  private _setRewards(rewards: Reward[]): void {
+    const next = { ...this._config };
+    if (rewards.length) next.rewards = rewards;
+    else delete next.rewards;
+    this._emit(next);
+  }
+
+  private _rewardChanged(idx: number, ev: CustomEvent): void {
+    ev.stopPropagation();
+    const v = ev.detail.value as Partial<Reward>;
+    const reward: Reward = { name: String(v.name ?? ""), cost: Number(v.cost) || 0 };
+    if (v.emoji) reward.emoji = String(v.emoji);
+    this._setRewards(this._rewardList.map((r, i) => (i === idx ? reward : r)));
+  }
+
+  private _addReward(): void {
+    this._setRewards([...this._rewardList, { name: "", cost: 50, emoji: "🎁" }]);
+  }
+
+  private _removeReward(idx: number): void {
+    this._setRewards(this._rewardList.filter((_, i) => i !== idx));
+  }
+
+  private _pinChanged(ev: CustomEvent): void {
+    ev.stopPropagation();
+    const pin = (ev.detail.value as { parent_pin?: string }).parent_pin;
+    const next = { ...this._config };
+    if (pin) next.parent_pin = pin;
+    else delete next.parent_pin;
+    this._emit(next);
+  }
+
+  /* ---- context rules ---------------------------------------------- */
+
+  private get _rules(): ContextRule[] {
+    return Array.isArray(this._config.context_rules) ? this._config.context_rules : [];
+  }
+
+  private _ruleSchema() {
+    return [
+      { name: "match", selector: { text: {} } },
+      { name: "entity", selector: { entity: {} } },
+      { name: "state", selector: { text: {} } },
+      {
+        name: "effect",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: EFFECTS.map((v) => ({ value: v, label: t(this.hass, `effect_${v}`) })),
+          },
+        },
+      },
+      { name: "label", selector: { text: {} } },
+      { name: "invert", selector: { boolean: {} } },
+    ];
+  }
+
+  /** A rule as the form shows it: several states as "a, b". */
+  private _ruleData(r: ContextRule) {
+    return { ...r, state: Array.isArray(r.state) ? r.state.join(", ") : (r.state ?? "") };
+  }
+
+  private _setRules(rules: ContextRule[]): void {
+    const next = { ...this._config };
+    if (rules.length) next.context_rules = rules;
+    else delete next.context_rules;
+    this._emit(next);
+  }
+
+  private _ruleChanged(idx: number, ev: CustomEvent): void {
+    ev.stopPropagation();
+    // Merge into the old rule: options the form doesn't show (lists, above,
+    // below) stay as they are in YAML.
+    const rule = { ...this._rules[idx], ...ev.detail.value } as ContextRule & { state?: unknown };
+    const states = String(rule.state ?? "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (states.length === 0) delete rule.state;
+    else rule.state = states.length === 1 ? states[0] : states;
+    if (!rule.match) delete rule.match;
+    if (!rule.label) delete rule.label;
+    if (!rule.invert) delete rule.invert;
+    this._setRules(this._rules.map((r, i) => (i === idx ? rule : r)));
+  }
+
+  private _addRule(): void {
+    this._setRules([...this._rules, { entity: "", effect: "highlight" }]);
+  }
+
+  private _removeRule(idx: number): void {
+    this._setRules(this._rules.filter((_, i) => i !== idx));
+  }
+
+  /* ---- celebrate actions ------------------------------------------ */
+
+  private _celebrateSchema() {
+    return [
+      {
+        name: "on",
+        selector: {
+          select: {
+            multiple: true,
+            mode: "list",
+            options: CELEBRATE_ON.map((v) => ({ value: v, label: t(this.hass, `on_${v}`) })),
+          },
+        },
+      },
+      // Home Assistant's own action editor (light, sound, TTS, push …)
+      { name: "actions", selector: { action: {} } },
+    ];
+  }
+
+  private _celebrateData() {
+    const c = this._config.celebrate;
+    const on = c?.on ? (Array.isArray(c.on) ? c.on : [c.on]) : ["all_done"];
+    return { on, actions: c?.actions ?? [] };
+  }
+
+  private _celebrateChanged(ev: CustomEvent): void {
+    ev.stopPropagation();
+    const v = ev.detail.value as { on?: string[]; actions?: unknown };
+    const actions = (
+      Array.isArray(v.actions) ? v.actions : v.actions ? [v.actions] : []
+    ) as CelebrateConfig["actions"];
+    const on = (Array.isArray(v.on) ? v.on : []) as NonNullable<CelebrateConfig["on"]>[];
+    const next = { ...this._config };
+    if (actions.length === 0) {
+      delete next.celebrate;
+    } else {
+      const celebrate: CelebrateConfig = { actions };
+      // "all done" alone is the default and needs no line in the YAML
+      if (on.length && !(on.length === 1 && on[0] === "all_done")) {
+        celebrate.on = (on.length === 1 ? on[0] : on) as CelebrateConfig["on"];
+      }
+      next.celebrate = celebrate;
+    }
+    this._emit(next);
+  }
+
+  /* ---- per-list settings ------------------------------------------ */
+
+  private _refs(p: PersonConfig): ListRef[] {
+    return (Array.isArray(p.lists) ? p.lists : p.lists ? [p.lists] : []).filter(Boolean);
+  }
+
+  private _listData(ref: ListRef) {
+    return typeof ref === "string"
+      ? {}
+      : { important: ref.important, hide_undated: ref.hide_undated, show_within: ref.show_within };
+  }
+
+  /** Store a list as { entity, … } while it has settings, else as a plain id. */
+  private _listSettingsChanged(idx: number, entity: string, ev: CustomEvent): void {
+    ev.stopPropagation();
+    const v = ev.detail.value as {
+      important?: boolean;
+      hide_undated?: boolean;
+      show_within?: number;
+    };
+    const settings: Record<string, unknown> = {};
+    if (v.important) settings.important = true;
+    if (v.hide_undated) settings.hide_undated = true;
+    if (typeof v.show_within === "number" && !isNaN(v.show_within))
+      settings.show_within = v.show_within;
+    const persons = this._persons.map((p, i) => {
+      if (i !== idx) return p;
+      const lists: ListRef[] = this._refs(p).map((r) =>
+        (typeof r === "string" ? r : r.entity) === entity
+          ? Object.keys(settings).length
+            ? ({ entity, ...settings } as ListRef)
+            : entity
+          : r,
+      );
+      return { ...p, lists: lists.length === 1 && typeof lists[0] === "string" ? lists[0] : lists };
+    });
+    this._emit({ ...this._config, persons });
+  }
+
+  private _listName(entity: string): string {
+    return (this.hass.states[entity]?.attributes?.friendly_name as string) || entity;
+  }
+
   protected render() {
     if (!this._config || !this.hass) return nothing;
 
@@ -585,6 +853,67 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
           .computeHelper=${this._helper}
           @value-changed=${this._settingsChanged}
         ></ha-form>
+
+        ${this._panel(
+          "rewards",
+          html`
+            <ha-form
+              .hass=${this.hass}
+              .data=${{ parent_pin: this._config.parent_pin ?? "" }}
+              .schema=${[{ name: "parent_pin", selector: { text: {} } }]}
+              .computeLabel=${this._label}
+              .computeHelper=${this._helper}
+              @value-changed=${this._pinChanged}
+            ></ha-form>
+            ${this._rewardList.map(
+              (r, idx) => html`
+                <div class="row">
+                  <ha-form
+                    .hass=${this.hass}
+                    .data=${r}
+                    .schema=${REWARD_SCHEMA}
+                    .computeLabel=${this._label}
+                    @value-changed=${(e: CustomEvent) => this._rewardChanged(idx, e)}
+                  ></ha-form>
+                  ${this._removeButton(() => this._removeReward(idx))}
+                </div>
+              `,
+            )}
+            <button class="add" @click=${this._addReward}>${t(this.hass, "add_reward")}</button>
+          `,
+        )}
+        ${this._panel(
+          "rules",
+          html`
+            ${this._rules.map(
+              (r, idx) => html`
+                <div class="row">
+                  <ha-form
+                    .hass=${this.hass}
+                    .data=${this._ruleData(r)}
+                    .schema=${this._ruleSchema()}
+                    .computeLabel=${this._label}
+                    .computeHelper=${this._helper}
+                    @value-changed=${(e: CustomEvent) => this._ruleChanged(idx, e)}
+                  ></ha-form>
+                  ${this._removeButton(() => this._removeRule(idx))}
+                </div>
+              `,
+            )}
+            <button class="add" @click=${this._addRule}>${t(this.hass, "add_rule")}</button>
+          `,
+        )}
+        ${this._panel(
+          "celebrate",
+          html`<ha-form
+            .hass=${this.hass}
+            .data=${this._celebrateData()}
+            .schema=${this._celebrateSchema()}
+            .computeLabel=${this._label}
+            .computeHelper=${this._helper}
+            @value-changed=${this._celebrateChanged}
+          ></ha-form>`,
+        )}
 
         <div class="section">
           <div class="section-head">
@@ -609,6 +938,21 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         </div>
       </div>
     `;
+  }
+
+  /** A collapsible panel in the style of the settings sections. */
+  private _panel(name: string, body: unknown) {
+    return html`<ha-expansion-panel outlined .header=${SECTIONS[name][this._lang]}
+      >${body}</ha-expansion-panel
+    >`;
+  }
+
+  private _removeButton(onClick: () => void) {
+    return html`<ha-icon-button
+      .path=${"M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"}
+      title=${t(this.hass, "remove")}
+      @click=${onClick}
+    ></ha-icon-button>`;
   }
 
   private _personRow(p: PersonConfig, idx: number) {
@@ -647,6 +991,31 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
           .computeHelper=${this._helper}
           @value-changed=${(e: CustomEvent) => this._personChanged(idx, e)}
         ></ha-form>
+
+        ${
+          this._refs(p).length
+            ? html`<ha-expansion-panel
+                outlined
+                .header=${SECTIONS.list_settings[this._lang]}
+                class="lists"
+              >
+                ${this._refs(p).map((ref) => {
+                  const entity = typeof ref === "string" ? ref : ref.entity;
+                  return html`
+                    <div class="list-name">${this._listName(entity)}</div>
+                    <ha-form
+                      .hass=${this.hass}
+                      .data=${this._listData(ref)}
+                      .schema=${LIST_SCHEMA}
+                      .computeLabel=${this._label}
+                      .computeHelper=${this._helper}
+                      @value-changed=${(e: CustomEvent) => this._listSettingsChanged(idx, entity, e)}
+                    ></ha-form>
+                  `;
+                })}
+              </ha-expansion-panel>`
+            : nothing
+        }
 
         <div class="colors">
           <span class="colors-label">${t(this.hass, "color")}</span>
@@ -757,6 +1126,26 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       font: inherit;
       font-weight: 600;
       cursor: pointer;
+    }
+    .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      border-bottom: 1px solid var(--divider-color);
+      padding: 8px 0;
+    }
+    .row ha-form {
+      flex: 1 1 auto;
+    }
+    ha-expansion-panel {
+      --expansion-panel-content-padding: 0 12px 12px;
+    }
+    .lists {
+      margin-top: 8px;
+    }
+    .list-name {
+      font-weight: 600;
+      margin: 10px 0 4px;
     }
     .empty {
       color: var(--secondary-text-color);

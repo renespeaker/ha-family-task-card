@@ -120,6 +120,10 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Eisenhower-Ansicht** (eigener Modus für Eltern, nicht für Kinder) –
       `eisenhower`: dringend aus der Fälligkeit (`urgent_within`), wichtig über
       „!" am Titelanfang oder `important: true` an einer Liste.
+- [x] **Alles im visuellen Editor** – Einstellungen in aufklappbaren Bereichen,
+      Bereiche für Belohnungen, Kontext-Regeln und Feier-Aktionen (Aktions-Editor
+      von HA), Schalter pro Liste; ein Test prüft, dass jede dokumentierte Option
+      im Menü steht.
 - [x] **Zweisprachig (DE/EN)** – Sprache aus der HA-Oberfläche (`localize.ts`).
 - [x] **Theme-aware + Dark-Mode-Schalter** – folgt dem HA-Theme; `theme:
       auto|dark|light` erzwingt ein Farbschema karten-intern (z. B. Wandtablet).

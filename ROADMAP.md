@@ -115,6 +115,9 @@ The goal: a usable, coherent card with the core loop.
 - [x] **Eisenhower view** (own mode for parents, not for kids) — `eisenhower`:
       urgent from the due date (`urgent_within`), important via "!" at the start
       of the title or `important: true` on a list.
+- [x] **Everything in the visual editor** — settings in collapsible sections,
+      panels for rewards, context rules and celebrate actions (HA action editor),
+      per-list switches; a test checks that every documented option is in the menu.
 - [x] **Bilingual (EN/DE)** — the language follows the HA interface (`localize.ts`).
 - [x] **Theme-aware plus a dark-mode switch** — follows the HA theme; `theme:
       auto|dark|light` forces a colour scheme inside the card (for a wall tablet, say).

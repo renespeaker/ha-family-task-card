@@ -144,8 +144,16 @@ im selben Stil wie die Family Board Card mit `persons`. Am einfachsten geht das
 über den **visuellen Editor** (Karte im Dashboard bearbeiten): Personen
 hinzufügen/sortieren, `person.*` & `todo.*`-Listen per Auswahlfeld zuordnen,
 Farbe wählen, Punkte & Ziel setzen – funktioniert auch am Handy. Ein Klick auf
-**„Personen erkennen"** übernimmt vorhandene `person.*`-Entitäten. Wer lieber
-YAML schreibt:
+**„Personen erkennen"** übernimmt vorhandene `person.*`-Entitäten.
+
+**Jede Option lässt sich im Editor einstellen** – YAML ist nicht nötig. Die
+Einstellungen sind in aufklappbare Bereiche gegliedert (*Allgemein · Modus ·
+Aufgaben & Filter · Ämtli-Rotation · Punkte & Level · Einkauf · Darstellung*),
+dazu kommen Bereiche für **Belohnungen**, **Kontext-Regeln** und
+**Feier-Aktionen** (mit dem Aktions-Editor von Home Assistant für Licht, Ton,
+Ansagen und Pushes). Jede Person hat **Listen-Einstellungen** für jede Liste:
+*wichtig* (Eisenhower-Ansicht), *Aufgaben ohne Termin ausblenden* und *nur
+fällig in … Tagen*. Wer lieber YAML schreibt:
 
 ```yaml
 type: custom:family-task-card

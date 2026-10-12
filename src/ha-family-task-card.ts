@@ -88,7 +88,7 @@ interface PersonConfig {
 }
 
 /** A reward that can be redeemed in the shop for points. */
-interface Reward {
+export interface Reward {
   name: string;
   cost: number;
   emoji?: string;
@@ -97,14 +97,17 @@ interface Reward {
 type CelebrateTrigger = "all_done" | "task" | "reward";
 
 /** One Home Assistant service call fired on a celebrated moment. */
-interface CelebrateAction {
-  service: string; // "domain.service", e.g. "light.turn_on"
+export interface CelebrateAction {
+  // "domain.service", e.g. "light.turn_on" – `action` is what the HA action
+  // editor writes, `service` the older spelling; either works
+  action?: string;
+  service?: string;
   data?: Record<string, unknown>; // service data; {name}/{task} placeholders substituted
   target?: Record<string, unknown>; // optional HA target
 }
 
 /** Make success tangible: fire HA services (light/sound/TTS/push) on a moment. */
-interface CelebrateConfig {
+export interface CelebrateConfig {
   on?: CelebrateTrigger | CelebrateTrigger[]; // when to fire. default "all_done"
   actions: CelebrateAction[];
 }
@@ -197,7 +200,7 @@ function levelInfo(earned: number, size: number, emojis: string[]): LevelInfo | 
  * is met, matching tasks get its `effect`: hidden (e.g. skip watering when it
  * rains), highlighted, or marked urgent (e.g. bins out the evening before).
  */
-interface ContextRule {
+export interface ContextRule {
   entity: string; // the HA entity to evaluate
   effect: "hide" | "highlight" | "urgent";
   match?: string; // regex on the task summary (case-insensitive). default: all tasks
@@ -1547,8 +1550,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const on = c.on ? (Array.isArray(c.on) ? c.on : [c.on]) : ["all_done"];
     if (!on.includes(trigger)) return;
     for (const a of c.actions) {
-      if (!a?.service || !a.service.includes(".")) continue;
-      const [domain, ...rest] = a.service.split(".");
+      const svc = a?.action ?? a?.service;
+      if (!svc || !svc.includes(".")) continue;
+      const [domain, ...rest] = svc.split(".");
       const service = rest.join(".");
       const data = substitutePlaceholders(a.data ?? {}, ctx) as Record<string, unknown>;
       const target = a.target
