@@ -19,6 +19,7 @@ const STRINGS: Record<string, Entry> = {
   shopping: { de: "Einkauf", en: "Shopping" },
   items: { de: "Artikel", en: "items" },
   open_app: { de: "Öffnen", en: "Open" },
+  open_in_bring: { de: "In Bring! öffnen", en: "Open in Bring!" },
   today: { de: "heute", en: "today" },
   overdue: { de: "Überfällig", en: "Overdue" },
   due_soon: { de: "Bald fällig", en: "Due soon" },

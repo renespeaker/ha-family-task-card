@@ -4,6 +4,8 @@ import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from "custom-car
 import { t } from "./localize";
 import { PERSON_PALETTE } from "./shared/person-palette";
 import { assignChores, roundBounds, roundFix, roundIndex, type RotationPeriod } from "./rotation";
+import { runActions, type CelebrateAction, type Vars } from "./celebrate";
+import { listRefs, listsOf, type ListFilter, type ListRef } from "./lists";
 
 /**
  * Family Task Card — a gamified family task / chore card for Home Assistant.
@@ -39,6 +41,7 @@ const DEFAULT_POINTS = 10;
 const DEFAULT_BRING_LINK = "https://web.getbring.com";
 const DEFAULT_LEVEL_SIZE = 100;
 const DEFAULT_LEVEL_EMOJIS = ["🌱", "⭐", "🔥", "🏅", "🏆", "👑"];
+const RETRY_MS = 10000; // a list that failed to load is tried again after this
 // HA TodoListEntityFeature flags.
 const TODO_CREATE_ITEM = 1; // add new items
 const TODO_UPDATE_ITEM = 4; // check off / reopen items
@@ -67,15 +70,6 @@ const EMOJI_RULES: Array<[RegExp, string]> = [
   [/auto|car|tanken/i, "🚗"],
 ];
 
-/** Which open tasks to show (card-wide, or per list). */
-interface ListFilter {
-  hide_undated?: boolean; // hide tasks without a due date
-  show_within?: number; // only tasks due within N days (overdue always shown)
-  important?: boolean; // Eisenhower view: every task of this list counts as important
-}
-
-export type ListRef = string | ({ entity: string } & ListFilter);
-
 interface PersonConfig {
   name?: string;
   person?: string; // person.* entity -> avatar (entity_picture) + friendly name
@@ -96,20 +90,10 @@ export interface Reward {
 
 type CelebrateTrigger = "all_done" | "task" | "reward";
 
-/** One Home Assistant service call fired on a celebrated moment. */
-export interface CelebrateAction {
-  // "domain.service", e.g. "light.turn_on" – `action` is what the HA action
-  // editor writes, `service` the older spelling; either works
-  action?: string;
-  service?: string;
-  data?: Record<string, unknown>; // service data; {name}/{task} placeholders substituted
-  target?: Record<string, unknown>; // optional HA target
-}
-
-/** Make success tangible: fire HA services (light/sound/TTS/push) on a moment. */
+/** Make success tangible: fire HA actions (light/sound/TTS/push) on a moment. */
 export interface CelebrateConfig {
   on?: CelebrateTrigger | CelebrateTrigger[]; // when to fire. default "all_done"
-  actions: CelebrateAction[];
+  actions: CelebrateAction[]; // as the HA action editor writes them, see celebrate.ts
 }
 
 export interface FamilyTaskConfig extends LovelaceCardConfig {
@@ -261,17 +245,6 @@ function personColor(p: PersonConfig, idx: number): string {
   return p.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
 }
 
-function listRefs(p: PersonConfig): ListRef[] {
-  if (!p.lists) return [];
-  return (Array.isArray(p.lists) ? p.lists : [p.lists]).filter(Boolean);
-}
-
-function listsOf(p: PersonConfig): string[] {
-  return listRefs(p)
-    .map((r) => (typeof r === "string" ? r : r.entity))
-    .filter(Boolean);
-}
-
 /** Eisenhower quadrants: urgent × important. */
 type Quadrant = "do" | "plan" | "delegate" | "later";
 const QUADRANTS: Quadrant[] = ["do", "plan", "delegate", "later"];
@@ -308,20 +281,6 @@ function dueGroup(item: TodoItem): DueGroup {
 function emojiFor(summary: string): string {
   for (const [re, emoji] of EMOJI_RULES) if (re.test(summary)) return emoji;
   return "📝";
-}
-
-/** Recursively replace {name}/{task} placeholders in a service-data value. */
-function substitutePlaceholders(value: unknown, ctx: { name?: string; task?: string }): unknown {
-  if (typeof value === "string") {
-    return value.replace(/\{name\}/g, ctx.name ?? "").replace(/\{task\}/g, ctx.task ?? "");
-  }
-  if (Array.isArray(value)) return value.map((v) => substitutePlaceholders(v, ctx));
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) out[k] = substitutePlaceholders(v, ctx);
-    return out;
-  }
-  return value;
 }
 
 interface Due {
@@ -376,19 +335,26 @@ function dueSoon(item: TodoItem, days: number): boolean {
   return daysFromToday(due.day) <= days;
 }
 
-/** Does a rule target this task (by title regex and/or list)? */
+/**
+ * Does a rule's `match` fit the title? Plain text ("C++", "Müll (Bio") or a
+ * pattern ("gieß|blumen"), case doesn't matter. A broken pattern counts as text.
+ */
+function titleMatches(match: string, summary: string): boolean {
+  if (summary.toLowerCase().includes(match.toLowerCase())) return true;
+  try {
+    return new RegExp(match, "i").test(summary);
+  } catch {
+    return false;
+  }
+}
+
+/** Does a rule target this task (by title and/or list)? */
 function ruleApplies(rule: ContextRule, summary: string, entity: string): boolean {
   if (rule.lists) {
     const arr = Array.isArray(rule.lists) ? rule.lists : [rule.lists];
     if (!arr.includes(entity)) return false;
   }
-  if (rule.match) {
-    try {
-      if (!new RegExp(rule.match, "i").test(summary)) return false;
-    } catch {
-      return false; // a bad regex simply never matches
-    }
-  }
+  if (rule.match && !titleMatches(rule.match, summary)) return false;
   return true;
 }
 
@@ -426,6 +392,12 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** Remember each todo entity's last state signature to know when to refetch. */
   private _sig: Record<string, string> = {};
   private _loading = false;
+  /** A refresh was asked for while one was running: run it once that is done. */
+  private _refreshAgain = false;
+  /** When a list that failed to load may be tried again. */
+  private _retryAt: Record<string, number> = {};
+  /** Checks sent to HA but not confirmed yet ("entity|uid"), so a reload can't undo them. */
+  private _sending = new Map<string, { status: TodoItem["status"] }>();
 
   /** Kid mode: index of the child currently in focus, and a brief celebration. */
   @state() private _activeKid = 0;
@@ -441,6 +413,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** Per-person open-count from the last render, to detect "all done" moments. */
   private _prevOpen: Record<number, number> = {};
+  /** Persons with a task checked off on this device since the last render. */
+  private _checkedHere = new Set<number>();
 
   /** Last seen state of active_person_entity, to react only on change. */
   private _lastActive: string | undefined;
@@ -460,7 +434,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       : undefined;
     return {
       type: "custom:family-task-card",
-      title: "Familien-Aufgaben",
+      title: t(hass, "subtitle"),
       persons: [{ name: "Person 1", lists: firstTodo ? [firstTodo] : [] }],
     };
   }
@@ -487,25 +461,32 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** Fetch todo items for any configured list whose entity state changed. */
   private async _refresh(): Promise<void> {
-    if (!this.hass || !this._config || this._loading) return;
+    if (!this.hass || !this._config) return;
+    if (this._loading) {
+      this._refreshAgain = true;
+      return;
+    }
     const entities = new Set<string>();
     for (const p of this._config.persons) for (const e of listsOf(p)) entities.add(e);
     for (const e of this._rotationLists()) entities.add(e);
 
+    const now = Date.now();
     const stale: string[] = [];
     for (const e of entities) {
       const st = this.hass.states[e];
       const sig = st ? `${st.state}|${st.last_changed}` : "missing";
-      if (this._sig[e] !== sig) {
-        this._sig[e] = sig;
-        stale.push(e);
-      }
+      const retry = this._retryAt[e] !== undefined && now >= this._retryAt[e];
+      if (this._sig[e] === sig && !retry) continue;
+      this._sig[e] = sig;
+      // A list that is gone or not ready (e.g. while HA restarts) keeps its
+      // tasks: HA would list it empty, which looks like everything got done.
+      if (this._isReady(e)) stale.push(e);
     }
     if (stale.length === 0) return;
 
     this._loading = true;
     try {
-      const next: Record<string, TodoItem[]> = { ...this._items };
+      const fetched: Record<string, TodoItem[]> = {};
       await Promise.all(
         stale.map(async (entity_id) => {
           try {
@@ -513,17 +494,38 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
               type: "todo/item/list",
               entity_id,
             });
-            next[entity_id] = res?.items ?? [];
+            delete this._retryAt[entity_id];
+            fetched[entity_id] = this._withSending(entity_id, res?.items ?? []);
           } catch (err) {
-            // Entity might not support listing yet; keep it empty rather than break.
-            next[entity_id] = [];
+            // Keep what we have and try again on a later update.
+            this._retryAt[entity_id] = Date.now() + RETRY_MS;
           }
         }),
       );
-      this._items = next;
+      // Only the lists just loaded: others may have been checked off meanwhile.
+      if (Object.keys(fetched).length) this._items = { ...this._items, ...fetched };
     } finally {
       this._loading = false;
     }
+    if (this._refreshAgain) {
+      this._refreshAgain = false;
+      this._refresh();
+    }
+  }
+
+  /** The list exists and HA has loaded it (not unavailable / unknown). */
+  private _isReady(entity: string): boolean {
+    const state = this.hass?.states[entity]?.state;
+    return state !== undefined && state !== "unavailable" && state !== "unknown";
+  }
+
+  /** Apply checks that are still on their way to HA to freshly loaded items. */
+  private _withSending(entity: string, items: TodoItem[]): TodoItem[] {
+    if (this._sending.size === 0) return items;
+    return items.map((it) => {
+      const sent = this._sending.get(`${entity}|${it.uid}`);
+      return sent && sent.status !== it.status ? { ...it, status: sent.status } : it;
+    });
   }
 
   private _shoppingSet(): Set<string> {
@@ -662,7 +664,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const bounds = roundBounds(roundIndex(new Date(), period), period);
     for (const entity of this._rotationLists()) {
       const items = this._items[entity];
-      if (!items || !this._canToggle(entity) || !this._canSetDue(entity)) continue;
+      if (!items || !this._isReady(entity)) continue;
+      if (!this._canToggle(entity) || !this._canSetDue(entity)) continue;
       for (const item of items) {
         const fix = roundFix(item, bounds);
         if (!fix) continue;
@@ -1105,6 +1108,12 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (!this.hass) return;
     const status = item.status === "completed" ? "needs_action" : "completed";
     // Optimistic update for instant feedback; _refresh reconciles on state change.
+    const key = `${entityId}|${item.uid}`;
+    const sent: { status: TodoItem["status"] } = { status };
+    this._sending.set(key, sent);
+    if (status === "completed") {
+      for (const i of this._ownersOf(entityId, item)) this._checkedHere.add(i);
+    }
     this._items = {
       ...this._items,
       [entityId]: (this._items[entityId] ?? []).map((it) =>
@@ -1130,6 +1139,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       // Revert on failure.
       this._sig[entityId] = "";
       this._refresh();
+    } finally {
+      if (this._sending.get(key) === sent) this._sending.delete(key);
     }
   }
 
@@ -1177,17 +1188,32 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private _renderMatrix() {
     const cfg = this._config!;
     const urgentDays = cfg.urgent_within ?? DEFAULT_URGENT_DAYS;
-    const cells = new Map<Quadrant, { o: DecoratedItem; idx: number }[]>(
-      QUADRANTS.map((q) => [q, []]),
-    );
+    type Entry = { o: DecoratedItem; idx: number; who: string[]; important: boolean };
+    // A list several persons share shows each task once, with all their names.
+    const tasks = new Map<string, Entry>();
     cfg.persons.forEach((p, idx) => {
       for (const o of this._personView(p).tasksOpen) {
-        const due = parseDue(o.item.due);
-        const urgent = isOverdue(o.item) || (!!due && daysFromToday(due.day) <= urgentDays);
-        const important = isMarkedImportant(o.item.summary) || this._listImportant(p, o.entity);
-        cells.get(quadrantOf(urgent, important))!.push({ o, idx });
+        const key = `${o.entity}|${o.item.uid}`;
+        const name = this._personName(p, idx);
+        const important = this._listImportant(p, o.entity);
+        const known = tasks.get(key);
+        if (!known) tasks.set(key, { o, idx, who: [name], important });
+        else {
+          known.who.push(name);
+          known.important ||= important;
+        }
       }
     });
+    const cells = new Map<Quadrant, Entry[]>(QUADRANTS.map((q) => [q, []]));
+    for (const entry of tasks.values()) {
+      const { item, flag } = entry.o;
+      const due = parseDue(item.due);
+      // urgent: overdue, due soon, or marked urgent by a context rule
+      const urgent =
+        flag === "urgent" || isOverdue(item) || (!!due && daysFromToday(due.day) <= urgentDays);
+      const important = entry.important || isMarkedImportant(item.summary);
+      cells.get(quadrantOf(urgent, important))!.push(entry);
+    }
     const byDue = (a: { o: DecoratedItem }, b: { o: DecoratedItem }) => {
       const da = parseDue(a.o.item.due);
       const db = parseDue(b.o.item.due);
@@ -1217,16 +1243,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                   <div class="quad-hint">${this._t(`quad_${q}_hint`)}</div>
                   ${
                     list.length
-                      ? list.map(({ o, idx }) =>
+                      ? list.map(({ o, idx, who }) =>
                           this._tile(
                             o,
                             personColor(cfg.persons[idx], idx),
                             false,
                             o.flag,
-                            undefined,
+                            o.label,
                             {
                               title: stripImportant(o.item.summary),
-                              who: this._personName(cfg.persons[idx], idx),
+                              who: who.join(" & "),
                             },
                           ),
                         )
@@ -1364,9 +1390,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     `;
   }
 
+  public connectedCallback(): void {
+    super.connectedCallback();
+    // Back on screen (e.g. after another dashboard view): count down again.
+    if (this._config?.kiosk && !this._kioskIdle) this._resetKioskTimer();
+  }
+
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this._burstTimer) clearTimeout(this._burstTimer);
+    this._burst = false;
     if (this._kioskTimer) clearTimeout(this._kioskTimer);
   }
 
@@ -1407,14 +1440,14 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
             </div>
             <div class="kid-stars">
               ${view.hasWallet ? "💰" : "⭐"}
-              ${points}${openCount ? html` · ${openCount} offen` : nothing}
+              ${points}${openCount ? html` · ${openCount} ${this._t("open")}` : nothing}
             </div>
           </div>
           ${
             hasShop
               ? html`<button
                   class="kid-shop-btn ${this._kidShopOpen ? "active" : ""}"
-                  title="Belohnungen"
+                  title=${this._t("rewards")}
                   @click=${() => {
                     this._kidShopOpen = !this._kidShopOpen;
                     this._cancelRedeem();
@@ -1506,7 +1539,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <span class="kid-emoji">🛒</span>
         <span class="kid-task-title">
           ${entry.name}
-          <span class="kid-sub">${entry.open.length} Artikel</span>
+          <span class="kid-sub">${entry.open.length} ${this._t("items")}</span>
         </span>
         <a
           class="bring-open"
@@ -1515,7 +1548,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           rel="noopener"
           @click=${(e: MouseEvent) => e.stopPropagation()}
         >
-          Öffnen
+          ${this._t("open_app")}
         </a>
       </button>
     `;
@@ -1531,6 +1564,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /* ---- celebrate: fire HA services on a success moment ------------ */
 
+  /** The persons a task belongs to (a rotating chore: whoever does it this round). */
+  private _ownersOf(entity: string, item: TodoItem): number[] {
+    if (this._rotationLists().includes(entity)) {
+      const a = this._rotationMap().get(`${entity}|${item.uid}`);
+      return a ? [a.now] : [];
+    }
+    const persons = this._config?.persons ?? [];
+    return persons.flatMap((p, i) => (this._ownLists(p).includes(entity) ? [i] : []));
+  }
+
   /** Name of the person a task belongs to (for {name}); rotation chores go by turn. */
   private _ownerName(entity: string, item?: TodoItem): string | undefined {
     const persons = this._config?.persons ?? [];
@@ -1544,22 +1587,19 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return undefined;
   }
 
-  private _fireCelebrate(trigger: CelebrateTrigger, ctx: { name?: string; task?: string }): void {
+  private _fireCelebrate(trigger: CelebrateTrigger, vars: Vars): void {
     const c = this._config?.celebrate;
     if (!c || !this.hass || !Array.isArray(c.actions)) return;
     const on = c.on ? (Array.isArray(c.on) ? c.on : [c.on]) : ["all_done"];
     if (!on.includes(trigger)) return;
-    for (const a of c.actions) {
-      const svc = a?.action ?? a?.service;
-      if (!svc || !svc.includes(".")) continue;
-      const [domain, ...rest] = svc.split(".");
-      const service = rest.join(".");
-      const data = substitutePlaceholders(a.data ?? {}, ctx) as Record<string, unknown>;
-      const target = a.target
-        ? (substitutePlaceholders(a.target, ctx) as Record<string, unknown>)
-        : undefined;
-      Promise.resolve(this.hass.callService(domain, service, data, target)).catch(() => {});
-    }
+    runActions(c.actions, vars, {
+      state: (entity) => this.hass?.states[entity],
+      call: async (domain, service, data, target) => {
+        if (this.hass) await this.hass.callService(domain, service, data, target);
+      },
+      wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => new Date(),
+    }).catch(() => {});
   }
 
   /** Detect per-person "all done" transitions (open>0 -> 0) and celebrate them. */
@@ -1586,12 +1626,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       }
     }
 
+    // "All done" is celebrated where the last task was checked off: every open
+    // dashboard sees the lists change, but the actions should run only once.
+    const here = this._checkedHere;
+    this._checkedHere = new Set();
     if (!this._config.celebrate) return;
     this._config.persons.forEach((p, idx) => {
       const open = this._personView(p).openCount;
       const prev = this._prevOpen[idx];
       this._prevOpen[idx] = open;
-      if (prev !== undefined && prev > 0 && open === 0) {
+      if (here.has(idx) && prev !== undefined && prev > 0 && open === 0) {
         this._fireCelebrate("all_done", { name: this._personName(p, idx) });
       }
     });
@@ -1935,7 +1979,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           href=${this._bringLink()}
           target="_blank"
           rel="noopener"
-          title="In Bring! öffnen"
+          title=${this._t("open_in_bring")}
           @click=${(e: MouseEvent) => e.stopPropagation()}
         >
           ${this._t("open_app")}
@@ -1981,9 +2025,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           <div class="tile-title">${matrix ? matrix.title : item.summary}</div>
           ${
             matrix
-              ? html`<div class="tile-due">
-                  ${matrix.who}${item.due ? ` · ${this._formatDue(item.due)}` : ""}
-                </div>`
+              ? html`${label ? html`<div class="tile-flag">${label}</div>` : nothing}
+                  <div class="tile-due">
+                    ${matrix.who}${item.due ? ` · ${this._formatDue(item.due)}` : ""}
+                  </div>`
               : label
                 ? html`<div class="tile-flag">${label}</div>`
                 : rotHint

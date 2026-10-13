@@ -4,7 +4,7 @@
 
 ![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
 
-> **Status: usable (v0.18.0).** Per-person board, visual editor, kid mode, Bring!
+> **Status: usable (v0.18.1).** Per-person board, visual editor, kid mode, Bring!
 > shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
@@ -490,9 +490,17 @@ persons:
 
 - **`on`** picks the moment: `all_done` (person has nothing open — default),
   `task` (each completed task) or `reward` (reward redeemed). Several at once as
-  a list.
-- **`actions`** is a list of service calls (`service` + `data`/`target`), exactly
-  like in HA automations.
+  a list. It fires on the screen where the task was checked off or the reward
+  redeemed — so with several dashboards open, an announcement still plays once.
+  Tasks finished in other apps don't trigger it.
+- **`actions`** run one after another, written like in HA automations (the visual
+  editor uses Home Assistant's own action editor): actions (`action`/`service` +
+  `data`/`target`), scenes, **delays** and **conditions** (state, numeric state,
+  time, and/or/not) — a condition that isn't met ends the run. Switched-off steps
+  are skipped, and so are steps only Home Assistant itself can run (device
+  actions, choose, repeat …); a condition the card can't check counts as not
+  met. For more, write a script and call it here (`script.turn_on`). Delays run
+  in the browser, so the dashboard has to stay open until they're over.
 - Placeholders: **`{name}`** (person) and **`{task}`** (task/reward name) are
   substituted in all text values.
 
@@ -654,7 +662,12 @@ persons:
       - entity: todo.todoist_inbox  # its own settings
         hide_undated: true
         show_within: 7
+      - entity: todo.projects       # every task, despite the card's 30 days
+        show_within: -1
 ```
+
+In the visual editor these are the person's **list settings**: they start from
+the card's values; whatever you change there applies to that list only.
 
 The same lists can serve as a full list on one card and as a "what's due"
 overview on another (`hide_undated: true`, `show_within: 0`).
