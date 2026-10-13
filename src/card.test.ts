@@ -38,6 +38,7 @@ interface ServiceCall {
   domain: string;
   service: string;
   data: Record<string, unknown>;
+  target?: Record<string, unknown>;
 }
 
 const mounted: HTMLElement[] = [];
@@ -77,8 +78,13 @@ async function mount(config: Partial<FamilyTaskConfig>, opts: MountOpts = {}) {
       }
       return {};
     },
-    callService: async (domain: string, service: string, data: Record<string, unknown>) => {
-      services.push({ domain, service, data });
+    callService: async (
+      domain: string,
+      service: string,
+      data: Record<string, unknown>,
+      target?: Record<string, unknown>,
+    ) => {
+      services.push({ domain, service, data, ...(target ? { target } : {}) });
     },
   };
   document.body.appendChild(el);
@@ -107,6 +113,30 @@ afterEach(() => {
   mounted.splice(0).forEach((el) => el.remove());
   vi.useRealTimers();
 });
+
+type Hass = {
+  states: Record<string, Record<string, unknown>>;
+  callWS: (msg: { entity_id: string }) => Promise<unknown>;
+  callService: (...args: any[]) => Promise<unknown>;
+};
+/** The next hass object from HA, with some lists changed. */
+const update = (
+  el: { hass: unknown },
+  change: Record<string, Record<string, unknown>>,
+  extra: Partial<Hass> = {},
+) => {
+  const h = el.hass as Hass;
+  const states = { ...h.states };
+  for (const [e, c] of Object.entries(change)) states[e] = { ...states[e], ...c };
+  el.hass = { ...h, states, ...extra };
+};
+/** A websocket whose answers wait until released, like a slow connection. */
+const slow = (lists: Record<string, unknown[]>) => {
+  const waiting: Array<() => void> = [];
+  const callWS = (msg: { entity_id: string }) =>
+    new Promise((resolve) => waiting.push(() => resolve({ items: lists[msg.entity_id] })));
+  return { callWS, answer: () => waiting.splice(0).forEach((a) => a()) };
+};
 
 describe("configuration", () => {
   it("refuses a config without a persons list", async () => {
@@ -205,6 +235,137 @@ describe("checking tasks off", () => {
     );
     expect(creatable.all(".add-input")).toHaveLength(1);
     expect(readOnly.all(".add-input")).toHaveLength(0);
+  });
+});
+
+describe("loading the lists", () => {
+  const anna = { name: "Anna", lists: "todo.anna" };
+  const celebrate = { on: "all_done" as const, actions: [{ service: "light.turn_on" }] };
+  const lights = (services: ServiceCall[]) => services.filter((s) => s.domain === "light");
+  it.each(["unavailable", "unknown"])(
+    "keeps the tasks while a list is %s, e.g. while HA restarts",
+    async (state) => {
+      const { el, services, settle, texts } = await mount(
+        { persons: [anna], celebrate },
+        { lists: { "todo.anna": { items: [task("a1", "Müll")] } } },
+      );
+      // HA lists nothing for a list that is not ready yet
+      update(
+        el,
+        { "todo.anna": { state, last_changed: "restart" } },
+        { callWS: async () => ({ items: [] }) },
+      );
+      await settle();
+      expect(texts(".tile-title")).toEqual(["Müll"]);
+      expect(lights(services)).toEqual([]); // nothing was done, nothing to celebrate
+    },
+  );
+
+  it("keeps the tasks when a list fails to load and tries again later", async () => {
+    const { el, services, settle, texts } = await mount(
+      { persons: [anna], celebrate },
+      { lists: { "todo.anna": { items: [task("a1", "Müll")] } } },
+    );
+    let fail = true;
+    const callWS = async () => {
+      if (fail) throw new Error("timeout");
+      return { items: [task("a1", "Müll"), task("a2", "Bett")] };
+    };
+    update(el, { "todo.anna": { state: "2", last_changed: "later" } }, { callWS });
+    await settle();
+    expect(texts(".tile-title")).toEqual(["Müll"]);
+    expect(lights(services)).toEqual([]);
+
+    fail = false;
+    await vi.advanceTimersByTimeAsync(10_000);
+    update(el, {}); // the next update from HA, whatever changed
+    await settle();
+    expect(texts(".tile-title")).toEqual(["Müll", "Bett"]);
+  });
+
+  it("does not undo a task checked off while another list loads", async () => {
+    const { el, root, services, settle, texts } = await mount(
+      { persons: [{ name: "Anna", lists: ["todo.a", "todo.b"] }], celebrate },
+      { lists: { "todo.a": { items: [task("a1", "Müll")] }, "todo.b": { items: [] } } },
+    );
+    const ws = slow({ "todo.a": [done("a1", "Müll")], "todo.b": [] });
+    update(el, { "todo.b": { last_changed: "later" } }, { callWS: ws.callWS });
+    await settle();
+    (root.querySelector(".tile") as HTMLElement).click(); // her last task
+    await settle();
+    ws.answer(); // todo.b arrives
+    await settle();
+    expect(texts(".tile-title")).toEqual([]);
+
+    // HA confirms the check
+    update(el, { "todo.a": { state: "0", last_changed: "checked" } });
+    await settle();
+    ws.answer();
+    await settle();
+    expect(texts(".tile-title")).toEqual([]);
+    expect(lights(services)).toHaveLength(1); // celebrated once, not twice
+  });
+
+  it("does not undo a check while the same list reloads", async () => {
+    // Anna checks off two tasks quickly; the list reloads after the first one
+    const { el, all, services, settle, texts } = await mount(
+      { persons: [anna], celebrate },
+      { lists: { "todo.anna": { items: [task("a1", "Müll"), task("a2", "Bett")] } } },
+    );
+    const ws = slow({ "todo.anna": [done("a1", "Müll"), task("a2", "Bett")] });
+    const writes: Array<() => void> = [];
+    const callService = (domain: string, service: string, data: Record<string, unknown>) => {
+      services.push({ domain, service, data });
+      return domain === "todo" ? new Promise<void>((r) => writes.push(r)) : Promise.resolve();
+    };
+    update(el, {}, { callWS: ws.callWS, callService });
+    await settle();
+    (all(".tile")[0] as HTMLElement).click(); // Müll
+    await settle();
+    writes.splice(0).forEach((w) => w()); // HA has it ...
+    update(el, { "todo.anna": { state: "1", last_changed: "first" } }); // ... and reloads
+    await settle();
+    (all(".tile")[0] as HTMLElement).click(); // Bett, before the reload is back
+    await settle();
+    ws.answer(); // the reload still has Bett open: HA is not done with it yet
+    await settle();
+    expect(texts(".tile-title")).toEqual([]);
+    expect(lights(services)).toHaveLength(1);
+  });
+
+  it("shows a task reopened in another app after it was checked here", async () => {
+    const { el, root, settle, texts } = await mount(
+      { persons: [anna] },
+      { lists: { "todo.anna": { items: [task("a1", "Müll")] } } },
+    );
+    (root.querySelector(".tile") as HTMLElement).click();
+    await settle();
+    expect(texts(".tile-title")).toEqual([]);
+    update(
+      el,
+      { "todo.anna": { state: "1", last_changed: "reopened" } },
+      { callWS: async () => ({ items: [task("a1", "Müll")] }) },
+    );
+    await settle();
+    expect(texts(".tile-title")).toEqual(["Müll"]);
+  });
+
+  it("does not miss a change that comes in while loading", async () => {
+    const { el, settle, texts } = await mount(
+      { persons: [{ name: "Anna", lists: ["todo.a", "todo.b"] }] },
+      { lists: { "todo.a": { items: [task("a1", "Müll")] }, "todo.b": { items: [] } } },
+    );
+    const ws = slow({ "todo.a": [task("a1", "Müll"), task("a2", "Neu")], "todo.b": [] });
+    update(el, { "todo.b": { last_changed: "later" } }, { callWS: ws.callWS });
+    await settle();
+    // a task is added in another app while todo.b is still loading
+    update(el, { "todo.a": { state: "2", last_changed: "added" } });
+    await settle();
+    for (let i = 0; i < 3; i++) {
+      ws.answer();
+      await settle();
+    }
+    expect(texts(".tile-title")).toEqual(["Müll", "Neu"]);
   });
 });
 
@@ -315,6 +476,34 @@ describe("language", () => {
     );
     expect(text()).toContain("All done");
   });
+
+  it("speaks English in kid mode and on shopping trips, too", async () => {
+    const lists = {
+      "todo.lina": { items: [task("l1", "Zimmer"), task("l2", "Bett")] },
+      "todo.bring": { items: [task("b1", "Milch"), task("b2", "Brot")] },
+    };
+    const config = {
+      persons: [{ name: "Lina", lists: ["todo.lina", "todo.bring"] }],
+      shopping_lists: "todo.bring",
+      rewards: [{ name: "Eis", cost: 10 }],
+    };
+    const kid = await mount({ ...config, kid_mode: true }, { lists, lang: "en" });
+    expect(kid.text()).toContain("3 open");
+    expect(kid.text()).toContain("2 items");
+    expect(kid.text()).not.toMatch(/offen|Artikel|Öffnen/);
+    expect(kid.root.querySelector(".kid-shop-btn")!.getAttribute("title")).toBe("Rewards");
+    const board = await mount(config, { lists, lang: "en" });
+    expect(board.root.querySelector(".bring-open")!.getAttribute("title")).toBe("Open in Bring!");
+  });
+
+  it("suggests a title in the Home Assistant language", async () => {
+    const Card = customElements.get("family-task-card") as unknown as {
+      getStubConfig(hass?: unknown): { title?: string };
+    };
+    const hass = (language: string) => ({ locale: { language }, states: {} });
+    expect(Card.getStubConfig(hass("en")).title).toBe("Family tasks");
+    expect(Card.getStubConfig(hass("de")).title).toBe("Familien-Aufgaben");
+  });
 });
 
 describe("kid mode", () => {
@@ -325,6 +514,97 @@ describe("kid mode", () => {
     );
     expect(all(".kid")).toHaveLength(1);
     expect(all(".board")).toHaveLength(0);
+  });
+});
+
+describe("context rules", () => {
+  it("find plain text in the title, also with characters a pattern chokes on", async () => {
+    const hide = (match: string) => ({
+      match,
+      entity: "input_boolean.x",
+      state: "on",
+      effect: "hide",
+    });
+    const { texts } = await mount(
+      {
+        persons: [{ name: "Anna", lists: "todo.anna" }],
+        context_rules: [hide("C++"), hide("müll (bio"), hide("gieß|blumen")] as any,
+      },
+      {
+        lists: {
+          "todo.anna": {
+            items: [
+              task("1", "C++ üben"),
+              task("2", "Müll (Bio) raus"),
+              task("3", "Blumen gießen"),
+              task("4", "Lesen"),
+            ],
+          },
+        },
+        states: { "input_boolean.x": { state: "on" } },
+      },
+    );
+    expect(texts(".tile-title")).toEqual(["Lesen"]);
+  });
+});
+
+describe("kiosk mode", () => {
+  const kids = [
+    { name: "Lina", lists: "todo.lina" },
+    { name: "Ben", lists: "todo.ben" },
+  ];
+  const lists = {
+    lists: {
+      "todo.lina": { items: [task("l1", "Zimmer")] },
+      "todo.ben": { items: [task("b1", "Bett")] },
+    },
+  };
+  const picker = (root: ShadowRoot) => !!root.querySelector(".kiosk-idle");
+
+  it("goes back to 'who's there?' after the idle time", async () => {
+    const { root, all, settle } = await mount({ persons: kids, kiosk: true }, lists);
+    (all(".kiosk-person")[1] as HTMLElement).click();
+    await settle();
+    expect(picker(root)).toBe(false);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await settle();
+    expect(picker(root)).toBe(true);
+  });
+
+  it("stays with the person when auto_return is 0", async () => {
+    const { root, all, settle } = await mount(
+      { persons: kids, kiosk: true, auto_return: 0 },
+      lists,
+    );
+    (all(".kiosk-person")[0] as HTMLElement).click();
+    await settle();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    await settle();
+    expect(picker(root)).toBe(false);
+  });
+
+  it("still goes back after the dashboard view was switched away and back", async () => {
+    const { el, root, all, settle } = await mount({ persons: kids, kiosk: true }, lists);
+    (all(".kiosk-person")[0] as HTMLElement).click();
+    await settle();
+    el.remove(); // another dashboard view ...
+    document.body.appendChild(el); // ... and back
+    await settle();
+    await vi.advanceTimersByTimeAsync(30_000);
+    await settle();
+    expect(picker(root)).toBe(true);
+  });
+
+  it("does not leave the star burst on screen when switched away mid-way", async () => {
+    const { el, root, all, settle } = await mount({ persons: kids, kid_mode: true }, lists);
+    (all(".kid-task")[0] as HTMLElement).click();
+    await settle();
+    expect(root.querySelector(".burst")).not.toBeNull();
+    el.remove();
+    document.body.appendChild(el);
+    await vi.advanceTimersByTimeAsync(2000);
+    await settle();
+    expect(root.querySelector(".burst")).toBeNull();
   });
 });
 
@@ -421,6 +701,19 @@ describe("auto-rotation", () => {
     );
     const [lina, ben, mama] = columns(root);
     expect([lina.length, ben.length, mama.length]).toEqual([1, 1, 0]);
+  });
+
+  it("leaves the chores alone while their list is unavailable", async () => {
+    const { el, services, settle } = await mount(on, {
+      ...chores(twoChores),
+      now: "2026-10-11T23:58:00",
+    });
+    await vi.advanceTimersByTimeAsync(5 * 60_000); // a new week starts ...
+    const h = el.hass as { states: Record<string, Record<string, unknown>> };
+    const aemtli = { ...h.states["todo.aemtli"], state: "unavailable", last_changed: "restart" };
+    el.hass = { ...h, states: { ...h.states, "todo.aemtli": aemtli } }; // ... while HA restarts
+    await settle();
+    expect(writes(services)).toEqual([]);
   });
 
   it("reopens last week's chore and moves it into this week", async () => {
@@ -832,6 +1125,17 @@ describe("due-date filters and groups", () => {
     expect(titles(texts).sort()).toEqual(["A Oktober", "A ohne"]);
   });
 
+  it("shows every task of a list with -1, even when the card limits", async () => {
+    const { texts } = await mount(
+      {
+        persons: [{ name: "Anna", lists: [{ entity: "todo.a", show_within: -1 }] }],
+        show_within: 0,
+      },
+      one,
+    );
+    expect(titles(texts)).toHaveLength(5);
+  });
+
   it("keeps points for hidden tasks", async () => {
     const { texts } = await mount(anna({ hide_undated: true }), {
       lists: { "todo.a": { items: [done("d1", "Erledigt"), task("u1", "Ohne Termin")] } },
@@ -1002,6 +1306,77 @@ describe("Eisenhower view: the urgency boundary", () => {
   });
 });
 
+describe("Eisenhower view: rules and shared lists", () => {
+  const quad = (root: ShadowRoot, q: string) =>
+    [...root.querySelectorAll(`.quad.${q} .tile`)].map((n) => ({
+      title: n.querySelector(".tile-title")!.textContent!.trim(),
+      sub: [...n.querySelectorAll(".tile-flag, .tile-due")]
+        .map((x) => x.textContent!.replace(/\s+/g, " ").trim())
+        .join(" | "),
+    }));
+
+  it("counts a task a context rule marks urgent as urgent, with the rule's note", async () => {
+    const { root } = await mount(
+      {
+        eisenhower: true,
+        persons: [{ name: "Papa", lists: "todo.papa" }],
+        context_rules: [
+          {
+            match: "müll",
+            entity: "binary_sensor.abfuhr_morgen",
+            state: "on",
+            effect: "urgent",
+            label: "Morgen Abfuhr!",
+          },
+        ],
+      },
+      {
+        lists: { "todo.papa": { items: [task("m", "Müll rausbringen")] } },
+        states: { "binary_sensor.abfuhr_morgen": { state: "on" } },
+      },
+    );
+    expect(quad(root, "later")).toEqual([]);
+    expect(quad(root, "delegate")).toEqual([
+      { title: "Müll rausbringen", sub: "Morgen Abfuhr! | Papa" },
+    ]);
+  });
+
+  it("shows a task of a list two persons share once, with both names", async () => {
+    const { root } = await mount(
+      {
+        eisenhower: true,
+        persons: [
+          { name: "Mama", lists: ["todo.familie", "todo.mama"] },
+          { name: "Papa", lists: "todo.familie" },
+        ],
+      },
+      {
+        lists: {
+          "todo.familie": { items: [task("f", "Garage aufräumen")] },
+          "todo.mama": { items: [task("m", "Yoga")] },
+        },
+      },
+    );
+    expect(quad(root, "later")).toEqual([
+      { title: "Garage aufräumen", sub: "Mama & Papa" },
+      { title: "Yoga", sub: "Mama" },
+    ]);
+  });
+  it("counts a shared task as important if one of them marked the list so", async () => {
+    const { root } = await mount(
+      {
+        eisenhower: true,
+        persons: [
+          { name: "Papa", lists: "todo.familie" },
+          { name: "Mama", lists: [{ entity: "todo.familie", important: true }] },
+        ],
+      },
+      { lists: { "todo.familie": { items: [task("s", "Steuer")] } } },
+    );
+    expect(quad(root, "plan")).toEqual([{ title: "Steuer", sub: "Papa & Mama" }]);
+  });
+});
+
 describe("visual editor covers everything", () => {
   type Ed = HTMLElement & {
     setConfig(c: unknown): void;
@@ -1112,8 +1487,15 @@ describe("visual editor covers everything", () => {
     expect(out.last!.celebrate).toEqual({ actions }); // "all done" is the default
     call("_celebrateChanged", value({ on: ["task"], actions }));
     expect(out.last!.celebrate).toEqual({ on: "task", actions });
-    call("_celebrateChanged", value({ on: ["task"], actions: [] }));
+    call("_celebrateChanged", value({ on: ["all_done"], actions: [] }));
     expect(out.last!.celebrate).toBeUndefined();
+  });
+
+  it("keeps the chosen moment before any action is added", async () => {
+    const { call, out } = await editor({});
+    call("_celebrateChanged", value({ on: ["task"], actions: [] }));
+    expect(out.last!.celebrate).toEqual({ on: "task", actions: [] });
+    expect(call("_celebrateData")).toEqual({ on: ["task"], actions: [] });
   });
 
   it("sets per-list switches and drops them again", async () => {
@@ -1140,6 +1522,80 @@ describe("visual editor covers everything", () => {
     expect(out.last!.persons).toEqual([]); // untouched parts stay
   });
 
+  it("keeps 0 where 0 means something", async () => {
+    // 0 = never return / no points for shopping / PIN 0 (e.g. "0000" in YAML)
+    const { ed, call, out } = await editor({
+      kiosk: true,
+      auto_return: 0,
+      shopping_points: 0,
+      parent_pin: 0,
+    });
+    const data = ed["_settingsData"] as Record<string, unknown>;
+    call("_settingsChanged", value({ ...data, title: "Neu" }));
+    expect(out.last).toMatchObject({ auto_return: 0, shopping_points: 0, parent_pin: 0 });
+    call(
+      "_settingsChanged",
+      value({ ...data, auto_return: undefined, shopping_points: undefined }),
+    );
+    expect(out.last!.auto_return).toBeUndefined(); // emptied: back to the default
+    expect(out.last!.shopping_points).toBeUndefined();
+  });
+
+  it("lets a list differ from the card both ways", async () => {
+    const { call, out } = await editor({
+      hide_undated: true,
+      show_within: 30,
+      persons: [{ name: "Anna", lists: ["todo.a", "todo.b"] }],
+    });
+    // the form shows what applies to the list: here the card's settings
+    expect(call("_listData", "todo.b")).toEqual({
+      important: false,
+      hide_undated: true,
+      show_within: 30,
+    });
+    // dates don't matter for this list: show undated tasks and everything ahead
+    call("_listSettingsChanged", 0, "todo.b", value({ hide_undated: false }));
+    const own = out.last!.persons[0].lists[1];
+    expect(own).toEqual({ entity: "todo.b", hide_undated: false, show_within: -1 });
+    expect(call("_listData", own)).toEqual({
+      important: false,
+      hide_undated: false,
+      show_within: undefined,
+    });
+    // back to the card's values: the list follows the card again
+    call("_listSettingsChanged", 0, "todo.b", value({ hide_undated: true, show_within: 30 }));
+    expect(out.last!.persons[0].lists).toEqual(["todo.a", "todo.b"]);
+  });
+
+  it("keeps what is being typed into a field that holds a list", async () => {
+    const { ed, call, out } = await editor({
+      level_emojis: ["🌱", "⭐"],
+      context_rules: [{ entity: "weather.home", effect: "hide", state: ["rainy", "pouring"] }],
+    });
+    const data = () => ed["_settingsData"] as Record<string, unknown>;
+    // ⭐ deleted to type another badge: the space before it must stay
+    call("_settingsChanged", value({ ...data(), level_emojis: "🌱 " }));
+    expect(out.last!.level_emojis).toEqual(["🌱"]);
+    expect(data().level_emojis).toBe("🌱 ");
+    call("_ruleChanged", 0, value({ state: "rainy, " }));
+    expect(out.last!.context_rules[0].state).toBe("rainy");
+    expect((call("_ruleData", out.last!.context_rules[0], 0) as any).state).toBe("rainy, ");
+    // changed elsewhere (YAML): the stored value wins
+    ed.setConfig({ ...out.last!, level_emojis: ["👑"] });
+    expect(data().level_emojis).toBe("👑");
+  });
+
+  it("offers only entities whose value can name the active person", async () => {
+    // a person.* entity is home / not_home – never a name
+    const { call } = await editor({});
+    const field = (call("_schema") as any[])
+      .flatMap((s) => s.schema)
+      .find((f: any) => f.name === "active_person_entity");
+    const domains = field.selector.entity.filter.map((f: any) => f.domain);
+    expect(domains).not.toContain("person");
+    expect(domains).toEqual(expect.arrayContaining(["input_select", "sensor"]));
+  });
+
   it("takes level badges as text", async () => {
     const { call, out } = await editor({});
     call("_settingsChanged", value({ level_emojis: "🌱, ⭐ 🔥" }));
@@ -1163,6 +1619,81 @@ describe("celebrate actions from the HA action editor", () => {
     );
     (all(".tile")[0] as HTMLElement).click();
     await settle();
-    expect(services).toContainEqual({ domain: "light", service: "turn_on", data: {} });
+    expect(services).toContainEqual({
+      domain: "light",
+      service: "turn_on",
+      data: {},
+      target: { entity_id: "light.kids" },
+    });
+  });
+
+  it("runs the steps one after another, waiting where asked", async () => {
+    const { services, all, settle } = await mount(
+      {
+        persons: [{ name: "Anna", lists: "todo.anna" }],
+        celebrate: {
+          on: "task",
+          actions: [
+            { action: "light.turn_on", data: { entity_id: "light.kids" } },
+            { delay: { seconds: 5 } },
+            { action: "light.turn_off", data: { entity_id: "light.kids" } },
+          ],
+        },
+      },
+      { lists: { "todo.anna": { items: [task("a1", "Zimmer")] } } },
+    );
+    const lights = () => services.filter((s) => s.domain === "light").map((s) => s.service);
+    (all(".tile")[0] as HTMLElement).click();
+    await settle();
+    expect(lights()).toEqual(["turn_on"]);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(lights()).toEqual(["turn_on", "turn_off"]);
+  });
+
+  it("skips switched-off steps and stops at an unmet condition", async () => {
+    const { services, all, settle } = await mount(
+      {
+        persons: [{ name: "Anna", lists: "todo.anna" }],
+        celebrate: {
+          on: "task",
+          actions: [
+            { action: "light.turn_on", enabled: false },
+            { action: "light.toggle" },
+            { condition: "state", entity_id: "input_boolean.quiet", state: "off" },
+            { action: "tts.speak" },
+          ],
+        },
+      },
+      {
+        lists: { "todo.anna": { items: [task("a1", "Zimmer")] } },
+        states: { "input_boolean.quiet": { state: "on" } },
+      },
+    );
+    (all(".tile")[0] as HTMLElement).click();
+    await settle();
+    const fired = services.filter((s) => s.domain !== "todo").map((s) => s.service);
+    expect(fired).toEqual(["toggle"]);
+  });
+
+  it("celebrates 'all done' only on the device where it happened", async () => {
+    const allDone = { actions: [{ action: "tts.speak" }] };
+    const lists = { "todo.anna": { items: [task("a1", "Müll")] } };
+    const anna = { name: "Anna", lists: "todo.anna" };
+    const tts = (services: ServiceCall[]) => services.filter((s) => s.domain === "tts");
+    // the wall tablet: Anna checks off her last task there
+    const tablet = await mount({ persons: [anna], celebrate: allDone }, { lists });
+    (tablet.all(".tile")[0] as HTMLElement).click();
+    await tablet.settle();
+    expect(tts(tablet.services)).toHaveLength(1);
+    // the same card on the parents' phone sees the list change, too
+    const phone = await mount({ persons: [anna], celebrate: allDone }, { lists });
+    update(
+      phone.el,
+      { "todo.anna": { state: "0", last_changed: "checked on the tablet" } },
+      { callWS: async () => ({ items: [done("a1", "Müll")] }) },
+    );
+    await phone.settle();
+    expect(phone.text()).not.toContain("Müll");
+    expect(tts(phone.services)).toEqual([]); // announced once, not on every screen
   });
 });

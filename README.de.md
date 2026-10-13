@@ -4,7 +4,7 @@
 
 ![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
 
-> **Status: nutzbar (v0.18.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.18.1).** Personen-Board, visueller Editor, Kinder-Modus,
 > Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
@@ -506,9 +506,19 @@ persons:
 
 - **`on`** wählt den Moment: `all_done` (Person hat nichts Offenes mehr –
   Standard), `task` (jede erledigte Aufgabe) oder `reward` (Belohnung eingelöst).
-  Mehrere gleichzeitig als Liste möglich.
-- **`actions`** ist eine Liste von Service-Aufrufen (`service` + `data`/`target`),
-  genau wie in HA-Automationen.
+  Mehrere gleichzeitig als Liste möglich. Gefeiert wird auf dem Bildschirm, auf
+  dem abgehakt oder eingelöst wurde – auch mit mehreren offenen Dashboards kommt
+  eine Ansage also nur einmal. In anderen Apps Erledigtes löst nichts aus.
+- **`actions`** laufen nacheinander und werden wie in HA-Automationen geschrieben
+  (der visuelle Editor nutzt den Aktionseditor von Home Assistant): Aktionen
+  (`action`/`service` + `data`/`target`), Szenen, **Verzögerungen** und
+  **Bedingungen** (Zustand, Zahlenwert, Zeit, und/oder/nicht) – eine nicht
+  erfüllte Bedingung beendet den Ablauf. Ausgeschaltete Schritte werden
+  übersprungen, ebenso Schritte, die nur Home Assistant selbst ausführen kann
+  (Geräte-Aktionen, Auswahl, Wiederholen …); eine Bedingung, die die Karte nicht
+  prüfen kann, gilt als nicht erfüllt. Für mehr ein Skript anlegen und hier
+  aufrufen (`script.turn_on`). Verzögerungen laufen im Browser – das Dashboard
+  muss so lange offen bleiben.
 - Platzhalter: **`{name}`** (Person) und **`{task}`** (Aufgaben-/Belohnungsname)
   werden in allen Text-Werten ersetzt.
 
@@ -673,7 +683,12 @@ persons:
       - entity: todo.todoist_inbox  # eigene Einstellungen
         hide_undated: true
         show_within: 7
+      - entity: todo.projekte       # alle Aufgaben, trotz 30 Tagen der Karte
+        show_within: -1
 ```
+
+Im visuellen Editor sind das die **Listen-Einstellungen** der Person: Sie zeigen
+zuerst die Werte der Karte; was du dort änderst, gilt nur für diese Liste.
 
 So können dieselben Listen auf einer Karte als volle Liste und auf einer zweiten
 als Übersicht „was ansteht" dienen (`hide_undated: true`, `show_within: 0`).
