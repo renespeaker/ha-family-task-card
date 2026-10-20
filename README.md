@@ -119,11 +119,16 @@ Board Card. There is **no integration** to add and **no restart** required.
 
 ### Via HACS (recommended)
 
-1. HACS → ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
-   type **Dashboard** (Lovelace).
-2. Install **"Family Task Card"**. HACS registers the resource automatically.
-3. **Hard-refresh** the browser once (Ctrl+Shift+R) so the card loads.
-4. Dashboard → Add card → search for **"Family Task Card"**.
+[![Open the Family Task Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
+
+1. In **HACS**, search for **"Family Task Card"** and download it (or use the
+   button above). HACS registers the resource automatically.
+2. **Hard-refresh** the browser once (Ctrl+Shift+R) so the card loads.
+3. Dashboard → Add card → search for **"Family Task Card"**.
+
+> **Not listed in your HACS yet?** Add it as a custom repository instead: HACS →
+> ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
+> type **Dashboard**.
 
 ### Manual (without HACS)
 
@@ -131,6 +136,10 @@ Board Card. There is **no integration** to add and **no restart** required.
 2. Settings → **Dashboards → ⋮ → Resources → Add resource**: URL
    `/local/family-task-card.js`, type **JavaScript module**.
 3. Hard-refresh the browser, then add the card.
+
+> **Installed an earlier version as an integration?** Remove the old "Family
+> Task Card" integration under *Devices & services* and uninstall it in HACS,
+> then install the card as a **Dashboard** as above.
 
 ## Configuration
 

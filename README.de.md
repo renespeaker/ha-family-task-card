@@ -120,11 +120,17 @@ Neustart** nötig.
 
 ### Über HACS (empfohlen)
 
-1. HACS → ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
-   Typ **Dashboard** (Lovelace).
-2. **„Family Task Card"** installieren. HACS legt die Ressource automatisch an.
-3. Browser einmal **hart neu laden** (Strg+Shift+R), damit die Karte geladen wird.
-4. Dashboard → Karte hinzufügen → nach **„Family Task Card"** suchen.
+[![Family Task Card in HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
+
+1. In **HACS** nach **„Family Task Card"** suchen und herunterladen (oder den
+   Button oben nutzen). HACS legt die Ressource automatisch an.
+2. Browser einmal **hart neu laden** (Strg+Shift+R), damit die Karte geladen wird.
+3. Dashboard → Karte hinzufügen → nach **„Family Task Card"** suchen.
+
+> **In deinem HACS noch nicht zu finden?** Dann füge sie als benutzerdefiniertes
+> Repository hinzu: HACS → ⋮ → **Benutzerdefinierte Repositories** (*Custom
+> repositories*) → `https://github.com/renespeaker/ha-family-task-card`, Typ
+> **Dashboard**.
 
 ### Manuell (ohne HACS)
 
@@ -135,7 +141,7 @@ Neustart** nötig.
 
 > **Von einer früheren Version als Integration installiert?** Entferne die alte
 > „Family Task Card"-Integration unter *Geräte & Dienste* und deinstalliere sie
-> in HACS, dann füge das Repo wie oben als **Dashboard** neu hinzu.
+> in HACS, dann installiere die Karte wie oben als **Dashboard**.
 
 ## Konfiguration
 
