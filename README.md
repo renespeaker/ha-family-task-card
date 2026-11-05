@@ -221,7 +221,7 @@ persons:
 | `rotation_period` | text | `week` (default, from Monday) or `day`. |
 | `rotation_persons` | list | who takes part (person name or `person.*`); default everyone. |
 | `rotation_reset` | bool | reopen chores at the start of each round (default on). |
-| `points_backend` | bool | book points in the optional [Family Tasks](https://github.com/renespeaker/ha-family-tasks) integration (see below). |
+| `points_backend` | bool | book points in the optional [Family Tasks](https://github.com/renespeaker/ha-family-task-integration) integration (see below). |
 | `reward_approval` | bool | with `points_backend`: rewards are requested and approved by push (see below). |
 | `leaderboard_period` | text | with `points_backend`: rank by `all` (default), `week` or `month`. |
 | `show_streak` | bool | with `points_backend`: "⚡ 5" next to the name — days in a row with a task. |
@@ -418,7 +418,7 @@ Usage: the 🎁 button in the person column (or in kid mode) opens the shop.
 By default the card works out points live from checked-off tasks — nothing to
 install, but points disappear when a list is cleared, and chores that reopen
 every round can't earn any. For points that **stay**, install the separate
-integration [**Family Tasks**](https://github.com/renespeaker/ha-family-tasks)
+integration [**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration)
 and switch on **"Use points ledger (Family Tasks)"** in the visual editor
 (`points_backend: true`).
 

@@ -225,7 +225,7 @@ persons:
 | `rotation_period` | Text               | `week` (Std., ab Montag) oder `day`.                    |
 | `rotation_persons`| Liste              | Wer mitmacht (Personenname oder `person.*`); Std. alle. |
 | `rotation_reset`  | Bool               | Ämtli zu Beginn jeder Runde wieder öffnen (Std. an).    |
-| `points_backend`  | Bool               | Punkte in der optionalen Integration [Family Tasks](https://github.com/renespeaker/ha-family-tasks) buchen (siehe unten). |
+| `points_backend`  | Bool               | Punkte in der optionalen Integration [Family Tasks](https://github.com/renespeaker/ha-family-task-integration) buchen (siehe unten). |
 | `reward_approval` | Bool               | Mit `points_backend`: Belohnungen werden angefragt und per Push freigegeben (siehe unten). |
 | `leaderboard_period` | Text            | Mit `points_backend`: Rangliste nach `all` (Std.), `week` oder `month`. |
 | `show_streak`     | Bool               | Mit `points_backend`: „⚡ 5" neben dem Namen – Tage am Stück mit einer Aufgabe. |
@@ -429,7 +429,7 @@ Standardmäßig berechnet die Karte Punkte live aus den abgehakten Aufgaben –
 nichts zu installieren, aber Punkte verschwinden, wenn eine Liste geleert wird,
 und Ämtli, die jede Runde wieder öffnen, können keine bekommen. Für Punkte, die
 **bleiben**, installiere die eigene Integration
-[**Family Tasks**](https://github.com/renespeaker/ha-family-tasks) und schalte im
+[**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration) und schalte im
 visuellen Editor **„Punktekonto nutzen (Family Tasks)"** ein
 (`points_backend: true`).
 

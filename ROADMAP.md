@@ -94,7 +94,7 @@ The goal: a usable, coherent card with the core loop.
       in the editor, weekly/daily rounds worked out from the calendar, chores reopen
       each round, "next week: …" hint; chores earn points with the points ledger.
 - [x] **Points ledger** (optional integration
-      [Family Tasks](https://github.com/renespeaker/ha-family-tasks), phase 1) —
+      [Family Tasks](https://github.com/renespeaker/ha-family-task-integration), phase 1) —
       `points_backend`: points booked for good, once per task (and once per round
       for chores), unchecking takes them back, rewards paid from the ledger, a
       points sensor per person.
