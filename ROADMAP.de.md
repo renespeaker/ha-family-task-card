@@ -98,7 +98,7 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       im Editor, wöchentliche/tägliche Runden aus dem Kalender, Ämtli öffnen sich
       jede Runde neu, Hinweis „nächste Woche: …"; mit Punktekonto geben Ämtli Punkte.
 - [x] **Punktekonto** (optionale Integration
-      [Family Tasks](https://github.com/renespeaker/ha-family-tasks), Phase 1) –
+      [Family Tasks](https://github.com/renespeaker/ha-family-task-integration), Phase 1) –
       `points_backend`: Punkte dauerhaft gebucht, einmal pro Aufgabe (bei Ämtli
       einmal pro Runde), Haken entfernen nimmt sie zurück, Belohnungen vom Konto
       bezahlt, ein Punkte-Sensor pro Person.
