@@ -132,6 +132,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   hide_empty?: boolean; // hide persons with no open tasks (and nothing to show)
   due_soon?: number; // mark tasks due within N days as "due soon" (highlight)
   allow_add?: boolean; // show an "add task" field per person (needs a creatable list). default true
+  private_patterns?: string[]; // text in title or description that shows a task only as "Private"
   title_tags?: boolean; // "@Lina" in a title makes it Lina's task, "+20" sets its points. default off
   theme?: "auto" | "dark" | "light"; // force the card's color scheme. default auto (HA theme)
   active_person_entity?: string; // entity whose state names the person to focus (NFC/presence)
@@ -257,6 +258,8 @@ interface TodoItem {
   status: "needs_action" | "completed";
   due?: string;
   description?: string;
+  /** Set by the card: details withheld, only "Private" is shown. */
+  private?: boolean;
 }
 
 /** A todo item paired with the entity it lives in, so write-back knows the target. */
@@ -1184,10 +1187,30 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     );
   }
 
-  /** A task as the card shows it: without its shorthand. */
+  /** A task as the card shows it: without its shorthand, and private ones without their title. */
   private _shown(entity: string, item: TodoItem): TodoItem {
     const tags = this._tagMap().get(`${entity}|${item.uid}`);
-    return tags ? { ...item, summary: tags.title } : item;
+    const shown = tags ? { ...item, summary: tags.title } : item;
+    if (!this._isPrivate(item)) return shown;
+    // "!" still marks it important; everything else stays with the list
+    const mark = isMarkedImportant(item.summary) ? "! " : "";
+    return {
+      ...shown,
+      summary: `${mark}${this._t("private")}`,
+      description: undefined,
+      private: true,
+    };
+  }
+
+  /** A private pattern in the title or the description (case ignored). */
+  private _isPrivate(item: TodoItem): boolean {
+    const pats = this._config?.private_patterns;
+    if (!Array.isArray(pats) || pats.length === 0) return false;
+    const text = `${item.summary ?? ""} ${item.description ?? ""}`.toLowerCase();
+    return pats.some((p) => {
+      const pat = String(p).trim().toLowerCase();
+      return pat.length > 0 && text.includes(pat);
+    });
   }
 
   /** Every list the card shows tasks from: the persons' lists and the rotation lists. */
@@ -2776,6 +2799,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** A shopping item named for one person ("Milch @Ben") is still shopping. */
   private _emoji(entity: string, item: TodoItem): string {
+    if (item.private) return "🔒";
     return this._shoppingSet().has(entity) ? "🛒" : emojiFor(item.summary);
   }
 

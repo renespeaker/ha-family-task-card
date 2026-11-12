@@ -2579,3 +2579,98 @@ describe("making up for it after being away (catch_up)", () => {
     expect(names(ed._schema())).toContain("catch_up");
   });
 });
+
+describe("private tasks (private_patterns)", () => {
+  const lists = {
+    lists: {
+      "todo.mama": {
+        items: [
+          task("g1", "Geschenk für Mia kaufen #privat"),
+          task("g2", "Fahrrad bestellen", { description: "#privat – Weihnachten" }),
+          task("w1", "Wäsche"),
+        ],
+      },
+    },
+  };
+  const persons = [{ name: "Mama", lists: "todo.mama" }];
+  const secret = /Geschenk|Mia|Fahrrad|Weihnachten|#privat/;
+
+  it("shows only “Private” on the board, with a lock instead of the title", async () => {
+    const { text, texts } = await mount({ persons, private_patterns: ["#privat"] }, lists);
+    expect(text()).not.toMatch(secret);
+    expect(texts(".tile-title")).toEqual(["Privat", "Privat", "Wäsche"]);
+    expect(texts(".tile-emoji").slice(0, 2)).toEqual(["🔒", "🔒"]);
+  });
+
+  it("stays private in kid mode, the kiosk and the Eisenhower view", async () => {
+    const kid = await mount({ persons, kid_mode: true, private_patterns: ["#privat"] }, lists);
+    expect(kid.text()).not.toMatch(secret);
+    expect(kid.text()).toContain("Privat");
+    const kiosk = await mount({ persons, kiosk: true, private_patterns: ["#privat"] }, lists);
+    (kiosk.all(".kiosk-person")[0] as HTMLElement).click();
+    await kiosk.settle();
+    expect(kiosk.text()).not.toMatch(secret);
+    const matrix = await mount(
+      {
+        persons,
+        eisenhower: true,
+        private_patterns: ["#privat"],
+      },
+      {
+        lists: {
+          "todo.mama": { items: [task("g3", "!Geschenk kaufen #privat", { due: "2026-09-22" })] },
+        },
+      },
+    );
+    expect(matrix.text()).not.toMatch(secret);
+    // still important: "!" keeps working
+    expect(
+      [...matrix.root.querySelectorAll(".quad.do .tile-title")].map((n) => n.textContent!.trim()),
+    ).toEqual(["Privat"]);
+  });
+
+  it("checks off by its id and tells automations only “Private”", async () => {
+    const { all, services, settle } = await mount(
+      {
+        persons,
+        private_patterns: ["#privat"],
+        celebrate: {
+          on: "task",
+          actions: [{ action: "tts.speak", data: { message: "{name}: {task}" } }],
+        },
+      },
+      lists,
+    );
+    (all(".tile")[0] as HTMLElement).click();
+    await settle();
+    expect(services.find((s) => s.service === "update_item")?.data).toMatchObject({
+      entity_id: "todo.mama",
+      item: "g1",
+      status: "completed",
+    });
+    expect(services.find((s) => s.domain === "tts")?.data).toEqual({ message: "Mama: Privat" });
+  });
+
+  it("still goes to the person its @ names", async () => {
+    const { root } = await mount(
+      {
+        persons: [
+          { name: "Mama", lists: "todo.familie" },
+          { name: "Papa", lists: "todo.familie" },
+        ],
+        title_tags: true,
+        private_patterns: ["#privat"],
+      },
+      { lists: { "todo.familie": { items: [task("p1", "Ring abholen @Papa #privat")] } } },
+    );
+    const columns = [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => n.textContent!.trim()),
+    );
+    expect(columns).toEqual([[], ["Privat"]]);
+  });
+
+  it("changes nothing without patterns", async () => {
+    const { texts } = await mount({ persons }, lists);
+    expect(texts(".tile-title")[0]).toBe("Geschenk für Mia kaufen #privat");
+  });
+});
