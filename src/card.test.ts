@@ -2377,3 +2377,205 @@ describe("handing chores over (chore_swap)", () => {
     expect(names(ed._schema())).toContain("chore_swap");
   });
 });
+
+describe("making up for it after being away (catch_up)", () => {
+  const FT = {
+    family_tasks: {
+      award: {},
+      revoke: {},
+      redeem: {},
+      adjust: {},
+      offer_chore: {},
+      answer_offer: {},
+      cover: {},
+      even_out: {},
+    },
+  };
+  const persons = [
+    { name: "Lina", person: "person.lina", away_entity: "input_boolean.lina_weg" },
+    { name: "Ben", person: "person.ben", away_entity: "input_boolean.ben_weg" },
+  ];
+  const config = {
+    persons,
+    rotation: true,
+    rotation_lists: "todo.aemtli",
+    points_backend: true,
+    catch_up: true,
+  };
+  const now = "2026-10-14T10:00:00"; // this round runs to Sunday 18 Oct
+  const END = "2026-10-18";
+  const chores = (status: Record<string, string> = {}) => ({
+    "todo.aemtli": {
+      items: ["Bad", "Fenster", "Müll", "Spülen"].map((s, i) =>
+        task(`c${i}`, s, { status: status[s] ?? "needs_action", due: END }),
+      ),
+      features: CREATE | UPDATE | 16,
+    },
+  });
+  const away = (who: Record<string, "on" | "off">) =>
+    Object.fromEntries(
+      Object.entries(who).map(([k, v]) => [`input_boolean.${k}_weg`, { state: v, attributes: {} }]),
+    );
+  const ledger = (covers: unknown[]) =>
+    Object.fromEntries(
+      ["lina", "ben"].map((who) => [
+        `sensor.${who}_points`,
+        {
+          entity_id: `sensor.${who}_points`,
+          state: "0",
+          last_changed: "x",
+          attributes: { person: `person.${who}`, earned: 30, covers },
+        },
+      ]),
+    );
+  const cover = (extra: Record<string, unknown> = {}) => ({
+    key: "todo.aemtli|c9|2026-10-11", // from last week's round
+    helper: "person.lina",
+    absent: "person.ben",
+    chore: "Müll",
+    settled_by: null,
+    ...extra,
+  });
+  const columns = (root: ShadowRoot) =>
+    [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => (n.textContent ?? "").trim()),
+    );
+  const calls = (services: ServiceCall[], name: string) =>
+    services.filter((s) => s.domain === "family_tasks" && s.service === name).map((s) => s.data);
+
+  it("notes who covered for whom when the chore gets done", async () => {
+    // Ben is away: Lina does all four, the ledger learns she covered for him
+    const usual = columns((await mount(config, { lists: chores(), now, services: FT })).root);
+    const bens = usual[1];
+    const done = Object.fromEntries(bens.map((s) => [s, "completed"]));
+    const m = await mount(config, {
+      lists: chores(done),
+      now,
+      services: FT,
+      states: away({ ben: "on" }),
+    });
+    const noted = calls(m.services, "cover");
+    expect(noted.map((c) => c.chore).sort()).toEqual([...bens].sort());
+    expect(noted[0]).toMatchObject({ person: "person.lina", absent: "person.ben" });
+    expect(String(noted[0].key)).toMatch(/^todo\.aemtli\|c\d\|2026-10-18$/);
+  });
+
+  it("notes nothing while switched off", async () => {
+    const m = await mount(
+      { ...config, catch_up: false },
+      {
+        lists: chores({
+          Bad: "completed",
+          Fenster: "completed",
+          Müll: "completed",
+          Spülen: "completed",
+        }),
+        now,
+        services: FT,
+        states: away({ ben: "on" }),
+      },
+    );
+    expect(calls(m.services, "cover")).toEqual([]);
+  });
+
+  it("gives one of the helper's chores to whoever is back and owes one", async () => {
+    const usual = columns((await mount(config, { lists: chores(), now, services: FT })).root);
+    const m = await mount(config, {
+      lists: chores(),
+      now,
+      services: FT,
+      states: { ...ledger([cover()]), ...away({ ben: "off" }) },
+    });
+    const [lina, ben] = columns(m.root);
+    expect([lina.length, ben.length]).toEqual([1, 3]);
+    const moved = ben.find((s) => !usual[1].includes(s))!;
+    expect(usual[0]).toContain(moved);
+    expect(m.text()).toContain("↩️ Ausgleich für Lina");
+  });
+
+  it("waits while the person is still away, and for the next round", async () => {
+    const usual = columns((await mount(config, { lists: chores(), now, services: FT })).root);
+    const stillAway = await mount(config, {
+      lists: chores(),
+      now,
+      services: FT,
+      states: { ...ledger([cover()]), ...away({ ben: "on" }) },
+    });
+    expect(stillAway.text()).not.toContain("↩️");
+    const thisRound = await mount(config, {
+      lists: chores(),
+      now,
+      services: FT,
+      states: { ...ledger([cover({ key: `todo.aemtli|c9|${END}` })]), ...away({ ben: "off" }) },
+    });
+    expect(columns(thisRound.root)).toEqual(usual);
+  });
+
+  it("evens it out when the chore is done, and keeps it there", async () => {
+    const probe = await mount(config, {
+      lists: chores(),
+      now,
+      services: FT,
+      states: { ...ledger([cover()]), ...away({ ben: "off" }) },
+    });
+    const moved = probe
+      .all(".tile")
+      .find((t) => t.textContent!.includes("↩️"))!
+      .querySelector(".tile-title")!
+      .textContent!.trim();
+    const done = await mount(config, {
+      lists: chores({ [moved]: "completed" }),
+      now,
+      services: FT,
+      states: { ...ledger([cover()]), ...away({ ben: "off" }) },
+    });
+    const award = calls(done.services, "award").find((a) => a.task === moved)!;
+    expect(award.person).toBe("person.ben");
+    expect(calls(done.services, "even_out")).toEqual([
+      { key: award.key, person: "person.ben", helper: "person.lina" },
+    ]);
+    // once the ledger has it, the chore stays with Ben for this round
+    const settled = await mount(
+      { ...config, show_completed: true },
+      {
+        lists: chores({ [moved]: "completed" }),
+        now,
+        services: FT,
+        states: {
+          ...ledger([cover({ settled_by: award.key })]),
+          ...away({ ben: "off" }),
+        },
+      },
+    );
+    const [lina, ben] = columns(settled.root);
+    expect(ben).toContain(moved);
+    expect(lina).not.toContain(moved);
+    expect(settled.text()).not.toContain("↩️"); // nothing else owed
+  });
+
+  it("needs an integration that keeps covers", async () => {
+    const old = await mount(config, {
+      lists: chores(),
+      now,
+      services: { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } },
+      states: { ...ledger([cover()]), ...away({ ben: "off" }) },
+    });
+    expect(old.text()).not.toContain("↩️");
+  });
+
+  it("is a switch of the rotation in the editor", async () => {
+    await import("./editor");
+    const ed = document.createElement("family-task-card-editor") as HTMLElement & {
+      setConfig(c: unknown): void;
+      hass: unknown;
+      _schema(): any[];
+    };
+    ed.hass = { locale: { language: "de" }, states: {} };
+    const names = (schema: any[]): string[] =>
+      schema.flatMap((s) => (Array.isArray(s.schema) ? names(s.schema) : [s.name]));
+    ed.setConfig({ type: "custom:family-task-card", persons: [] });
+    expect(names(ed._schema())).not.toContain("catch_up");
+    ed.setConfig({ type: "custom:family-task-card", persons: [], rotation: true });
+    expect(names(ed._schema())).toContain("catch_up");
+  });
+});

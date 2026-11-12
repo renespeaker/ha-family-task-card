@@ -4,9 +4,9 @@
 
 ![Family Task Card – a board per person with tasks, points, levels, streaks, a shopping trip and the weekly leaderboard](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/board.png)
 
-> **Status: usable (v0.20.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, **auto-rotation (take turns)** that knows who is away
-> and lets chores be **handed over**,
+> **Status: usable (v0.21.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, **auto-rotation (take turns)** that knows who is away,
+> makes up for it later and lets chores be **handed over**,
 > **shorthand in titles (@person, +points)**, a **fair-share bar**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
@@ -231,6 +231,7 @@ persons:
 | `rotation_persons` | list | who takes part (person name or `person.*`); default everyone. |
 | `rotation_reset` | bool | reopen chores at the start of each round (default on). |
 | `chore_swap` | bool | with `points_backend`: hand a chore of this round to someone else, for points if you like (see below). |
+| `catch_up` | bool | with `points_backend`: whoever was covered for while away does one of the helper's chores later (see below). |
 | `points_backend` | bool | book points in the optional [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration) (see below). |
 | `reward_approval` | bool | with `points_backend`: rewards are requested and approved by push (see below). |
 | `leaderboard_period` | text | with `points_backend`: rank by `all` (default), `week` or `month`. |
@@ -299,6 +300,13 @@ Monday) or daily. Switch it on in the visual editor under
   chore says whose it is ("🤝 instead of Ben"), the column shows "✈️ away", and
   the points go to whoever did it. Once the switch is off, the usual turns
   apply again. In the editor this is *Away while on* in the person form.
+- **Make up for it later.** With `catch_up: true` (*Make up for it after being
+  away*) the ledger remembers who covered for whom. Back home, Ben does one of
+  Lina's chores in a later round for every chore she did for him
+  ("↩️ making up for Lina"); once he has checked it off, it's even. Unchecking
+  either chore undoes its part. This needs the
+  [points ledger](#points-ledger-optional-integration) (integration v0.5.0 or
+  newer).
 - **Hand a chore over.** With `chore_swap: true` (*Hand over chores* in the
   editor) whoever has a chore this round can offer it to someone else with 🔁 –
   as a favour or for 5, 10 or 20 of their points. The other person sees
@@ -307,6 +315,8 @@ Monday) or daily. Switch it on in the visual editor under
   offers can be withdrawn with ✕, and every offer ends with its round. This
   needs the [points ledger](#points-ledger-optional-integration) (integration
   v0.4.0 or newer), which keeps the offers and moves the points.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/swap.png" alt="Handing a chore over: Lina has offered Do the dishes to Ben for 10 points; Ben sees the offer with Take over" width="560"></p>
 
 ```yaml
 type: custom:family-task-card
