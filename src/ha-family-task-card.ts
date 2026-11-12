@@ -136,6 +136,9 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   title_tags?: boolean; // "@Lina" in a title makes it Lina's task, "+20" sets its points. default off
   theme?: "auto" | "dark" | "light"; // force the card's color scheme. default auto (HA theme)
   active_person_entity?: string; // entity whose state names the person to focus (NFC/presence)
+  night_start?: string; // "21:00": from here a calm, dark night screen with a clock
+  night_end?: string; // "06:30": back to the tasks
+  night_wake_entity?: string | string[]; // motion/presence sensors: "on" wakes the night screen
   kiosk?: boolean; // wall-tablet mode: idle "who's there?" picker + auto-return
   auto_return?: number; // seconds of inactivity before returning to the picker. default 30, 0 = never
   scale?: number; // overall card size in % (zoom). default 100
@@ -515,6 +518,87 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if ((changed.has("hass") || changed.has("_config")) && this.hass && this._config) {
       this._refresh();
     }
+    // movement in the room wakes the night screen, for a while after it stops too
+    if (changed.has("hass")) {
+      const motion = this._motion;
+      if ((motion || this._hadMotion) && this._nightWindow()) {
+        this._wakeUntil = Date.now() + this._wakeMs;
+      }
+      this._hadMotion = motion;
+    }
+  }
+
+  /* ---- night screen (night_start / night_end) ---------------------- */
+  private _wakeUntil = 0;
+  private _hadMotion = false;
+  private _eatClick = false;
+  private _nightTimer?: number;
+
+  /** Minutes of the day for "HH:MM" or "HH:MM:SS", or null. */
+  private static _clockMin(v?: string): number | null {
+    const m = /^(\d{1,2}):(\d{2})/.exec(String(v ?? "").trim());
+    if (!m) return null;
+    const min = Number(m[1]) * 60 + Number(m[2]);
+    return min >= 0 && min < 1440 ? min : null;
+  }
+
+  /** Inside the configured night hours (may cross midnight)? */
+  private _nightWindow(): boolean {
+    const from = FamilyTaskCard._clockMin(this._config?.night_start);
+    const to = FamilyTaskCard._clockMin(this._config?.night_end);
+    if (from === null || to === null || from === to) return false;
+    const now = new Date();
+    const min = now.getHours() * 60 + now.getMinutes();
+    return from < to ? min >= from && min < to : min >= from || min < to;
+  }
+
+  /** How long a tap or movement keeps the tasks on screen: auto_return, at least 2 minutes. */
+  private get _wakeMs(): number {
+    return Math.max(Number(this._config?.auto_return) || 0, 120) * 1000;
+  }
+
+  private get _motion(): boolean {
+    const ids = this._config?.night_wake_entity;
+    const list = Array.isArray(ids) ? ids : ids ? [ids] : [];
+    return list.some((id) => this.hass?.states[id]?.state === "on");
+  }
+
+  /** The night screen shows: night hours, not woken by a tap or by movement. */
+  private get _night(): boolean {
+    return this._nightWindow() && Date.now() >= this._wakeUntil && !this._motion;
+  }
+
+  private _onNightTap = (): void => {
+    if (!this._nightWindow()) return;
+    // the tap only wakes the card; it must not check off the tile below
+    if (this._night) this._eatClick = true;
+    this._wakeUntil = Date.now() + this._wakeMs;
+    this.requestUpdate();
+  };
+
+  private _onNightClick = (e: Event): void => {
+    if (!this._eatClick) return;
+    this._eatClick = false;
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
+  private _renderNight() {
+    const now = new Date();
+    const lang = this.hass?.locale?.language || undefined;
+    const time = new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" }).format(now);
+    const date = new Intl.DateTimeFormat(lang, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    }).format(now);
+    let open = 0;
+    for (const p of this._config!.persons) open += this._personView(p).openCount;
+    return html`<ha-card class="night">
+      <div class="night-time">${time}</div>
+      <div class="night-date">${date}</div>
+      <div class="night-foot">🌙 ${open ? html`${open} ${this._t("open")}` : "✓"}</div>
+    </ha-card>`;
   }
 
   /** Fetch todo items for any configured list whose entity state changed. */
@@ -1798,6 +1882,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   protected render() {
     if (!this._config) return nothing;
     const cfg = this._config;
+    if (this._night) return this._renderNight();
     if (cfg.kiosk && cfg.persons.length > 0) return this._renderKiosk();
     if (cfg.kid_mode && cfg.persons.length > 0) return this._renderKid();
     if (cfg.eisenhower) return this._renderMatrix();
@@ -2132,12 +2217,26 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   public connectedCallback(): void {
     super.connectedCallback();
+    this.addEventListener("pointerdown", this._onNightTap);
+    this.addEventListener("click", this._onNightClick, true);
+    // the night screen's clock, and the switch at night_start / night_end
+    if (!this._nightTimer) this._nightTimer = window.setInterval(() => this._nightTick(), 30_000);
     // Back on screen (e.g. after another dashboard view): count down again.
     if (this._config?.kiosk && !this._kioskIdle) this._resetKioskTimer();
   }
 
+  private _nightTick(): void {
+    if (this._config?.night_start && this._config?.night_end) this.requestUpdate();
+  }
+
   public disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener("pointerdown", this._onNightTap);
+    this.removeEventListener("click", this._onNightClick, true);
+    if (this._nightTimer) {
+      clearInterval(this._nightTimer);
+      this._nightTimer = undefined;
+    }
     if (this._burstTimer) clearTimeout(this._burstTimer);
     this._burst = false;
     if (this._kioskTimer) clearTimeout(this._kioskTimer);
@@ -2351,6 +2450,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** Detect per-person "all done" transitions (open>0 -> 0) and celebrate them. */
   protected updated(): void {
+    this.toggleAttribute("night", this._night);
     if (!this._config) return;
 
     this._applyAppearance();
@@ -3436,6 +3536,33 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     }
 
     /* ---- kiosk idle picker ---- */
+    ha-card.night {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 260px;
+      padding: 32px 16px;
+      background: #0b0b0f;
+      color: #d4d4d4;
+    }
+    .night-time {
+      font-size: 72px;
+      font-weight: 700;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: #e5e5e5;
+    }
+    .night-date {
+      font-size: 20px;
+      color: #9a9a9a;
+    }
+    .night-foot {
+      margin-top: 12px;
+      font-size: 16px;
+      color: #9a9a9a;
+    }
     ha-card.kiosk-idle {
       padding: 24px;
       min-height: 60vh;

@@ -2674,3 +2674,68 @@ describe("private tasks (private_patterns)", () => {
     expect(texts(".tile-title")[0]).toBe("Geschenk für Mia kaufen #privat");
   });
 });
+
+describe("night screen (night_start / night_end)", () => {
+  const persons = [{ name: "Lina", lists: "todo.lina" }];
+  const lists = { lists: { "todo.lina": { items: [task("l1", "Zähne putzen")] } } };
+  const night = { persons, night_start: "21:00", night_end: "06:30" };
+
+  it("shows a calm clock at night, and the tasks by day", async () => {
+    const late = await mount(night, { ...lists, now: "2026-09-21T23:15:00" });
+    expect(late.el.hasAttribute("night")).toBe(true);
+    expect(late.root.querySelector(".night-time")?.textContent).toBe("23:15");
+    expect(late.text()).toContain("1 offen");
+    expect(late.text()).not.toContain("Zähne putzen");
+    const early = await mount(night, { ...lists, now: "2026-09-22T05:00:00" });
+    expect(early.el.hasAttribute("night")).toBe(true);
+    const day = await mount(night, { ...lists, now: "2026-09-21T10:00:00" });
+    expect(day.el.hasAttribute("night")).toBe(false);
+    expect(day.text()).toContain("Zähne putzen");
+  });
+
+  it("wakes on a tap without checking anything off, and sleeps again", async () => {
+    const { el, root, services, settle } = await mount(night, {
+      ...lists,
+      now: "2026-09-21T23:15:00",
+    });
+    const card = root.querySelector(".night") as HTMLElement;
+    card.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true }));
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    // the click of that tap lands on the tile that appeared
+    (root.querySelector(".tile") as HTMLElement).click();
+    await settle();
+    expect(services.some((s) => s.service === "update_item")).toBe(false);
+    await vi.advanceTimersByTimeAsync(3 * 60_000);
+    await settle();
+    expect(el.hasAttribute("night")).toBe(true);
+  });
+
+  it("wakes while a motion sensor reports movement, and a while after", async () => {
+    const { el, settle } = await mount(
+      { ...night, night_wake_entity: "binary_sensor.flur" },
+      { ...lists, now: "2026-09-21T23:15:00", states: { "binary_sensor.flur": { state: "off" } } },
+    );
+    expect(el.hasAttribute("night")).toBe(true);
+    update(el, { "binary_sensor.flur": { state: "on" } });
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    await vi.advanceTimersByTimeAsync(5 * 60_000); // still moving
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    update(el, { "binary_sensor.flur": { state: "off" } });
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    await vi.advanceTimersByTimeAsync(3 * 60_000);
+    await settle();
+    expect(el.hasAttribute("night")).toBe(true);
+  });
+
+  it("stays off without both times", async () => {
+    const { el } = await mount(
+      { persons, night_start: "21:00" },
+      { ...lists, now: "2026-09-21T23:15:00" },
+    );
+    expect(el.hasAttribute("night")).toBe(false);
+  });
+});

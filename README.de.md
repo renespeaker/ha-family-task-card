@@ -214,8 +214,11 @@ persons:
 | `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
 | `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
 | `auto_return`     | Zahl               | Sek. Inaktivität bis zurück zum Auswahl-Bildschirm (Std. 30, 0 = nie). |
+| `night_start` / `night_end` | Uhrzeit | Nachtbildschirm zwischen diesen Zeiten (z. B. `"21:00"` / `"06:30"`): ruhige, dunkle Uhr; Antippen weckt die Karte. Beide nötig. |
+| `night_wake_entity` | Entität / Liste | Bewegungs- oder Präsenzmelder: solange einer `on` meldet, bleibt die Karte wach, danach noch eine Weile. |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
 | `title_tags`      | Bool               | Kurzschrift im Titel: `@Name` macht eine Aufgabe zu der dieser Person, `+20` legt ihre Punkte fest (siehe unten). |
+| `private_patterns` | Liste | Text in Titel oder Beschreibung (z. B. `#privat`), der eine Aufgabe nur als „Privat“ zeigt (siehe unten). |
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
 | `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
@@ -695,6 +698,21 @@ Matching: der Wert der Entität wird mit `name`, der `person.*`-Entität und dem
 Anzeigenamen jeder Person verglichen (Groß-/Kleinschreibung egal). Leeres Feld =
 klassisches manuelles Umschalten.
 
+### Nachtbildschirm
+
+Mit `night_start` und `night_end` wird die Karte nachts zum ruhigen, dunklen
+Bildschirm: große Uhr, Datum und wie viele Aufgaben noch offen sind – keine
+hellen Kacheln mehr am Abend an der Wand. Antippen holt die Aufgaben für
+`auto_return` Sekunden (mindestens 2 Minuten) zurück; das Antippen weckt nur
+und hakt nichts ab. Mit `night_wake_entity` weckt ein Bewegungs- oder
+Präsenzmelder die Karte, sobald jemand vorbeikommt.
+
+```yaml
+night_start: "21:00"
+night_end: "06:30"
+night_wake_entity: binary_sensor.flur_bewegung   # optional
+```
+
 ### Eisenhower-Ansicht (für Eltern)
 
 Ein eigener Modus für Erwachsene, die priorisieren wollen: **„Eisenhower-Ansicht
@@ -798,6 +816,20 @@ was sie wert ist – in jeder App getippt oder dem Sprachassistenten gesagt
   bei allen.
 - Mit dem [Punktekonto](#punktekonto-optionale-integration) bekommt jede
   genannte Person die Punkte; Haken weg nimmt sie allen wieder ab.
+
+### Private Aufgaben
+
+Das Familien-Tablet zeigt die Aufgaben aller – auch „Geburtstagsgeschenk für
+Mia kaufen“. Mit `private_patterns` erscheint eine Aufgabe, deren Titel oder
+Beschreibung eines der Muster enthält, nur als **🔒 Privat**: auf dem Board, im
+Kinder-Modus, im Kiosk und in der Eisenhower-Ansicht, auch in Feier-Aktionen
+und im Punktebuch. Abhaken geht weiter, `!` markiert sie weiter als wichtig, und
+`@Name` entscheidet weiter, wessen Aufgabe sie ist.
+
+```yaml
+private_patterns:
+  - "#privat"
+```
 
 ### Aufgaben hinzufügen, Sortierung & Sprache
 
