@@ -28,6 +28,7 @@ const STRINGS: Record<string, Entry> = {
     en: "This list can't be checked off",
   },
   add_task: { de: "Aufgabe hinzufügen…", en: "Add task…" },
+  private: { de: "Privat", en: "Private" },
   rewards: { de: "Belohnungen", en: "Rewards" },
   balance: { de: "Guthaben", en: "Balance" },
   no_wallet_1: { de: "Kein Guthaben-Helfer (", en: "No points helper (" },

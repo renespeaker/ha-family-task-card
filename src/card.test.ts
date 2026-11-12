@@ -1443,6 +1443,7 @@ describe("visual editor covers everything", () => {
       show_leaderboard: true,
       show_fairness: true,
       points_backend: true,
+      night_start: "21:00",
     });
     const menu = new Set([
       ...names(call("_schema") as any[]),
@@ -2577,5 +2578,165 @@ describe("making up for it after being away (catch_up)", () => {
     expect(names(ed._schema())).not.toContain("catch_up");
     ed.setConfig({ type: "custom:family-task-card", persons: [], rotation: true });
     expect(names(ed._schema())).toContain("catch_up");
+  });
+});
+
+describe("private tasks (private_patterns)", () => {
+  const lists = {
+    lists: {
+      "todo.mama": {
+        items: [
+          task("g1", "Geschenk für Mia kaufen #privat"),
+          task("g2", "Fahrrad bestellen", { description: "#privat – Weihnachten" }),
+          task("w1", "Wäsche"),
+        ],
+      },
+    },
+  };
+  const persons = [{ name: "Mama", lists: "todo.mama" }];
+  const secret = /Geschenk|Mia|Fahrrad|Weihnachten|#privat/;
+
+  it("shows only “Private” on the board, with a lock instead of the title", async () => {
+    const { text, texts } = await mount({ persons, private_patterns: ["#privat"] }, lists);
+    expect(text()).not.toMatch(secret);
+    expect(texts(".tile-title")).toEqual(["Privat", "Privat", "Wäsche"]);
+    expect(texts(".tile-emoji").slice(0, 2)).toEqual(["🔒", "🔒"]);
+  });
+
+  it("stays private in kid mode, the kiosk and the Eisenhower view", async () => {
+    const kid = await mount({ persons, kid_mode: true, private_patterns: ["#privat"] }, lists);
+    expect(kid.text()).not.toMatch(secret);
+    expect(kid.text()).toContain("Privat");
+    const kiosk = await mount({ persons, kiosk: true, private_patterns: ["#privat"] }, lists);
+    (kiosk.all(".kiosk-person")[0] as HTMLElement).click();
+    await kiosk.settle();
+    expect(kiosk.text()).not.toMatch(secret);
+    const matrix = await mount(
+      {
+        persons,
+        eisenhower: true,
+        private_patterns: ["#privat"],
+      },
+      {
+        lists: {
+          "todo.mama": { items: [task("g3", "!Geschenk kaufen #privat", { due: "2026-09-22" })] },
+        },
+      },
+    );
+    expect(matrix.text()).not.toMatch(secret);
+    // still important: "!" keeps working
+    expect(
+      [...matrix.root.querySelectorAll(".quad.do .tile-title")].map((n) => n.textContent!.trim()),
+    ).toEqual(["Privat"]);
+  });
+
+  it("checks off by its id and tells automations only “Private”", async () => {
+    const { all, services, settle } = await mount(
+      {
+        persons,
+        private_patterns: ["#privat"],
+        celebrate: {
+          on: "task",
+          actions: [{ action: "tts.speak", data: { message: "{name}: {task}" } }],
+        },
+      },
+      lists,
+    );
+    (all(".tile")[0] as HTMLElement).click();
+    await settle();
+    expect(services.find((s) => s.service === "update_item")?.data).toMatchObject({
+      entity_id: "todo.mama",
+      item: "g1",
+      status: "completed",
+    });
+    expect(services.find((s) => s.domain === "tts")?.data).toEqual({ message: "Mama: Privat" });
+  });
+
+  it("still goes to the person its @ names", async () => {
+    const { root } = await mount(
+      {
+        persons: [
+          { name: "Mama", lists: "todo.familie" },
+          { name: "Papa", lists: "todo.familie" },
+        ],
+        title_tags: true,
+        private_patterns: ["#privat"],
+      },
+      { lists: { "todo.familie": { items: [task("p1", "Ring abholen @Papa #privat")] } } },
+    );
+    const columns = [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => n.textContent!.trim()),
+    );
+    expect(columns).toEqual([[], ["Privat"]]);
+  });
+
+  it("changes nothing without patterns", async () => {
+    const { texts } = await mount({ persons }, lists);
+    expect(texts(".tile-title")[0]).toBe("Geschenk für Mia kaufen #privat");
+  });
+});
+
+describe("night screen (night_start / night_end)", () => {
+  const persons = [{ name: "Lina", lists: "todo.lina" }];
+  const lists = { lists: { "todo.lina": { items: [task("l1", "Zähne putzen")] } } };
+  const night = { persons, night_start: "21:00", night_end: "06:30" };
+
+  it("shows a calm clock at night, and the tasks by day", async () => {
+    const late = await mount(night, { ...lists, now: "2026-09-21T23:15:00" });
+    expect(late.el.hasAttribute("night")).toBe(true);
+    expect(late.root.querySelector(".night-time")?.textContent).toBe("23:15");
+    expect(late.text()).toContain("1 offen");
+    expect(late.text()).not.toContain("Zähne putzen");
+    const early = await mount(night, { ...lists, now: "2026-09-22T05:00:00" });
+    expect(early.el.hasAttribute("night")).toBe(true);
+    const day = await mount(night, { ...lists, now: "2026-09-21T10:00:00" });
+    expect(day.el.hasAttribute("night")).toBe(false);
+    expect(day.text()).toContain("Zähne putzen");
+  });
+
+  it("wakes on a tap without checking anything off, and sleeps again", async () => {
+    const { el, root, services, settle } = await mount(night, {
+      ...lists,
+      now: "2026-09-21T23:15:00",
+    });
+    const card = root.querySelector(".night") as HTMLElement;
+    card.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, composed: true }));
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    // the click of that tap lands on the tile that appeared
+    (root.querySelector(".tile") as HTMLElement).click();
+    await settle();
+    expect(services.some((s) => s.service === "update_item")).toBe(false);
+    await vi.advanceTimersByTimeAsync(3 * 60_000);
+    await settle();
+    expect(el.hasAttribute("night")).toBe(true);
+  });
+
+  it("wakes while a motion sensor reports movement, and a while after", async () => {
+    const { el, settle } = await mount(
+      { ...night, night_wake_entity: "binary_sensor.flur" },
+      { ...lists, now: "2026-09-21T23:15:00", states: { "binary_sensor.flur": { state: "off" } } },
+    );
+    expect(el.hasAttribute("night")).toBe(true);
+    update(el, { "binary_sensor.flur": { state: "on" } });
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    await vi.advanceTimersByTimeAsync(5 * 60_000); // still moving
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    update(el, { "binary_sensor.flur": { state: "off" } });
+    await settle();
+    expect(el.hasAttribute("night")).toBe(false);
+    await vi.advanceTimersByTimeAsync(3 * 60_000);
+    await settle();
+    expect(el.hasAttribute("night")).toBe(true);
+  });
+
+  it("stays off without both times", async () => {
+    const { el } = await mount(
+      { persons, night_start: "21:00" },
+      { ...lists, now: "2026-09-21T23:15:00" },
+    );
+    expect(el.hasAttribute("night")).toBe(false);
   });
 });

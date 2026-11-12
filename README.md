@@ -212,8 +212,12 @@ persons:
 | `active_person_entity` | entity | card follows the active person (NFC/presence); empty = manual. |
 | `kiosk` | bool | wall-tablet mode: idle "Who's there?" picker + auto-return. |
 | `auto_return` | number | seconds of inactivity before returning to the picker (default 30, 0 = never). |
+| `night_start` | time | night screen from this time (e.g. `"21:00"`): a calm, dark clock; a tap wakes the card. Needs `night_end`. |
+| `night_end` | time | end of the night screen (e.g. `"06:30"`). |
+| `night_wake_entity` | entity / list | motion or presence sensor(s): while one reports `on` the card stays awake, and a while after. |
 | `allow_add` | bool | "add task" field per person (default on). |
 | `title_tags` | bool | shorthand in titles: `@Name` makes a task that person's, `+20` sets its points (see below). |
+| `private_patterns` | list | text in a title or description (e.g. `#private`) that shows a task only as “Private” (see below). |
 | `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
 | `hide_empty` | bool | hide persons with no open tasks. |
 | `due_soon` | number | mark tasks due within X days as "due soon". |
@@ -679,6 +683,21 @@ persons:
 That makes the wall tablet a "tap → my chores → done" station that resets itself
 back to the neutral state.
 
+### Night screen
+
+With `night_start` and `night_end` the card turns into a calm, dark screen at
+night: a big clock, the date and how many tasks are still open – no bright
+tiles on the wall in the evening. A tap brings the tasks back for
+`auto_return` seconds (at least 2 minutes); the tap only wakes the card and
+checks nothing off. With `night_wake_entity` a motion or presence sensor wakes
+it as soon as someone walks by.
+
+```yaml
+night_start: "21:00"
+night_end: "06:30"
+night_wake_entity: binary_sensor.hallway_motion   # optional
+```
+
 ### Eisenhower view (for parents)
 
 A separate mode for grown-ups who want to prioritise: switch on **"Eisenhower
@@ -778,6 +797,20 @@ worth – typed into any app, or told to a voice assistant ("Hey Siri, add
   `@Name`, so it lands with them and not with everyone.
 - With the [points ledger](#points-ledger-optional-integration) every person
   named gets the points; unchecking the task takes them back from all of them.
+
+### Private tasks
+
+The family tablet shows everyone's tasks – including “Buy Mia's birthday
+present”. With `private_patterns` a task whose title or description contains
+one of the patterns shows only as **🔒 Private**: on the board, in kid mode, in
+the kiosk and in the Eisenhower view, and also in celebrate actions and the
+points ledger. It can still be checked off, `!` still marks it important and
+`@Name` still decides whose it is.
+
+```yaml
+private_patterns:
+  - "#private"
+```
 
 ### Add tasks, sorting & language
 

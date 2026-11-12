@@ -119,6 +119,9 @@ const LABELS: Record<string, Bi> = {
   active_person_entity: { de: "Aktive Person (Entität)", en: "Active person (entity)" },
   kiosk: { de: "Kiosk-Modus (Wandtablet)", en: "Kiosk mode (wall tablet)" },
   auto_return: { de: "Auto-Rückkehr (Sek.)", en: "Auto-return (sec)" },
+  night_start: { de: "Nachtbildschirm ab", en: "Night screen from" },
+  night_end: { de: "Nachtbildschirm bis", en: "Night screen until" },
+  night_wake_entity: { de: "Bei Bewegung aufwecken", en: "Wake on motion" },
   highlight_overdue: { de: "Überfällige hervorheben", en: "Highlight overdue" },
   shopping_lists: { de: "Einkaufslisten (Bring!)", en: "Shopping lists (Bring!)" },
   shopping_points: { de: "Punkte pro Einkauf", en: "Points per shopping trip" },
@@ -160,6 +163,7 @@ const LABELS: Record<string, Bi> = {
   hide_undated: { de: "Aufgaben ohne Termin ausblenden", en: "Hide tasks without a date" },
   show_within: { de: "Nur fällig in den nächsten … Tagen", en: "Only due within … days" },
   allow_add: { de: "Aufgabe-hinzufügen-Feld", en: "Add-task field" },
+  private_patterns: { de: "Private Aufgaben", en: "Private tasks" },
   title_tags: {
     de: "Kurzschrift im Titel (@Person, +Punkte)",
     en: "Shorthand in titles (@person, +points)",
@@ -217,6 +221,15 @@ const HELPERS: Record<string, Bi> = {
   kiosk: {
     de: "Wandtablet-Modus: Ruhebildschirm 'Wer ist dran?' mit großen Avataren; Antippen (oder NFC/Anwesenheit) zeigt die Aufgaben, nach Inaktivität geht es zurück.",
     en: "Wall-tablet mode: an idle 'Who's there?' screen with big avatars; tapping (or NFC/presence) shows the tasks, and it returns after inactivity.",
+  },
+  night_start: {
+    de: "Wandtablet: nachts ein ruhiger, dunkler Bildschirm mit Uhr; Antippen zeigt die Aufgaben wieder.",
+    en: "Wall tablet: a calm, dark screen with a clock at night; a tap brings the tasks back.",
+  },
+  night_end: { de: "Morgens: zurück zu den Aufgaben.", en: "Morning: back to the tasks." },
+  night_wake_entity: {
+    de: "Bewegungs- oder Präsenzmelder: meldet er „an“, wacht die Karte auf wie nach einem Antippen.",
+    en: "Motion or presence sensor: when it reports “on”, the card wakes like after a tap.",
   },
   auto_return: {
     de: "Sekunden Inaktivität bis zurück zum 'Wer ist dran?'-Bildschirm (Standard 30, 0 = nie).",
@@ -349,6 +362,10 @@ const HELPERS: Record<string, Bi> = {
   allow_add: {
     de: "Ein Eingabefeld pro Person zum Anlegen neuer Aufgaben (nur wo die Liste es unterstützt).",
     en: "An input field per person to add new tasks (only where the list supports it).",
+  },
+  private_patterns: {
+    de: "Text in Titel oder Beschreibung, z. B. „#privat“ – die Aufgabe erscheint nur als „Privat“ (etwa Geschenke, die die Kinder nicht sehen sollen).",
+    en: "Text in the title or description, e.g. “#private” – the task shows only as “Private” (gifts the kids shouldn't see, say).",
   },
   title_tags: {
     de: "„Zimmer aufräumen @Lina +20“ ist Linas Aufgabe und bringt 20 Punkte – egal in welcher Liste, ob in der App getippt oder dem Sprachassistenten gesagt. Die Karte zeigt nur „Zimmer aufräumen“. Nach dem @ geht der Name (auch nur der Vorname) oder die Personen-Entität; unbekannte Namen bleiben stehen.",
@@ -506,6 +523,21 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         ...(c.eisenhower ? [{ name: "urgent_within", selector: num(0, 60) }] : []),
         { name: "kiosk", selector: BOOL },
         ...(c.kiosk ? [{ name: "auto_return", selector: num(0, 3600, 5) }] : []),
+        { name: "night_start", selector: { time: {} } },
+        { name: "night_end", selector: { time: {} } },
+        ...(c.night_start
+          ? [
+              {
+                name: "night_wake_entity",
+                selector: {
+                  entity: {
+                    filter: [{ domain: "binary_sensor" }, { domain: "input_boolean" }],
+                    multiple: true,
+                  },
+                },
+              },
+            ]
+          : []),
         {
           name: "active_person_entity",
           selector: {
@@ -519,6 +551,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         { name: "show_completed", selector: BOOL },
         { name: "allow_add", selector: BOOL },
         { name: "title_tags", selector: BOOL },
+        { name: "private_patterns", selector: { text: { multiple: true } } },
         { name: "hide_empty", selector: BOOL },
         { name: "highlight_overdue", selector: BOOL },
         { name: "sort", selector: this._select(SORT_VALUES, (v) => `sort_${v}`) },
@@ -641,6 +674,15 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.show_streak) delete next.show_streak;
     if (!next.hide_empty) delete next.hide_empty;
     if (!next.title_tags) delete next.title_tags;
+    if (!next.private_patterns?.length) delete next.private_patterns;
+    if (!next.night_start) delete next.night_start;
+    if (!next.night_end) delete next.night_end;
+    if (
+      !(Array.isArray(next.night_wake_entity)
+        ? next.night_wake_entity.length
+        : next.night_wake_entity)
+    )
+      delete next.night_wake_entity;
     if (!next.due_soon) delete next.due_soon;
     if (!next.group_by_due) delete next.group_by_due;
     if (!next.hide_undated) delete next.hide_undated;
