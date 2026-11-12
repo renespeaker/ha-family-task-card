@@ -13,6 +13,7 @@ interface PersonConfig {
   lists?: ListRef | ListRef[];
   goal?: number;
   points_entity?: string;
+  share?: number;
 }
 
 /** Family Board Card palette, offered as one-click color chips. */
@@ -23,6 +24,7 @@ const SORT_VALUES = ["manual", "due", "alpha"] as const;
 const THEME_VALUES = ["auto", "dark", "light"] as const;
 const ROTATION_PERIODS = ["week", "day"] as const;
 const LEADERBOARD_PERIODS = ["all", "week", "month"] as const;
+const FAIRNESS_PERIODS = ["week", "month", "all"] as const;
 
 /** ha-form selectors the forms share. */
 const TEXT = { text: {} };
@@ -42,6 +44,7 @@ const PERSON_SCHEMA = [
   { name: "lists", selector: pick("todo", true) },
   { name: "goal", selector: num(0, 100000) },
   { name: "points_entity", selector: pick("input_number") },
+  { name: "share", selector: num(0, 100) },
 ];
 
 type Bi = { de: string; en: string };
@@ -123,6 +126,9 @@ const LABELS: Record<string, Bi> = {
   level_size: { de: "Punkte pro Level", en: "Points per level" },
   show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
   leaderboard_period: { de: "Rangliste für", en: "Leaderboard for" },
+  show_fairness: { de: "Fairness-Anzeige", en: "Fair-share bar" },
+  fairness_period: { de: "Fairness für", en: "Fair share for" },
+  share: { de: "Soll-Anteil an der Arbeit (%)", en: "Agreed share of the work (%)" },
   show_streak: { de: "Serien anzeigen (⚡)", en: "Show streaks (⚡)" },
   rotation: { de: "Auto-Rotation (reihum)", en: "Auto-rotation (take turns)" },
   rotation_lists: { de: "Ämtli-Listen (reihum)", en: "Chore lists (rotating)" },
@@ -236,6 +242,18 @@ const HELPERS: Record<string, Bi> = {
   leaderboard_period: {
     de: "Gesamt, diese Woche oder diesen Monat. Woche/Monat braucht das Punktekonto (Family Task Card Integration), sonst wird gesamt gezählt.",
     en: "All time, this week or this month. Week/month needs the points ledger (Family Task Card Integration), otherwise all time is used.",
+  },
+  show_fairness: {
+    de: "Ein Balken unter dem Board zeigt, welchen Anteil der Punkte jede Person geschafft hat – z. B. „Mama 58 % · Papa 42 %“. Aufgaben mit mehr Punkten zählen mehr. Pro Person lässt sich ein Soll-Anteil eintragen.",
+    en: "A bar under the board shows each person's share of the points – e.g. “Mom 58% · Dad 42%”. Tasks worth more count for more. Each person can get an agreed share.",
+  },
+  fairness_period: {
+    de: "Diese Woche (ab Montag), diesen Monat oder gesamt. Woche/Monat braucht das Punktekonto (Family Task Card Integration), sonst zählt, was abgehakt in den Listen steht.",
+    en: "This week (from Monday), this month or all time. Week/month needs the points ledger (Family Task Card Integration), otherwise it counts what is checked off in the lists.",
+  },
+  share: {
+    de: "Für die Fairness-Anzeige: welcher Anteil der Arbeit für diese Person vereinbart ist, z. B. 40. Leer = kein Soll.",
+    en: "For the fair-share bar: the share of the work agreed for this person, e.g. 40. Empty = none.",
   },
   show_streak: {
     de: "Zeigt „⚡ 5“ neben dem Namen: an wie vielen Tagen am Stück jemand mindestens eine Aufgabe erledigt hat (ab 2 Tagen). Braucht das Punktekonto (Family Task Card Integration).",
@@ -502,6 +520,15 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
               },
             ]
           : []),
+        { name: "show_fairness", selector: BOOL },
+        ...(c.show_fairness
+          ? [
+              {
+                name: "fairness_period",
+                selector: this._select(FAIRNESS_PERIODS, (v) => `lb_${v}`),
+              },
+            ]
+          : []),
         { name: "show_streak", selector: BOOL },
         { name: "points_backend", selector: BOOL },
         ...(c.points_backend ? [{ name: "reward_approval", selector: BOOL }] : []),
@@ -580,6 +607,8 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.show_leaderboard) delete next.show_leaderboard;
     if (!next.leaderboard_period || next.leaderboard_period === "all")
       delete next.leaderboard_period;
+    if (!next.show_fairness) delete next.show_fairness;
+    if (!next.fairness_period || next.fairness_period === "week") delete next.fairness_period;
     if (!next.show_streak) delete next.show_streak;
     if (!next.hide_empty) delete next.hide_empty;
     if (!next.title_tags) delete next.title_tags;
@@ -632,6 +661,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!value.color) delete value.color;
     if (!value.goal) delete value.goal;
     if (!value.points_entity) delete value.points_entity;
+    if (!isNum(value.share)) delete value.share; // 0 % is a real agreement
     // The picker only knows entity ids: keep per-list settings ({ entity, … })
     // for lists that are still picked.
     if (Array.isArray(value.lists)) {

@@ -186,6 +186,7 @@ persons:
 | `persons[].person` | `person.*` | optional — provides avatar & display name. |
 | `persons[].color` | color | optional — overrides the palette. |
 | `persons[].points_entity` | `input_number` | balance helper (redeemed points) for the shop. |
+| `persons[].share` | number | optional — agreed share of the work in percent, for the fair-share bar. |
 | `title` | text | card title. |
 | `points_per_task` | number | points per completed task (default 10). |
 | `goal` | number | family points goal → progress bar. |
@@ -202,6 +203,8 @@ persons:
 | `level_size` | number | points per level (default 100, 0 = off). |
 | `level_emojis` | list | badge per level tier (optional). |
 | `show_leaderboard` | bool | ranking of persons by points under the board. |
+| `show_fairness` | bool | fair-share bar: each person's share of the points (see below). |
+| `fairness_period` | text | fair-share bar for `week` (default), `month` or `all`; week/month need `points_backend`. |
 | `theme` | text | color scheme: `auto` (HA theme, default) / `dark` / `light`. |
 | `active_person_entity` | entity | card follows the active person (NFC/presence); empty = manual. |
 | `kiosk` | bool | wall-tablet mode: idle "Who's there?" picker + auto-return. |
@@ -543,6 +546,33 @@ persons:
 
 > Levels & leaderboard use the **earned** points (not the shop balance) — both
 > are derived statelessly from the `todo` lists.
+
+### Fair share
+
+A leaderboard asks who is ahead; the **fair-share bar** asks whether the work is
+shared fairly – between the kids, and between the parents too. With
+`show_fairness: true` a bar in the persons' colours shows what part of the
+points each of them earned, e.g. **"Mom 58 % · Dad 42 %"**. Points rather than
+tasks, so a big job worth more ([`+30`](#shorthand-in-titles-person-points))
+counts for more.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/fairness.png" alt="Fair-share bar under the board: Mom 60 %, Dad 40 % this week, both with a target of 50 %" width="560"></p>
+
+- **Agreed shares:** give a person `share: 40` (*Agreed share of the work* in the
+  person form). The bar then shows "target 40 %" with ✓ (within 5 points),
+  ▲ (more than agreed) or ▼ (less).
+- **Period:** with the [points ledger](#points-ledger-optional-integration) the
+  bar covers this week (`fairness_period: week`, default) or this month; without
+  it, everything checked off in the lists.
+- It sits under the board and under the Eisenhower view, the parents' view.
+
+```yaml
+type: custom:family-task-card
+show_fairness: true
+persons:
+  - { name: Mom, lists: todo.mom, share: 50 }
+  - { name: Dad, lists: todo.dad, share: 50 }
+```
 
 ### Dark mode / color scheme
 

@@ -72,6 +72,7 @@ persons:
 # --- Optional: levels, badges & leaderboard (from earned points, no setup) ---
 # level_size: 100                 # points per level (0 = off); badge chip next to the name
 # show_leaderboard: true          # ranking of persons by earned points under the board
+# show_fairness: true             # fair-share bar: each person's share of the work
 
 # --- Optional: color scheme (theme-aware by default) ---
 # theme: dark                     # auto (default, follows HA) | dark | light

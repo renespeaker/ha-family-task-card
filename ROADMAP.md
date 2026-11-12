@@ -107,6 +107,9 @@ The goal: a usable, coherent card with the core loop.
       card with the parent PIN).
 - [x] **Statistics** (integration v0.3.0) — leaderboard for this week/month
       (`leaderboard_period`), streaks "⚡ 5" (`show_streak`). Next: photo proof.
+- [x] **Fair share** — `show_fairness`: a bar with each person's share of the
+      points (this week/month with the ledger), compared with an agreed share per
+      person (`persons[].share`).
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
       statistics/history.

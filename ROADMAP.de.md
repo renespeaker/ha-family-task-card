@@ -112,6 +112,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Statistik** (Integration v0.3.0) – Rangliste für diese Woche/diesen
       Monat (`leaderboard_period`), Serien „⚡ 5" (`show_streak`). Als Nächstes:
       Foto-Beweis.
+- [x] **Fairness-Anzeige** – `show_fairness`: ein Balken mit dem Anteil jeder
+      Person an den Punkten (mit Punktekonto diese Woche/diesen Monat), verglichen
+      mit einem vereinbarten Anteil pro Person (`persons[].share`).
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
       Statistik/Verlauf.

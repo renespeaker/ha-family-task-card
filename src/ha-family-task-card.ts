@@ -54,6 +54,10 @@ const TODO_SET_DUE_DATE = 16; // set a due date (rotation keeps chores in their 
    person is the same colour on both cards. */
 const FALLBACK_COLORS = PERSON_PALETTE;
 
+/** Fair share: this close to the agreed share (percentage points) counts as kept. */
+const FAIR_SLACK = 5;
+const FAIR_MARK = { ok: "✓", more: "▲", less: "▼" } as const;
+
 /** No shorthand while title_tags is off (never written to). */
 const NO_TAGS: ReadonlyMap<string, TitleTags> = new Map();
 
@@ -85,6 +89,7 @@ interface PersonConfig {
   lists?: ListRef | ListRef[];
   goal?: number; // optional per-person points goal
   points_entity?: string; // input_number holding this person's SPENT points (reward shop)
+  share?: number; // agreed share of the work in percent (fair-share bar)
 }
 
 /** A reward that can be redeemed in the shop for points. */
@@ -145,6 +150,8 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   group_by_due?: boolean; // board: group open tasks by due date, later/undated collapsed. default off
   eisenhower?: boolean; // parents' view: urgent/important matrix instead of the board. default off
   urgent_within?: number; // Eisenhower: due within N days (or overdue) counts as urgent. default 2
+  show_fairness?: boolean; // fair-share bar: each person's share of the points. default off
+  fairness_period?: "week" | "month" | "all"; // with the points ledger. default week
   show_streak?: boolean; // "⚡ 5" next to the name: days in a row with a task (points ledger). default off
 }
 
@@ -1351,7 +1358,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </div>
 
         <div class="board">${visible.map((c) => this._column(c.p, c.idx, c.view))}</div>
-        ${this._leaderboard(columns)}
+        ${this._leaderboard(columns)} ${this._fairness(columns)}
       </ha-card>
     `;
   }
@@ -1369,8 +1376,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     type Entry = { o: DecoratedItem; idx: number; who: string[]; important: boolean };
     // A list several persons share shows each task once, with all their names.
     const tasks = new Map<string, Entry>();
-    cfg.persons.forEach((p, idx) => {
-      for (const o of this._personView(p).tasksOpen) {
+    const columns = cfg.persons.map((p, idx) => ({ p, idx, view: this._personView(p) }));
+    columns.forEach(({ p, idx, view }) => {
+      for (const o of view.tasksOpen) {
         const key = `${o.entity}|${o.item.uid}`;
         const name = this._personName(p, idx);
         const important = this._listImportant(p, o.entity);
@@ -1441,6 +1449,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
             })}
           </div>
         </div>
+        ${this._fairness(columns)}
       </ha-card>
     `;
   }
@@ -1481,6 +1490,84 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
             </div>
           `,
         )}
+      </div>
+    `;
+  }
+
+  /**
+   * Fair share: what part of the work each person did, as one bar in their
+   * colours – points, so a task worth more ("+30") counts for more. With an
+   * agreed share per person (persons[].share) it says whether that holds.
+   */
+  private _fairness(columns: { p: PersonConfig; idx: number; view: PersonView }[]) {
+    if (!this._config?.show_fairness || columns.length < 2) return nothing;
+    // This week / month needs the points ledger; without it, count what the lists hold.
+    const period = this._backendOn() ? (this._config.fairness_period ?? "week") : "all";
+    const score = (v: PersonView): number =>
+      Math.max(
+        0,
+        period === "week"
+          ? (v.weekPoints ?? 0)
+          : period === "month"
+            ? (v.monthPoints ?? 0)
+            : v.earned,
+      );
+    const total = columns.reduce((sum, c) => sum + score(c.view), 0);
+    const fmt = new Intl.NumberFormat(this.hass?.locale?.language || "de", { style: "percent" });
+    const rows = columns.map((c) => {
+      const share = total > 0 ? score(c.view) / total : 0;
+      const target = typeof c.p.share === "number" && c.p.share >= 0 ? c.p.share : undefined;
+      // within 5 percentage points counts as "as agreed"
+      const diff = target === undefined ? 0 : Math.round(share * 100) - target;
+      const mark: keyof typeof FAIR_MARK =
+        Math.abs(diff) <= FAIR_SLACK ? "ok" : diff > 0 ? "more" : "less";
+      return { ...c, name: this._personName(c.p, c.idx), share, target, mark };
+    });
+    return html`
+      <div class="fairness">
+        <div class="lb-title">
+          ${this._t("fairness")}${
+            period === "all"
+              ? nothing
+              : html` · ${this._t(period === "week" ? "lb_week" : "lb_month")}`
+          }
+        </div>
+        ${
+          total > 0
+            ? html`<div class="fair-bar">
+                  ${rows.map((r) =>
+                    r.share > 0
+                      ? html`<div
+                          class="fair-seg"
+                          style="flex:${r.share};background:${personColor(r.p, r.idx)}"
+                          title="${r.name} ${fmt.format(r.share)}"
+                        ></div>`
+                      : nothing,
+                  )}
+                </div>
+                <div class="fair-legend">
+                  ${rows.map(
+                    (r) => html`
+                      <span class="fair-item">
+                        <span class="lb-dot" style="background:${personColor(r.p, r.idx)}"></span>
+                        <span class="fair-name">${r.name}</span>
+                        <span class="fair-pct">${fmt.format(r.share)}</span>
+                        ${
+                          r.target === undefined
+                            ? nothing
+                            : html`<span
+                                class="fair-target ${r.mark}"
+                                title=${this._t(`fair_${r.mark}`)}
+                                >${this._t("fair_target")} ${fmt.format(r.target / 100)}
+                                ${FAIR_MARK[r.mark]}</span
+                              >`
+                        }
+                      </span>
+                    `,
+                  )}
+                </div>`
+            : html`<div class="fair-none">${this._t("fair_none")}</div>`
+        }
       </div>
     `;
   }
@@ -3022,6 +3109,57 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       height: 12px;
       border-radius: 50%;
       flex: none;
+    }
+    .fairness {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--primary-color) 5%, var(--card-background-color, #fff));
+      border: 1px solid var(--divider-color);
+    }
+    .leaderboard + .fairness {
+      margin-top: 10px;
+    }
+    .fair-bar {
+      display: flex;
+      gap: 2px;
+      height: 14px;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .fair-seg {
+      min-width: 4px;
+    }
+    .fair-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      margin-top: 10px;
+      font-size: 0.92em;
+    }
+    .fair-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fair-name {
+      font-weight: 600;
+    }
+    .fair-pct {
+      font-weight: 700;
+    }
+    .fair-target {
+      color: var(--secondary-text-color);
+      font-size: 0.92em;
+    }
+    .fair-target.more,
+    .fair-target.less {
+      color: var(--warning-color, #f59e0b);
+      font-weight: 600;
+    }
+    .fair-none {
+      color: var(--secondary-text-color);
+      font-size: 0.92em;
     }
     .lb-name {
       flex: 1 1 auto;

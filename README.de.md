@@ -188,6 +188,7 @@ persons:
 | `persons[].person`| `person.*`         | optional – liefert Avatar & Anzeigename.                |
 | `persons[].color` | Farbe              | optional – überschreibt die Palette.                    |
 | `persons[].points_entity` | `input_number` | Guthaben-Helfer (eingelöste Punkte) für den Shop.  |
+| `persons[].share` | Zahl | optional – vereinbarter Anteil an der Arbeit in Prozent, für die Fairness-Anzeige. |
 | `title`           | Text               | Kartentitel.                                             |
 | `points_per_task` | Zahl               | Punkte je erledigter Aufgabe (Standard 10).             |
 | `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
@@ -204,6 +205,8 @@ persons:
 | `level_size`      | Zahl               | Punkte pro Level (Std. 100, 0 = aus).                   |
 | `level_emojis`    | Liste              | Abzeichen je Level-Stufe (optional).                    |
 | `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
+| `show_fairness`   | Bool               | Fairness-Anzeige: Anteil jeder Person an den Punkten (siehe unten). |
+| `fairness_period` | Text               | Fairness für `week` (Std.), `month` oder `all`; Woche/Monat braucht `points_backend`. |
 | `theme`           | Text               | Farbschema: `auto` (HA-Theme, Std.) / `dark` / `light`. |
 | `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
 | `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
@@ -556,6 +559,34 @@ persons:
 
 > Level & Rangliste nutzen die **verdienten** Punkte (nicht das Shop-Guthaben) –
 > beides ist stateless aus den `todo`-Listen abgeleitet.
+
+### Fairness-Anzeige
+
+Die Rangliste fragt, wer vorne liegt; die **Fairness-Anzeige** fragt, ob die
+Arbeit gerecht verteilt ist – zwischen den Kindern und auch zwischen den Eltern.
+Mit `show_fairness: true` zeigt ein Balken in den Farben der Personen, welchen
+Anteil der Punkte jede geschafft hat, z. B. **„Mama 58 % · Papa 42 %"**. Es zählen
+Punkte statt Aufgaben – eine große Arbeit mit mehr Punkten
+([`+30`](#kurzschrift-im-titel-person-punkte)) zählt also mehr.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/fairness.png" alt="Fairness-Anzeige unter dem Board: Mama 60 %, Papa 40 % diese Woche, beide mit Soll 50 %" width="560"></p>
+
+- **Vereinbarte Anteile:** Gib einer Person `share: 40` (*Soll-Anteil an der
+  Arbeit* im Personen-Formular). Der Balken zeigt dann „Soll 40 %" mit ✓ (bis
+  5 Punkte daneben), ▲ (mehr als vereinbart) oder ▼ (weniger).
+- **Zeitraum:** Mit dem [Punktekonto](#punktekonto-optionale-integration) gilt
+  der Balken für diese Woche (`fairness_period: week`, Standard) oder diesen
+  Monat; ohne Punktekonto für alles, was abgehakt in den Listen steht.
+- Er steht unter dem Board und unter der Eisenhower-Ansicht, der Ansicht für die
+  Eltern.
+
+```yaml
+type: custom:family-task-card
+show_fairness: true
+persons:
+  - { name: Mama, lists: todo.mama, share: 50 }
+  - { name: Papa, lists: todo.papa, share: 50 }
+```
 
 ### Dark Mode / Farbschema
 

@@ -1441,6 +1441,7 @@ describe("visual editor covers everything", () => {
       kiosk: true,
       rotation: true,
       show_leaderboard: true,
+      show_fairness: true,
       points_backend: true,
     });
     const menu = new Set([
@@ -1451,7 +1452,9 @@ describe("visual editor covers everything", () => {
       "rewards",
       "persons",
       // persons[].x: the person form, plus the colour swatches
-      ...["name", "person", "lists", "goal", "points_entity", "color"].map((k) => `persons[].${k}`),
+      ...["name", "person", "lists", "goal", "points_entity", "color", "share"].map(
+        (k) => `persons[].${k}`,
+      ),
     ]);
     const missing = documented.filter((k) => !menu.has(k));
     expect(missing).toEqual([]);
@@ -1562,6 +1565,27 @@ describe("visual editor covers everything", () => {
     );
     expect(out.last!.auto_return).toBeUndefined(); // emptied: back to the default
     expect(out.last!.shopping_points).toBeUndefined();
+  });
+
+  it("keeps an agreed share of 0 % and drops an emptied one", async () => {
+    const { call, out } = await editor({ persons: [{ name: "Ben", share: 20 }] });
+    call("_personChanged", 0, value({ name: "Ben", share: 0 }));
+    expect(out.last!.persons[0]).toEqual({ name: "Ben", share: 0 });
+    call("_personChanged", 0, value({ name: "Ben", share: undefined }));
+    expect(out.last!.persons[0]).toEqual({ name: "Ben" });
+  });
+
+  it("offers the fair-share period only with the bar on, and stores week as default", async () => {
+    const names = (schema: any[]): string[] =>
+      schema.flatMap((s) => (Array.isArray(s.schema) ? names(s.schema) : [s.name]));
+    const off = await editor({});
+    expect(names(off.call("_schema") as any[])).not.toContain("fairness_period");
+    const { ed, call, out } = await editor({ show_fairness: true, fairness_period: "month" });
+    expect(names(call("_schema") as any[])).toContain("fairness_period");
+    const data = ed["_settingsData"] as Record<string, unknown>;
+    call("_settingsChanged", value({ ...data, fairness_period: "week" }));
+    expect(out.last!.fairness_period).toBeUndefined();
+    expect(out.last!.show_fairness).toBe(true);
   });
 
   it("lets a list differ from the card both ways", async () => {
@@ -1917,5 +1941,112 @@ describe("shorthand in titles: celebrate", () => {
     expect(services.find((s) => s.domain === "tts")?.data).toEqual({
       message: "Ben: Zimmer aufräumen",
     });
+  });
+});
+
+describe("fair share (show_fairness)", () => {
+  const mama = { name: "Mama", person: "person.mama", lists: "todo.mama" };
+  const papa = { name: "Papa", person: "person.papa", lists: "todo.papa" };
+  const lists = (mamaDone: number, papaItems: unknown[] = [done("p1", "Müll")]) => ({
+    "todo.mama": {
+      items: Array.from({ length: mamaDone }, (_, i) => done(`m${i}`, `Aufgabe ${i}`)),
+    },
+    "todo.papa": { items: papaItems },
+  });
+  const sensor = (who: string, week: number, month: number) => ({
+    [`sensor.${who}_points`]: {
+      entity_id: `sensor.${who}_points`,
+      state: "0",
+      last_changed: "x",
+      attributes: { person: `person.${who}`, earned: 500, week_points: week, month_points: month },
+    },
+  });
+  const FT = { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } };
+
+  it("stays off unless switched on", async () => {
+    const { all } = await mount({ persons: [mama, papa] }, { lists: lists(3) });
+    expect(all(".fairness")).toHaveLength(0);
+  });
+
+  it("shows each person's share of the points, live from the lists", async () => {
+    const { texts, all } = await mount(
+      { persons: [mama, papa], show_fairness: true },
+      { lists: lists(3) },
+    );
+    expect(texts(".fair-item")).toEqual(["Mama 75 %", "Papa 25 %"]);
+    const widths = all(".fair-seg").map((s) => s.getAttribute("style")!.split(";")[0]);
+    expect(widths).toEqual(["flex:0.75", "flex:0.25"]);
+  });
+
+  it("counts a task by what it is worth", async () => {
+    const { texts } = await mount(
+      { persons: [mama, papa], show_fairness: true, title_tags: true },
+      { lists: lists(3, [done("p1", "Garage ausmisten +30")]) },
+    );
+    expect(texts(".fair-item")).toEqual(["Mama 50 %", "Papa 50 %"]);
+  });
+
+  it("takes this week's points from the ledger, or this month's", async () => {
+    const opts = {
+      lists: lists(0, []),
+      services: FT,
+      states: { ...sensor("mama", 30, 100), ...sensor("papa", 10, 300) },
+    };
+    const week = await mount(
+      { persons: [mama, papa], show_fairness: true, points_backend: true },
+      opts,
+    );
+    expect(week.texts(".fair-item")).toEqual(["Mama 75 %", "Papa 25 %"]);
+    expect(week.texts(".fairness .lb-title")[0]).toContain("diese Woche");
+    const month = await mount(
+      {
+        persons: [mama, papa],
+        show_fairness: true,
+        points_backend: true,
+        fairness_period: "month",
+      },
+      opts,
+    );
+    expect(month.texts(".fair-item")).toEqual(["Mama 25 %", "Papa 75 %"]);
+    expect(month.texts(".fairness .lb-title")[0]).toContain("diesen Monat");
+  });
+
+  it("compares with the share agreed for each person", async () => {
+    const agreed = [
+      { ...mama, share: 50 },
+      { ...papa, share: 50 },
+    ];
+    const off = await mount({ persons: agreed, show_fairness: true }, { lists: lists(3) });
+    expect(off.texts(".fair-target")).toEqual(["Soll 50 % ▲", "Soll 50 % ▼"]);
+    const kept = await mount(
+      {
+        persons: [
+          { ...mama, share: 55 },
+          { ...papa, share: 45 },
+        ],
+        show_fairness: true,
+      },
+      { lists: lists(1) },
+    );
+    expect(kept.texts(".fair-target")).toEqual(["Soll 55 % ✓", "Soll 45 % ✓"]); // 50/50 is close
+  });
+
+  it("says so when nothing is done yet", async () => {
+    const { all, texts } = await mount(
+      { persons: [mama, papa], show_fairness: true },
+      { lists: lists(0, []) },
+    );
+    expect(all(".fair-bar")).toHaveLength(0);
+    expect(texts(".fair-none")).toEqual(["Noch nichts erledigt"]);
+  });
+
+  it("needs two persons, and shows under the Eisenhower view too", async () => {
+    const single = await mount({ persons: [mama], show_fairness: true }, { lists: lists(3) });
+    expect(single.all(".fairness")).toHaveLength(0);
+    const matrix = await mount(
+      { persons: [mama, papa], show_fairness: true, eisenhower: true },
+      { lists: lists(3) },
+    );
+    expect(matrix.texts(".fair-item")).toEqual(["Mama 75 %", "Papa 25 %"]);
   });
 });
