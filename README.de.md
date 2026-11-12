@@ -118,19 +118,19 @@ Die Family Task Card ist eine **Lovelace-Karte** (Frontend) – genau wie die
 Family Board Card. Es gibt **keine Integration** zum Hinzufügen und **kein
 Neustart** nötig.
 
-### Über HACS (empfohlen)
+### Über den Marketplace oder HACS (empfohlen)
 
-[![Family Task Card in HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
+[![Family Task Card im Marketplace oder in HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
 
-1. In **HACS** nach **„Family Task Card"** suchen und herunterladen (oder den
-   Button oben nutzen). HACS legt die Ressource automatisch an.
+1. Ab Home Assistant 2026.11: **Einstellungen → Marketplace**, nach **„Family
+   Task Card"** suchen und installieren. Ältere Versionen: dasselbe in **HACS**.
+   Der Button oben öffnet das Richtige, die Ressource wird automatisch angelegt.
 2. Browser einmal **hart neu laden** (Strg+Shift+R), damit die Karte geladen wird.
 3. Dashboard → Karte hinzufügen → nach **„Family Task Card"** suchen.
 
-> **In deinem HACS noch nicht zu finden?** Dann füge sie als benutzerdefiniertes
-> Repository hinzu: HACS → ⋮ → **Benutzerdefinierte Repositories** (*Custom
-> repositories*) → `https://github.com/renespeaker/ha-family-task-card`, Typ
-> **Dashboard**.
+> **Noch nicht zu finden?** Dann füge sie als benutzerdefiniertes Repository hinzu
+> (*Custom repositories* im Marketplace oder in HACS):
+> `https://github.com/renespeaker/ha-family-task-card`, Typ **Dashboard**.
 
 ### Manuell (ohne HACS)
 
@@ -433,8 +433,8 @@ Standardmäßig berechnet die Karte Punkte live aus den abgehakten Aufgaben –
 nichts zu installieren, aber Punkte verschwinden, wenn eine Liste geleert wird,
 und Ämtli, die jede Runde wieder öffnen, können keine bekommen. Für Punkte, die
 **bleiben**, installiere die eigene Integration
-[**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration) (in HACS nach
-**„Family Tasks"** suchen) und schalte im visuellen Editor **„Punktekonto nutzen
+[**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration) (im Marketplace oder in HACS
+nach **„Family Tasks"** suchen) und schalte im visuellen Editor **„Punktekonto nutzen
 (Family Tasks)"** ein (`points_backend: true`).
 
 - **Abgehakte Aufgaben werden gebucht** – auch solche, die in einer anderen App

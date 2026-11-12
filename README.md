@@ -117,17 +117,19 @@ through `notify.mobile_app_*`; to open an app/URL use `url` on iOS and
 The Family Task Card is a **Lovelace card** (frontend) — just like the Family
 Board Card. There is **no integration** to add and **no restart** required.
 
-### Via HACS (recommended)
+### Via the Marketplace or HACS (recommended)
 
-[![Open the Family Task Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
+[![Open the Family Task Card in the Marketplace or HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
 
-1. In **HACS**, search for **"Family Task Card"** and download it (or use the
-   button above). HACS registers the resource automatically.
+1. Home Assistant 2026.11 or newer: **Settings → Marketplace**, search for
+   **"Family Task Card"** and install it. Older versions: the same in **HACS**.
+   The button above opens the right one, and the resource is registered
+   automatically.
 2. **Hard-refresh** the browser once (Ctrl+Shift+R) so the card loads.
 3. Dashboard → Add card → search for **"Family Task Card"**.
 
-> **Not listed in your HACS yet?** Add it as a custom repository instead: HACS →
-> ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
+> **Not listed yet?** Add it as a custom repository (*Custom repositories* in the
+> Marketplace or in HACS): `https://github.com/renespeaker/ha-family-task-card`,
 > type **Dashboard**.
 
 ### Manual (without HACS)
@@ -423,7 +425,7 @@ By default the card works out points live from checked-off tasks — nothing to
 install, but points disappear when a list is cleared, and chores that reopen
 every round can't earn any. For points that **stay**, install the separate
 integration [**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration)
-(in HACS, search for **"Family Tasks"**) and switch on **"Use points ledger
+(in the Marketplace or HACS, search for **"Family Tasks"**) and switch on **"Use points ledger
 (Family Tasks)"** in the visual editor (`points_backend: true`).
 
 - **Checked-off tasks are booked** in the ledger — also ones checked off in
