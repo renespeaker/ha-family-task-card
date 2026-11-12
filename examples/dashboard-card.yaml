@@ -117,6 +117,7 @@ persons:
 
 # --- Optional: add-task, sorting & filters ---
 # allow_add: true                 # "+ add task" field per person (default on)
+# title_tags: true                # "Tidy room @Lina +20": whose task it is, what it is worth
 # sort: due                       # manual (default) | due | alpha
 # hide_empty: true                # hide persons with no open tasks
 # due_soon: 2                     # mark tasks due within 2 days as "due soon"

@@ -88,7 +88,11 @@ The goal: a usable, coherent card with the core loop.
 
 ## Later / roadmap
 
-- [ ] Assign a single item to a person (instead of "the whole shopping trip").
+- [x] Assign a single item to a person (instead of "the whole shopping trip") — with
+      `title_tags`: "Milk @Ben" becomes Ben's own task.
+- [x] **Shorthand in titles** — `title_tags`: "Tidy room @Lina +20", typed into any
+      app or told to a voice assistant, makes the task Lina's and worth 20 points;
+      one shared list is enough for the whole family.
 - [ ] Location reminders (geofence) and auto-assignment to "whoever is out".
 - [x] Fair auto-rotation of recurring chores ("taking turns") — `rotation`: switch
       in the editor, weekly/daily rounds worked out from the calendar, chores reopen

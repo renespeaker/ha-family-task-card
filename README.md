@@ -207,6 +207,7 @@ persons:
 | `kiosk` | bool | wall-tablet mode: idle "Who's there?" picker + auto-return. |
 | `auto_return` | number | seconds of inactivity before returning to the picker (default 30, 0 = never). |
 | `allow_add` | bool | "add task" field per person (default on). |
+| `title_tags` | bool | shorthand in titles: `@Name` makes a task that person's, `+20` sets its points (see below). |
 | `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
 | `hide_empty` | bool | hide persons with no open tasks. |
 | `due_soon` | number | mark tasks due within X days as "due soon". |
@@ -695,6 +696,28 @@ the card's values; whatever you change there applies to that list only.
 
 The same lists can serve as a full list on one card and as a "what's due"
 overview on another (`hide_undated: true`, `show_within: 0`).
+
+### Shorthand in titles (@person, +points)
+
+With `title_tags: true` a task's title can say whose it is and what it is
+worth – typed into any app, or told to a voice assistant ("Hey Siri, add
+'Tidy room @Lina +20' to Family"):
+
+- **`@Name`** makes the task that person's, whichever list it is on. One shared
+  "Family" list is enough: every task lands in the right column. The first name
+  will do, and so will the person entity (`@lina` for `person.lina`); a task
+  naming several persons belongs to each of them.
+- **`+20`** sets the points for this task (otherwise `points_per_task`).
+- The card shows just **"Tidy room"**. A name the card doesn't know, an e-mail
+  address or "2+1" stay part of the title.
+- On a **rotation list**, a chore with `@Name` stays with that person; the
+  others keep taking turns.
+- On a **shopping list**, "Milk @Ben" leaves the shopping trip and becomes Ben's
+  own task.
+- A task added in a person's column, on a list others share too, gets their
+  `@Name`, so it lands with them and not with everyone.
+- With the [points ledger](#points-ledger-optional-integration) every person
+  named gets the points; unchecking the task takes them back from all of them.
 
 ### Add tasks, sorting & language
 

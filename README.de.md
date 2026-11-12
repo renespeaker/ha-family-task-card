@@ -209,6 +209,7 @@ persons:
 | `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
 | `auto_return`     | Zahl               | Sek. Inaktivität bis zurück zum Auswahl-Bildschirm (Std. 30, 0 = nie). |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
+| `title_tags`      | Bool               | Kurzschrift im Titel: `@Name` macht eine Aufgabe zu der dieser Person, `+20` legt ihre Punkte fest (siehe unten). |
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
 | `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
@@ -711,6 +712,30 @@ zuerst die Werte der Karte; was du dort änderst, gilt nur für diese Liste.
 
 So können dieselben Listen auf einer Karte als volle Liste und auf einer zweiten
 als Übersicht „was ansteht" dienen (`hide_undated: true`, `show_within: 0`).
+
+### Kurzschrift im Titel (@Person, +Punkte)
+
+Mit `title_tags: true` kann der Titel einer Aufgabe sagen, wem sie gehört und
+was sie wert ist – in jeder App getippt oder dem Sprachassistenten gesagt
+(„Hey Siri, füge ‚Zimmer aufräumen @Lina +20' zu Familie hinzu"):
+
+- **`@Name`** macht die Aufgabe zu der dieser Person, egal in welcher Liste sie
+  steht. Eine gemeinsame Liste „Familie" reicht: Jede Aufgabe landet in der
+  richtigen Spalte. Der Vorname genügt, die Personen-Entität geht auch (`@lina`
+  für `person.lina`); nennt eine Aufgabe mehrere Personen, gehört sie jeder von
+  ihnen.
+- **`+20`** legt die Punkte für diese Aufgabe fest (sonst `points_per_task`).
+- Die Karte zeigt nur **„Zimmer aufräumen"**. Ein Name, den die Karte nicht
+  kennt, eine E-Mail-Adresse oder „2+1" bleiben Teil des Titels.
+- Auf einer **Rotationsliste** bleibt ein Ämtli mit `@Name` bei dieser Person;
+  die anderen wechseln sich weiter ab.
+- Auf einer **Einkaufsliste** verlässt „Milch @Ben" den Einkauf und wird Bens
+  eigene Aufgabe.
+- Eine Aufgabe, die in der Spalte einer Person hinzugefügt wird, bekommt deren
+  `@Name`, wenn andere die Liste mitbenutzen – so landet sie bei ihr und nicht
+  bei allen.
+- Mit dem [Punktekonto](#punktekonto-optionale-integration) bekommt jede
+  genannte Person die Punkte; Haken weg nimmt sie allen wieder ab.
 
 ### Aufgaben hinzufügen, Sortierung & Sprache
 

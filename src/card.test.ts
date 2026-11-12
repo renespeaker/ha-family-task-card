@@ -1720,3 +1720,202 @@ describe("celebrate actions from the HA action editor", () => {
     expect(tts(phone.services)).toEqual([]); // announced once, not on every screen
   });
 });
+
+describe("shorthand in titles (title_tags)", () => {
+  const FT = { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } };
+  const lina = { name: "Lina", lists: ["todo.familie", "todo.lina"] };
+  const ben = { name: "Ben", lists: ["todo.familie", "todo.ben"] };
+  const family = (familie: unknown[], own: { lina?: unknown[]; ben?: unknown[] } = {}) => ({
+    lists: {
+      "todo.familie": { items: familie },
+      "todo.lina": { items: own.lina ?? [] },
+      "todo.ben": { items: own.ben ?? [] },
+    },
+  });
+  const columns = (root: ShadowRoot) =>
+    [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => (n.textContent ?? "").trim()),
+    );
+  const calls = (services: ServiceCall[], name: string) =>
+    services.filter((s) => s.domain === "family_tasks" && s.service === name).map((s) => s.data);
+
+  it("changes nothing while switched off", async () => {
+    const { root } = await mount(
+      { persons: [lina, ben] },
+      family([task("f1", "Zimmer @Lina +20")]),
+    );
+    expect(columns(root)).toEqual([["Zimmer @Lina +20"], ["Zimmer @Lina +20"]]);
+  });
+
+  it("gives a task of a shared list to the person it names, without the tags", async () => {
+    const { root } = await mount(
+      { persons: [lina, ben], title_tags: true },
+      family([task("f1", "Zimmer aufräumen @Lina +20"), task("f2", "Tisch decken")]),
+    );
+    expect(columns(root)).toEqual([["Tisch decken", "Zimmer aufräumen"], ["Tisch decken"]]);
+  });
+
+  it("moves a task from one person's list to the person it names", async () => {
+    const { root } = await mount(
+      { persons: [lina, ben], title_tags: true },
+      family([], { ben: [task("b1", "Hausaufgaben zeigen @lina")] }),
+    );
+    expect(columns(root)).toEqual([["Hausaufgaben zeigen"], []]);
+  });
+
+  it("counts the points a title gives", async () => {
+    const { texts } = await mount(
+      { persons: [{ name: "Lina", lists: "todo.lina" }], title_tags: true },
+      { lists: { "todo.lina": { items: [done("l1", "Bad putzen +30"), done("l2", "Bett")] } } },
+    );
+    expect(texts(".col-meta").join(" ")).toContain("⭐ 40"); // 30 + the usual 10
+  });
+
+  it("books the points for everyone named, with the clean title", async () => {
+    const { services, el, settle } = await mount(
+      { persons: [lina, ben], title_tags: true, points_backend: true },
+      {
+        ...family([done("f1", "Garage @Lina @Ben +40"), done("f2", "Zimmer @Ben")]),
+        services: FT,
+      },
+    );
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle();
+    expect(calls(services, "award")).toEqual([
+      { key: "todo.familie|f1", person: "Lina", points: 40, task: "Garage" },
+      { key: "todo.familie|f1|Ben", person: "Ben", points: 40, task: "Garage" },
+      { key: "todo.familie|f2", person: "Ben", points: 10, task: "Zimmer" },
+    ]);
+  });
+
+  it("takes the points back from everyone it was for", async () => {
+    const { services, all, settle } = await mount(
+      { persons: [lina, ben], title_tags: true, points_backend: true, show_completed: true },
+      { ...family([done("f1", "Garage @Lina @Ben +40")]), services: FT },
+    );
+    (all(".tile.done")[0] as HTMLElement).click();
+    await settle();
+    expect(calls(services, "revoke")).toEqual([
+      { key: "todo.familie|f1" },
+      { key: "todo.familie|f1|Ben" },
+    ]);
+  });
+
+  it("keeps a rotating chore with the person it names, the others take turns", async () => {
+    const config = {
+      persons: [{ name: "Lina" }, { name: "Ben" }],
+      title_tags: true,
+      rotation: true,
+      rotation_lists: "todo.aemtli",
+    };
+    const chores = {
+      lists: {
+        "todo.aemtli": {
+          items: [
+            task("c1", "Müll", { due: "2026-10-11" }),
+            task("c2", "Spülmaschine @Ben", { due: "2026-10-11" }),
+            task("c3", "Bad", { due: "2026-10-11" }),
+          ],
+          features: CREATE | UPDATE | 16,
+        },
+      },
+    };
+    const week1 = await mount(config, { ...chores, now: "2026-10-07T10:00:00" });
+    const week2 = await mount(config, { ...chores, now: "2026-10-14T10:00:00" });
+    for (const { root } of [week1, week2]) {
+      const [l, b] = columns(root);
+      expect(b).toContain("Spülmaschine");
+      expect(l).not.toContain("Spülmaschine");
+      expect(l).toHaveLength(1); // Müll or Bad
+    }
+    expect(columns(week1.root)[0]).not.toEqual(columns(week2.root)[0]); // they swapped
+    const fixed = week1.all(".tile").find((t) => t.textContent!.includes("Spülmaschine"))!;
+    expect(fixed.textContent).not.toContain("🔄");
+  });
+
+  it("takes a shopping item named for someone out of the trip", async () => {
+    const { root, texts } = await mount(
+      {
+        persons: [
+          { name: "Anna", lists: ["todo.anna", "todo.bring"] },
+          { name: "Ben", lists: "todo.ben" },
+        ],
+        shopping_lists: "todo.bring",
+        title_tags: true,
+      },
+      {
+        lists: {
+          "todo.anna": { items: [] },
+          "todo.ben": { items: [] },
+          "todo.bring": {
+            items: [task("s1", "Milch @Ben"), task("s2", "Brot"), task("s3", "Eier")],
+          },
+        },
+      },
+    );
+    expect(texts(".tile.shopping .tile-due")).toEqual(["2 Artikel"]);
+    const [, benCol] = [...root.querySelectorAll(".col")];
+    expect(benCol.querySelector(".tile-title")!.textContent!.trim()).toBe("Milch");
+    expect(benCol.querySelector(".tile-emoji")!.textContent).toBe("🛒");
+  });
+
+  it("names the person when a task is added on a list others share", async () => {
+    const add = async (config: Partial<FamilyTaskConfig>, lists: MountOpts["lists"]) => {
+      const m = await mount(config, { lists });
+      const input = m.all(".add-input")[0] as HTMLInputElement;
+      input.value = "Zimmer";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+      await m.settle();
+      return m.services.find((s) => s.service === "add_item")?.data;
+    };
+    const shared = family([]).lists;
+    expect(await add({ persons: [lina, ben], title_tags: true }, shared)).toEqual({
+      entity_id: "todo.familie",
+      item: "Zimmer @Lina",
+    });
+    expect(await add({ persons: [lina, ben] }, shared)).toMatchObject({ item: "Zimmer" });
+    const own = { "todo.lina": { items: [] } };
+    expect(
+      await add({ persons: [{ name: "Lina", lists: "todo.lina" }], title_tags: true }, own),
+    ).toMatchObject({ item: "Zimmer" });
+  });
+
+  it("shows the clean title in kid mode and names the person in the Eisenhower view", async () => {
+    const kid = await mount(
+      { persons: [lina], kid_mode: true, title_tags: true },
+      family([task("f1", "Zimmer aufräumen @Lina +20")]),
+    );
+    expect(kid.texts(".kid-task-title")).toEqual(["Zimmer aufräumen"]);
+    const matrix = await mount(
+      { persons: [lina, ben], eisenhower: true, title_tags: true },
+      family([task("f1", "!Steuer @Ben")]),
+    );
+    const tile = matrix.root.querySelector(".quad.plan .tile")!;
+    expect(tile.querySelector(".tile-title")!.textContent!.trim()).toBe("Steuer");
+    expect(tile.querySelector(".tile-due")!.textContent!.trim()).toBe("Ben");
+  });
+});
+
+describe("shorthand in titles: celebrate", () => {
+  it("names the person a task is for in celebrate actions", async () => {
+    const { all, services, settle } = await mount(
+      {
+        persons: [
+          { name: "Lina", lists: "todo.familie" },
+          { name: "Ben", lists: "todo.familie" },
+        ],
+        title_tags: true,
+        celebrate: {
+          on: "task",
+          actions: [{ action: "tts.speak", data: { message: "{name}: {task}" } }],
+        },
+      },
+      { lists: { "todo.familie": { items: [task("f1", "Zimmer aufräumen @Ben +20")] } } },
+    );
+    (all(".tile")[0] as HTMLElement).click();
+    await settle();
+    expect(services.find((s) => s.domain === "tts")?.data).toEqual({
+      message: "Ben: Zimmer aufräumen",
+    });
+  });
+});

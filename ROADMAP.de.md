@@ -92,7 +92,11 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 
 ## Später / Roadmap
 
-- [ ] Einzel-Item einer Person zuweisen (statt „ganzer Einkauf").
+- [x] Einzel-Item einer Person zuweisen (statt „ganzer Einkauf") – mit
+      `title_tags`: „Milch @Ben" wird Bens eigene Aufgabe.
+- [x] **Kurzschrift im Titel** – `title_tags`: „Zimmer aufräumen @Lina +20", in jeder
+      App getippt oder dem Sprachassistenten gesagt, macht die Aufgabe zu Linas und
+      20 Punkte wert; eine gemeinsame Liste reicht für die ganze Familie.
 - [ ] Standort-Erinnerung (Geofence) & Auto-Zuweisung „wer unterwegs ist".
 - [x] Faire Auto-Rotation wiederkehrender Ämtli („reihum") – `rotation`: Schalter
       im Editor, wöchentliche/tägliche Runden aus dem Kalender, Ämtli öffnen sich
