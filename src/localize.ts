@@ -103,6 +103,8 @@ const STRINGS: Record<string, Entry> = {
   grp_undated: { de: "📥 Ohne Termin", en: "📥 No date" },
   rot_next_week: { de: "nächste Woche", en: "next week" },
   rot_next_day: { de: "morgen", en: "tomorrow" },
+  rot_cover: { de: "statt", en: "instead of" },
+  away: { de: "✈️ weg", en: "✈️ away" },
   rot_week: { de: "Wöchentlich (ab Montag)", en: "Weekly (from Monday)" },
   rot_day: { de: "Täglich", en: "Daily" },
   err_no_persons: {

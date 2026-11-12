@@ -14,6 +14,7 @@ interface PersonConfig {
   goal?: number;
   points_entity?: string;
   share?: number;
+  away_entity?: string;
 }
 
 /** Family Board Card palette, offered as one-click color chips. */
@@ -44,8 +45,16 @@ const PERSON_SCHEMA = [
   { name: "lists", selector: pick("todo", true) },
   { name: "goal", selector: num(0, 100000) },
   { name: "points_entity", selector: pick("input_number") },
-  { name: "share", selector: num(0, 100) },
 ];
+
+/** What can say "away": a switch-like helper, or a calendar that is on during an entry. */
+const AWAY_PICK = {
+  entity: {
+    filter: ["input_boolean", "binary_sensor", "calendar", "schedule", "switch"].map((domain) => ({
+      domain,
+    })),
+  },
+};
 
 type Bi = { de: string; en: string };
 
@@ -129,6 +138,7 @@ const LABELS: Record<string, Bi> = {
   show_fairness: { de: "Fairness-Anzeige", en: "Fair-share bar" },
   fairness_period: { de: "Fairness für", en: "Fair share for" },
   share: { de: "Soll-Anteil an der Arbeit (%)", en: "Agreed share of the work (%)" },
+  away_entity: { de: "Abwesend, solange an", en: "Away while on" },
   show_streak: { de: "Serien anzeigen (⚡)", en: "Show streaks (⚡)" },
   rotation: { de: "Auto-Rotation (reihum)", en: "Auto-rotation (take turns)" },
   rotation_lists: { de: "Ämtli-Listen (reihum)", en: "Chore lists (rotating)" },
@@ -250,6 +260,10 @@ const HELPERS: Record<string, Bi> = {
   fairness_period: {
     de: "Diese Woche (ab Montag), diesen Monat oder gesamt. Woche/Monat braucht das Punktekonto (Family Task Card Integration), sonst zählt, was abgehakt in den Listen steht.",
     en: "This week (from Monday), this month or all time. Week/month needs the points ledger (Family Task Card Integration), otherwise it counts what is checked off in the lists.",
+  },
+  away_entity: {
+    de: "Für die Ämtli-Rotation: ein Schalter, der „an“ ist, solange die Person weg ist – z. B. ein input_boolean für Urlaub oder Klassenfahrt, oder ein Kalender, der während eines Eintrags „an“ ist. Ihre Ämtli übernehmen dann die anderen.",
+    en: "For the chore rotation: something that is “on” while this person is away – e.g. an input_boolean for a holiday or a school trip, or a calendar that is on during an entry. The others take over their chores.",
   },
   share: {
     de: "Für die Fairness-Anzeige: welcher Anteil der Arbeit für diese Person vereinbart ist, z. B. 40. Leer = kein Soll.",
@@ -655,6 +669,16 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     this._emit(merged as unknown as FamilyTaskConfig);
   }
 
+  /** The person form; the fair-share and rotation fields only where they apply. */
+  private _personSchema() {
+    const c = this._config;
+    return [
+      ...PERSON_SCHEMA,
+      ...(c?.show_fairness ? [{ name: "share", selector: num(0, 100) }] : []),
+      ...(c?.rotation ? [{ name: "away_entity", selector: AWAY_PICK }] : []),
+    ];
+  }
+
   private _personChanged(idx: number, ev: CustomEvent): void {
     ev.stopPropagation();
     const value = { ...ev.detail.value } as PersonConfig;
@@ -662,6 +686,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!value.goal) delete value.goal;
     if (!value.points_entity) delete value.points_entity;
     if (!isNum(value.share)) delete value.share; // 0 % is a real agreement
+    if (!value.away_entity) delete value.away_entity;
     // The picker only knows entity ids: keep per-list settings ({ entity, … })
     // for lists that are still picked.
     if (Array.isArray(value.lists)) {
@@ -1059,7 +1084,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         <ha-form
           .hass=${this.hass}
           .data=${this._personData(p)}
-          .schema=${PERSON_SCHEMA}
+          .schema=${this._personSchema()}
           .computeLabel=${this._label}
           .computeHelper=${this._helper}
           @value-changed=${(e: CustomEvent) => this._personChanged(idx, e)}

@@ -90,6 +90,7 @@ interface PersonConfig {
   goal?: number; // optional per-person points goal
   points_entity?: string; // input_number holding this person's SPENT points (reward shop)
   share?: number; // agreed share of the work in percent (fair-share bar)
+  away_entity?: string; // "on" while away (input_boolean, calendar …): the rotation skips them
 }
 
 /** A reward that can be redeemed in the shop for points. */
@@ -171,6 +172,13 @@ interface PendingRequest {
   id: string;
   reward: string;
   points: number;
+}
+
+/** Who does a rotating chore this round and next; `covers`: for someone away. */
+interface RotationTurn {
+  now: number;
+  next: number;
+  covers?: number;
 }
 
 /** What the parent PIN confirms: a redemption, or a decision on a request. */
@@ -629,16 +637,32 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     items: Record<string, TodoItem[]>;
     tags: ReadonlyMap<string, TitleTags>;
     sig: string;
-    map: Map<string, { now: number; next: number }>;
+    map: Map<string, RotationTurn>;
   };
 
-  /** "entity|uid" -> person index doing it this round and next round. */
-  private _rotationMap(): Map<string, { now: number; next: number }> {
+  /** Persons (indices) whose away_entity is on right now. */
+  private _away(): Set<number> {
+    const out = new Set<number>();
+    (this._config?.persons ?? []).forEach((p, i) => {
+      const st = p.away_entity ? this.hass?.states[p.away_entity]?.state : undefined;
+      if (st?.toLowerCase() === "on") out.add(i);
+    });
+    return out;
+  }
+
+  /**
+   * "entity|uid" -> who does it this round and next round. A chore of someone
+   * who is away goes to whoever present has the fewest so far (ties take
+   * turns by round); the others keep their own chores.
+   */
+  private _rotationMap(): Map<string, RotationTurn> {
     const lists = this._rotationLists();
     const group = this._rotationGroup();
     const period = this._rotationPeriod();
     const round = roundIndex(new Date(), period);
-    const sig = `${lists.join(",")}|${group.join(",")}|${period}|${round}`;
+    const away = this._away();
+    const present = group.filter((i) => !away.has(i));
+    const sig = `${lists.join(",")}|${group.join(",")}|${period}|${round}|${present.join(",")}`;
     const tags = this._tagMap();
     const c = this._rotCache;
     if (c && c.items === this._items && c.tags === tags && c.sig === sig) return c.map;
@@ -649,8 +673,24 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         .map((item) => ({ key: `${entity}|${item.uid}`, item: this._shown(entity, item) })),
     );
     const byPos = assignChores(chores, group.length, round);
-    const map = new Map<string, { now: number; next: number }>();
-    for (const [key, a] of byPos) map.set(key, { now: group[a.now], next: group[a.next] });
+    const map = new Map<string, RotationTurn>();
+    // Nobody there, or everybody: the usual turns.
+    const covering = present.length > 0 && present.length < group.length;
+    const load = new Map<number, number>(present.map((i) => [i, 0]));
+    const orphans: string[] = [];
+    for (const [key, a] of byPos) {
+      const owner = group[a.now];
+      map.set(key, { now: owner, next: group[a.next] });
+      if (covering && away.has(owner)) orphans.push(key);
+      else if (load.has(owner)) load.set(owner, load.get(owner)! + 1);
+    }
+    const order = present.map((_, k) => present[(k + round) % present.length]);
+    for (const key of orphans) {
+      const pick = order.reduce((best, i) => (load.get(i)! < load.get(best)! ? i : best));
+      const turn = map.get(key)!;
+      map.set(key, { ...turn, now: pick, covers: turn.now });
+      load.set(pick, load.get(pick)! + 1);
+    }
     this._rotCache = { items: this._items, tags, sig, map };
     return map;
   }
@@ -661,6 +701,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (this._rotationGroup().length < 2) return undefined;
     const a = this._rotationMap().get(`${owned.entity}|${owned.item.uid}`);
     if (!a) return undefined;
+    if (a.covers !== undefined) {
+      return `🤝 ${this._t("rot_cover")} ${this._personName(persons[a.covers], a.covers)}`;
+    }
     const when = this._t(this._rotationPeriod() === "day" ? "rot_next_day" : "rot_next_week");
     return `🔄 ${when}: ${this._personName(persons[a.next], a.next)}`;
   }
@@ -1572,6 +1615,12 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     `;
   }
 
+  /** "✈️ away" while a person's away_entity is on. */
+  private _awayChip(idx: number) {
+    if (!this._away().has(idx)) return nothing;
+    return html`<span class="lvl away">${this._t("away")}</span>`;
+  }
+
   /** "⚡ 5": days in a row with a task, from two days on (points ledger only). */
   private _streakChip(view: PersonView, big = false) {
     const n = view.streak ?? 0;
@@ -2015,7 +2064,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                     >`
                   : nothing
               }
-              ${this._streakChip(view)}
+              ${this._streakChip(view)}${this._awayChip(idx)}
             </div>
             <div class="pstatus">
               ${view.openCount} ${this._t("open")} · ${view.hasWallet ? "💰" : "⭐"} ${points}
@@ -3167,6 +3216,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .lvl.away {
+      background: color-mix(in srgb, var(--secondary-text-color) 14%, transparent);
+      color: var(--secondary-text-color);
     }
     .lvl.streak {
       background: color-mix(in srgb, #ff7043 16%, transparent);

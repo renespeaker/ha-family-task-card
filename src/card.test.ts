@@ -1452,9 +1452,7 @@ describe("visual editor covers everything", () => {
       "rewards",
       "persons",
       // persons[].x: the person form, plus the colour swatches
-      ...["name", "person", "lists", "goal", "points_entity", "color", "share"].map(
-        (k) => `persons[].${k}`,
-      ),
+      ...[...names(call("_personSchema") as any[]), "color"].map((k) => `persons[].${k}`),
     ]);
     const missing = documented.filter((k) => !menu.has(k));
     expect(missing).toEqual([]);
@@ -2048,5 +2046,110 @@ describe("fair share (show_fairness)", () => {
       { lists: lists(3) },
     );
     expect(matrix.texts(".fair-item")).toEqual(["Mama 75 %", "Papa 25 %"]);
+  });
+});
+
+describe("rotation: who is away", () => {
+  const ROT = CREATE | UPDATE | 16;
+  const kids = ["Lina", "Ben", "Mia"].map((name) => ({
+    name,
+    away_entity: `input_boolean.${name.toLowerCase()}_weg`,
+  }));
+  const config = { persons: kids, rotation: true, rotation_lists: "todo.aemtli" };
+  const chores = ["Bad", "Fenster", "Küche", "Müll", "Spülen", "Wäsche"].map((s, i) =>
+    task(`c${i}`, s, { due: "2026-10-11" }),
+  );
+  const lists = { "todo.aemtli": { items: chores, features: ROT } };
+  const away = (who: Record<string, "on" | "off">) =>
+    Object.fromEntries(
+      Object.entries(who).map(([k, v]) => [`input_boolean.${k}_weg`, { state: v, attributes: {} }]),
+    );
+  const columns = (root: ShadowRoot) =>
+    [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => (n.textContent ?? "").trim()),
+    );
+  const now = "2026-10-07T10:00:00";
+
+  it("gives the chores of someone away to the others, who keep their own", async () => {
+    const usual = columns((await mount(config, { lists, now })).root);
+    expect(usual.map((c) => c.length)).toEqual([2, 2, 2]);
+    const [lina, ben, mia] = usual;
+    const [lina2, ben2, mia2] = columns(
+      (await mount(config, { lists, now, states: away({ ben: "on" }) })).root,
+    );
+    expect(ben2).toEqual([]);
+    expect(lina2).toEqual(expect.arrayContaining(lina));
+    expect(mia2).toEqual(expect.arrayContaining(mia));
+    expect([lina2.length, mia2.length]).toEqual([3, 3]); // shared out evenly
+    expect([...lina2, ...mia2].sort()).toEqual([...lina, ...ben, ...mia].sort());
+  });
+
+  it("follows the switch while the card is open", async () => {
+    const m = await mount(config, { lists, now, states: away({ ben: "off" }) });
+    expect(columns(m.root)[1]).toHaveLength(2);
+    update(m.el, { "input_boolean.ben_weg": { state: "on" } });
+    await m.settle();
+    expect(columns(m.root)[1]).toEqual([]);
+    update(m.el, { "input_boolean.ben_weg": { state: "off" } });
+    await m.settle();
+    expect(columns(m.root)[1]).toHaveLength(2);
+  });
+
+  it("says whose chore it is and who is away", async () => {
+    const { text, texts } = await mount(config, { lists, now, states: away({ ben: "on" }) });
+    expect(text()).toContain("🤝 statt Ben");
+    expect(texts(".col-head")[1]).toContain("✈️ weg");
+    expect(texts(".col-head")[0]).not.toContain("✈️");
+  });
+
+  it("takes the usual turns when nobody or everybody is away", async () => {
+    const usual = columns((await mount(config, { lists, now })).root);
+    const off = await mount(config, { lists, now, states: away({ lina: "off", ben: "off" }) });
+    expect(columns(off.root)).toEqual(usual);
+    const all = await mount(config, {
+      lists,
+      now,
+      states: away({ lina: "on", ben: "on", mia: "on" }),
+    });
+    expect(columns(all.root)).toEqual(usual);
+  });
+
+  it("pays whoever covered", async () => {
+    const { services } = await mount(
+      { ...config, persons: kids.slice(0, 2), points_backend: true },
+      {
+        lists: {
+          "todo.aemtli": {
+            items: [task("c1", "Müll", { status: "completed", due: "2026-10-11" })],
+            features: ROT,
+          },
+        },
+        services: { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } },
+        now,
+        states: away({ lina: "on" }),
+      },
+    );
+    const awards = services.filter((s) => s.service === "award").map((s) => s.data);
+    expect(awards).toEqual([
+      { key: "todo.aemtli|c1|2026-10-11", person: "Ben", points: 10, task: "Müll" },
+    ]);
+  });
+
+  it("asks for the away switch only with the rotation on", async () => {
+    await import("./editor");
+    const names = async (config: Record<string, unknown>) => {
+      const ed = document.createElement("family-task-card-editor") as HTMLElement & {
+        setConfig(c: unknown): void;
+        hass: unknown;
+        _personSchema(): Array<{ name: string }>;
+      };
+      ed.hass = { locale: { language: "de" }, states: {} };
+      ed.setConfig({ type: "custom:family-task-card", persons: [], ...config });
+      return ed._personSchema().map((s) => s.name);
+    };
+    expect(await names({})).not.toContain("away_entity");
+    expect(await names({ rotation: true })).toContain("away_entity");
+    expect(await names({})).not.toContain("share");
+    expect(await names({ show_fairness: true })).toContain("share");
   });
 });

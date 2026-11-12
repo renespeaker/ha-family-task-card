@@ -97,6 +97,10 @@ The goal: a usable, coherent card with the core loop.
 - [x] Fair auto-rotation of recurring chores ("taking turns") — `rotation`: switch
       in the editor, weekly/daily rounds worked out from the calendar, chores reopen
       each round, "next week: …" hint; chores earn points with the points ledger.
+- [x] **The rotation knows who is away** — `persons[].away_entity`: while it is on
+      (a holiday switch, a calendar entry), the others take over that person's
+      chores, the one with the fewest first ("🤝 instead of Ben"). Open: catching up
+      afterwards, which needs a memory (integration, with swapping chores).
 - [x] **Points ledger** (optional
       [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), phase 1) —
       `points_backend`: points booked for good, once per task (and once per round

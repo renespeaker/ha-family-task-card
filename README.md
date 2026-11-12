@@ -187,6 +187,7 @@ persons:
 | `persons[].color` | color | optional — overrides the palette. |
 | `persons[].points_entity` | `input_number` | balance helper (redeemed points) for the shop. |
 | `persons[].share` | number | optional — agreed share of the work in percent, for the fair-share bar. |
+| `persons[].away_entity` | entity | optional — "on" while this person is away; the rotation skips them (see below). |
 | `title` | text | card title. |
 | `points_per_task` | number | points per completed task (default 10). |
 | `goal` | number | family points goal → progress bar. |
@@ -288,6 +289,13 @@ Monday) or daily. Switch it on in the visual editor under
   round, so live points would vanish every Monday. With the
   [points ledger](#points-ledger-optional-integration) chores earn
   points once per round.
+- **Away? The others take over.** Give a person an `away_entity` – anything
+  that is "on" while they are away, e.g. an `input_boolean` for a holiday or a
+  school trip, or a calendar that is on during an entry. Their chores go to the
+  others, to whoever has the fewest first; everyone else keeps their own. The
+  chore says whose it is ("🤝 instead of Ben"), the column shows "✈️ away", and
+  the points go to whoever did it. Once the switch is off, the usual turns
+  apply again. In the editor this is *Away while on* in the person form.
 
 ```yaml
 type: custom:family-task-card
@@ -298,7 +306,8 @@ rotation_persons: [Lina, Ben]      # optional, default: everyone on the card
 # rotation_reset: false            # don't reopen chores automatically
 persons:
   - { name: Lina, person: person.lina, lists: todo.lina }
-  - { name: Ben,  person: person.ben,  lists: todo.ben }
+  - { name: Ben,  person: person.ben,  lists: todo.ben,
+      away_entity: input_boolean.ben_away }   # optional: skipped while on
   - { name: Mom,  person: person.mom,  lists: todo.mom }
 ```
 

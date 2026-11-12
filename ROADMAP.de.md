@@ -101,6 +101,10 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] Faire Auto-Rotation wiederkehrender Ämtli („reihum") – `rotation`: Schalter
       im Editor, wöchentliche/tägliche Runden aus dem Kalender, Ämtli öffnen sich
       jede Runde neu, Hinweis „nächste Woche: …"; mit Punktekonto geben Ämtli Punkte.
+- [x] **Die Rotation weiß, wer weg ist** – `persons[].away_entity`: Solange sie an
+      ist (Urlaubs-Schalter, Kalender-Eintrag), übernehmen die anderen die Ämtli
+      dieser Person, wer am wenigsten hat zuerst („🤝 statt Ben"). Offen: danach
+      nachholen – braucht ein Gedächtnis (Integration, zusammen mit Ämtli tauschen).
 - [x] **Punktekonto** (optionale
       [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), Phase 1) –
       `points_backend`: Punkte dauerhaft gebucht, einmal pro Aufgabe (bei Ämtli

@@ -189,6 +189,7 @@ persons:
 | `persons[].color` | Farbe              | optional – überschreibt die Palette.                    |
 | `persons[].points_entity` | `input_number` | Guthaben-Helfer (eingelöste Punkte) für den Shop.  |
 | `persons[].share` | Zahl | optional – vereinbarter Anteil an der Arbeit in Prozent, für die Fairness-Anzeige. |
+| `persons[].away_entity` | Entität | optional – „an", solange die Person weg ist; die Rotation überspringt sie (siehe unten). |
 | `title`           | Text               | Kartentitel.                                             |
 | `points_per_task` | Zahl               | Punkte je erledigter Aufgabe (Standard 10).             |
 | `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
@@ -294,6 +295,14 @@ ist.
   berechnete Punkte wären also jeden Montag wieder weg. Mit dem
   [Punktekonto](#punktekonto-optionale-integration) geben Ämtli
   einmal pro Runde Punkte.
+- **Weg? Die anderen übernehmen.** Gib einer Person eine `away_entity` – etwas,
+  das „an" ist, solange sie weg ist, z. B. ein `input_boolean` für Urlaub oder
+  Klassenfahrt oder einen Kalender, der während eines Eintrags „an" ist. Ihre
+  Ämtli gehen an die anderen, zuerst an wen am wenigsten hat; alle anderen
+  behalten ihre eigenen. Das Ämtli sagt, wessen es ist („🤝 statt Ben"), die
+  Spalte zeigt „✈️ weg", und die Punkte bekommt, wer es gemacht hat. Ist der
+  Schalter wieder aus, gilt die normale Reihenfolge. Im Editor heißt das
+  *Abwesend, solange an* im Personen-Formular.
 
 ```yaml
 type: custom:family-task-card
@@ -304,7 +313,8 @@ rotation_persons: [Lina, Ben]      # optional, Standard: alle Personen der Karte
 # rotation_reset: false            # Ämtli nicht automatisch wieder öffnen
 persons:
   - { name: Lina, person: person.lina, lists: todo.lina }
-  - { name: Ben,  person: person.ben,  lists: todo.ben }
+  - { name: Ben,  person: person.ben,  lists: todo.ben,
+      away_entity: input_boolean.ben_weg }    # optional: übersprungen, solange an
   - { name: Mama, person: person.mama, lists: todo.mama }
 ```
 
