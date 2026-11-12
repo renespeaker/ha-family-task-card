@@ -72,6 +72,7 @@ persons:
 # --- Optional: levels, badges & leaderboard (from earned points, no setup) ---
 # level_size: 100                 # points per level (0 = off); badge chip next to the name
 # show_leaderboard: true          # ranking of persons by earned points under the board
+# show_fairness: true             # fair-share bar: each person's share of the work
 
 # --- Optional: color scheme (theme-aware by default) ---
 # theme: dark                     # auto (default, follows HA) | dark | light
@@ -96,6 +97,7 @@ persons:
 # rotation_lists: todo.chores
 # rotation_period: week           # week | day
 # rotation_persons: [Lina, Ben]   # optional, default everyone
+# A person's away_entity (e.g. input_boolean.ben_away) skips them in the rotation while on.
 
 # --- Optional: points ledger (separate Family Task Card Integration) ---
 # Points are booked for good instead of computed live: they stay when lists are
@@ -117,6 +119,7 @@ persons:
 
 # --- Optional: add-task, sorting & filters ---
 # allow_add: true                 # "+ add task" field per person (default on)
+# title_tags: true                # "Tidy room @Lina +20": whose task it is, what it is worth
 # sort: due                       # manual (default) | due | alpha
 # hide_empty: true                # hide persons with no open tasks
 # due_soon: 2                     # mark tasks due within 2 days as "due soon"

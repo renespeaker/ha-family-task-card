@@ -88,11 +88,19 @@ The goal: a usable, coherent card with the core loop.
 
 ## Later / roadmap
 
-- [ ] Assign a single item to a person (instead of "the whole shopping trip").
+- [x] Assign a single item to a person (instead of "the whole shopping trip") — with
+      `title_tags`: "Milk @Ben" becomes Ben's own task.
+- [x] **Shorthand in titles** — `title_tags`: "Tidy room @Lina +20", typed into any
+      app or told to a voice assistant, makes the task Lina's and worth 20 points;
+      one shared list is enough for the whole family.
 - [ ] Location reminders (geofence) and auto-assignment to "whoever is out".
 - [x] Fair auto-rotation of recurring chores ("taking turns") — `rotation`: switch
       in the editor, weekly/daily rounds worked out from the calendar, chores reopen
       each round, "next week: …" hint; chores earn points with the points ledger.
+- [x] **The rotation knows who is away** — `persons[].away_entity`: while it is on
+      (a holiday switch, a calendar entry), the others take over that person's
+      chores, the one with the fewest first ("🤝 instead of Ben"). Open: catching up
+      afterwards, which needs a memory (integration, with swapping chores).
 - [x] **Points ledger** (optional
       [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), phase 1) —
       `points_backend`: points booked for good, once per task (and once per round
@@ -103,6 +111,9 @@ The goal: a usable, coherent card with the core loop.
       card with the parent PIN).
 - [x] **Statistics** (integration v0.3.0) — leaderboard for this week/month
       (`leaderboard_period`), streaks "⚡ 5" (`show_streak`). Next: photo proof.
+- [x] **Fair share** — `show_fairness`: a bar with each person's share of the
+      points (this week/month with the ledger), compared with an agreed share per
+      person (`persons[].share`).
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
       statistics/history.

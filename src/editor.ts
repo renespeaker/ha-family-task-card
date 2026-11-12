@@ -13,6 +13,8 @@ interface PersonConfig {
   lists?: ListRef | ListRef[];
   goal?: number;
   points_entity?: string;
+  share?: number;
+  away_entity?: string;
 }
 
 /** Family Board Card palette, offered as one-click color chips. */
@@ -23,6 +25,7 @@ const SORT_VALUES = ["manual", "due", "alpha"] as const;
 const THEME_VALUES = ["auto", "dark", "light"] as const;
 const ROTATION_PERIODS = ["week", "day"] as const;
 const LEADERBOARD_PERIODS = ["all", "week", "month"] as const;
+const FAIRNESS_PERIODS = ["week", "month", "all"] as const;
 
 /** ha-form selectors the forms share. */
 const TEXT = { text: {} };
@@ -43,6 +46,15 @@ const PERSON_SCHEMA = [
   { name: "goal", selector: num(0, 100000) },
   { name: "points_entity", selector: pick("input_number") },
 ];
+
+/** What can say "away": a switch-like helper, or a calendar that is on during an entry. */
+const AWAY_PICK = {
+  entity: {
+    filter: ["input_boolean", "binary_sensor", "calendar", "schedule", "switch"].map((domain) => ({
+      domain,
+    })),
+  },
+};
 
 type Bi = { de: string; en: string };
 
@@ -123,6 +135,10 @@ const LABELS: Record<string, Bi> = {
   level_size: { de: "Punkte pro Level", en: "Points per level" },
   show_leaderboard: { de: "Rangliste anzeigen", en: "Show leaderboard" },
   leaderboard_period: { de: "Rangliste für", en: "Leaderboard for" },
+  show_fairness: { de: "Fairness-Anzeige", en: "Fair-share bar" },
+  fairness_period: { de: "Fairness für", en: "Fair share for" },
+  share: { de: "Soll-Anteil an der Arbeit (%)", en: "Agreed share of the work (%)" },
+  away_entity: { de: "Abwesend, solange an", en: "Away while on" },
   show_streak: { de: "Serien anzeigen (⚡)", en: "Show streaks (⚡)" },
   rotation: { de: "Auto-Rotation (reihum)", en: "Auto-rotation (take turns)" },
   rotation_lists: { de: "Ämtli-Listen (reihum)", en: "Chore lists (rotating)" },
@@ -139,6 +155,10 @@ const LABELS: Record<string, Bi> = {
   hide_undated: { de: "Aufgaben ohne Termin ausblenden", en: "Hide tasks without a date" },
   show_within: { de: "Nur fällig in den nächsten … Tagen", en: "Only due within … days" },
   allow_add: { de: "Aufgabe-hinzufügen-Feld", en: "Add-task field" },
+  title_tags: {
+    de: "Kurzschrift im Titel (@Person, +Punkte)",
+    en: "Shorthand in titles (@person, +points)",
+  },
   name: { de: "Name", en: "Name" },
   level_emojis: { de: "Level-Abzeichen", en: "Level badges" },
   cost: { de: "Preis (Punkte)", en: "Price (points)" },
@@ -233,6 +253,22 @@ const HELPERS: Record<string, Bi> = {
     de: "Gesamt, diese Woche oder diesen Monat. Woche/Monat braucht das Punktekonto (Family Task Card Integration), sonst wird gesamt gezählt.",
     en: "All time, this week or this month. Week/month needs the points ledger (Family Task Card Integration), otherwise all time is used.",
   },
+  show_fairness: {
+    de: "Ein Balken unter dem Board zeigt, welchen Anteil der Punkte jede Person geschafft hat – z. B. „Mama 58 % · Papa 42 %“. Aufgaben mit mehr Punkten zählen mehr. Pro Person lässt sich ein Soll-Anteil eintragen.",
+    en: "A bar under the board shows each person's share of the points – e.g. “Mom 58% · Dad 42%”. Tasks worth more count for more. Each person can get an agreed share.",
+  },
+  fairness_period: {
+    de: "Diese Woche (ab Montag), diesen Monat oder gesamt. Woche/Monat braucht das Punktekonto (Family Task Card Integration), sonst zählt, was abgehakt in den Listen steht.",
+    en: "This week (from Monday), this month or all time. Week/month needs the points ledger (Family Task Card Integration), otherwise it counts what is checked off in the lists.",
+  },
+  away_entity: {
+    de: "Für die Ämtli-Rotation: ein Schalter, der „an“ ist, solange die Person weg ist – z. B. ein input_boolean für Urlaub oder Klassenfahrt, oder ein Kalender, der während eines Eintrags „an“ ist. Ihre Ämtli übernehmen dann die anderen.",
+    en: "For the chore rotation: something that is “on” while this person is away – e.g. an input_boolean for a holiday or a school trip, or a calendar that is on during an entry. The others take over their chores.",
+  },
+  share: {
+    de: "Für die Fairness-Anzeige: welcher Anteil der Arbeit für diese Person vereinbart ist, z. B. 40. Leer = kein Soll.",
+    en: "For the fair-share bar: the share of the work agreed for this person, e.g. 40. Empty = none.",
+  },
   show_streak: {
     de: "Zeigt „⚡ 5“ neben dem Namen: an wie vielen Tagen am Stück jemand mindestens eine Aufgabe erledigt hat (ab 2 Tagen). Braucht das Punktekonto (Family Task Card Integration).",
     en: "Shows “⚡ 5” next to the name: how many days in a row someone has done at least one task (from 2 days). Needs the points ledger (Family Task Card Integration).",
@@ -300,6 +336,10 @@ const HELPERS: Record<string, Bi> = {
   allow_add: {
     de: "Ein Eingabefeld pro Person zum Anlegen neuer Aufgaben (nur wo die Liste es unterstützt).",
     en: "An input field per person to add new tasks (only where the list supports it).",
+  },
+  title_tags: {
+    de: "„Zimmer aufräumen @Lina +20“ ist Linas Aufgabe und bringt 20 Punkte – egal in welcher Liste, ob in der App getippt oder dem Sprachassistenten gesagt. Die Karte zeigt nur „Zimmer aufräumen“. Nach dem @ geht der Name (auch nur der Vorname) oder die Personen-Entität; unbekannte Namen bleiben stehen.",
+    en: "“Tidy room @Lina +20” is Lina's task and worth 20 points – in any list, typed in an app or told to a voice assistant. The card shows just “Tidy room”. After the @ goes the name (the first name is enough) or the person entity; unknown names stay as they are.",
   },
   level_emojis: {
     de: "Ein Abzeichen pro Level, durch Leerzeichen getrennt, z. B. 🌱 ⭐ 🔥 🏅 🏆 👑. Leer = Standard.",
@@ -465,6 +505,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       this._section("tasks", "mdi:format-list-checks", [
         { name: "show_completed", selector: BOOL },
         { name: "allow_add", selector: BOOL },
+        { name: "title_tags", selector: BOOL },
         { name: "hide_empty", selector: BOOL },
         { name: "highlight_overdue", selector: BOOL },
         { name: "sort", selector: this._select(SORT_VALUES, (v) => `sort_${v}`) },
@@ -490,6 +531,15 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
                 selector: this._select(LEADERBOARD_PERIODS, (v) =>
                   v === "all" ? "lb_all" : `lb_${v}`,
                 ),
+              },
+            ]
+          : []),
+        { name: "show_fairness", selector: BOOL },
+        ...(c.show_fairness
+          ? [
+              {
+                name: "fairness_period",
+                selector: this._select(FAIRNESS_PERIODS, (v) => `lb_${v}`),
               },
             ]
           : []),
@@ -571,8 +621,11 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.show_leaderboard) delete next.show_leaderboard;
     if (!next.leaderboard_period || next.leaderboard_period === "all")
       delete next.leaderboard_period;
+    if (!next.show_fairness) delete next.show_fairness;
+    if (!next.fairness_period || next.fairness_period === "week") delete next.fairness_period;
     if (!next.show_streak) delete next.show_streak;
     if (!next.hide_empty) delete next.hide_empty;
+    if (!next.title_tags) delete next.title_tags;
     if (!next.due_soon) delete next.due_soon;
     if (!next.group_by_due) delete next.group_by_due;
     if (!next.hide_undated) delete next.hide_undated;
@@ -616,12 +669,24 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     this._emit(merged as unknown as FamilyTaskConfig);
   }
 
+  /** The person form; the fair-share and rotation fields only where they apply. */
+  private _personSchema() {
+    const c = this._config;
+    return [
+      ...PERSON_SCHEMA,
+      ...(c?.show_fairness ? [{ name: "share", selector: num(0, 100) }] : []),
+      ...(c?.rotation ? [{ name: "away_entity", selector: AWAY_PICK }] : []),
+    ];
+  }
+
   private _personChanged(idx: number, ev: CustomEvent): void {
     ev.stopPropagation();
     const value = { ...ev.detail.value } as PersonConfig;
     if (!value.color) delete value.color;
     if (!value.goal) delete value.goal;
     if (!value.points_entity) delete value.points_entity;
+    if (!isNum(value.share)) delete value.share; // 0 % is a real agreement
+    if (!value.away_entity) delete value.away_entity;
     // The picker only knows entity ids: keep per-list settings ({ entity, … })
     // for lists that are still picked.
     if (Array.isArray(value.lists)) {
@@ -1019,7 +1084,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         <ha-form
           .hass=${this.hass}
           .data=${this._personData(p)}
-          .schema=${PERSON_SCHEMA}
+          .schema=${this._personSchema()}
           .computeLabel=${this._label}
           .computeHelper=${this._helper}
           @value-changed=${(e: CustomEvent) => this._personChanged(idx, e)}

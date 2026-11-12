@@ -4,8 +4,9 @@
 
 ![Family Task Card – ein Board pro Person mit Aufgaben, Punkten, Leveln, Serien, Einkauf und Wochen-Rangliste](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/board.png)
 
-> **Status: nutzbar (v0.18.2).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
+> **Status: nutzbar (v0.19.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, die weiß, wer weg ist,
+> **Kurzschrift im Titel (@Person, +Punkte)**, eine **Fairness-Anzeige**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
 > **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
@@ -188,6 +189,8 @@ persons:
 | `persons[].person`| `person.*`         | optional – liefert Avatar & Anzeigename.                |
 | `persons[].color` | Farbe              | optional – überschreibt die Palette.                    |
 | `persons[].points_entity` | `input_number` | Guthaben-Helfer (eingelöste Punkte) für den Shop.  |
+| `persons[].share` | Zahl | optional – vereinbarter Anteil an der Arbeit in Prozent, für die Fairness-Anzeige. |
+| `persons[].away_entity` | Entität | optional – „an", solange die Person weg ist; die Rotation überspringt sie (siehe unten). |
 | `title`           | Text               | Kartentitel.                                             |
 | `points_per_task` | Zahl               | Punkte je erledigter Aufgabe (Standard 10).             |
 | `goal`            | Zahl               | Familien-Punkteziel → Fortschrittsbalken.               |
@@ -204,11 +207,14 @@ persons:
 | `level_size`      | Zahl               | Punkte pro Level (Std. 100, 0 = aus).                   |
 | `level_emojis`    | Liste              | Abzeichen je Level-Stufe (optional).                    |
 | `show_leaderboard`| Bool               | Rangliste der Personen nach Punkten unter dem Board.    |
+| `show_fairness`   | Bool               | Fairness-Anzeige: Anteil jeder Person an den Punkten (siehe unten). |
+| `fairness_period` | Text               | Fairness für `week` (Std.), `month` oder `all`; Woche/Monat braucht `points_backend`. |
 | `theme`           | Text               | Farbschema: `auto` (HA-Theme, Std.) / `dark` / `light`. |
 | `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
 | `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
 | `auto_return`     | Zahl               | Sek. Inaktivität bis zurück zum Auswahl-Bildschirm (Std. 30, 0 = nie). |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
+| `title_tags`      | Bool               | Kurzschrift im Titel: `@Name` macht eine Aufgabe zu der dieser Person, `+20` legt ihre Punkte fest (siehe unten). |
 | `sort`            | Text               | Sortierung offener Aufgaben: `manual` / `due` / `alpha`. |
 | `hide_empty`      | Bool               | Personen ohne offene Aufgaben ausblenden.               |
 | `due_soon`        | Zahl               | Aufgaben in den nächsten X Tagen als „Bald fällig" markieren. |
@@ -290,6 +296,14 @@ ist.
   berechnete Punkte wären also jeden Montag wieder weg. Mit dem
   [Punktekonto](#punktekonto-optionale-integration) geben Ämtli
   einmal pro Runde Punkte.
+- **Weg? Die anderen übernehmen.** Gib einer Person eine `away_entity` – etwas,
+  das „an" ist, solange sie weg ist, z. B. ein `input_boolean` für Urlaub oder
+  Klassenfahrt oder einen Kalender, der während eines Eintrags „an" ist. Ihre
+  Ämtli gehen an die anderen, zuerst an wen am wenigsten hat; alle anderen
+  behalten ihre eigenen. Das Ämtli sagt, wessen es ist („🤝 statt Ben"), die
+  Spalte zeigt „✈️ weg", und die Punkte bekommt, wer es gemacht hat. Ist der
+  Schalter wieder aus, gilt die normale Reihenfolge. Im Editor heißt das
+  *Abwesend, solange an* im Personen-Formular.
 
 ```yaml
 type: custom:family-task-card
@@ -300,7 +314,8 @@ rotation_persons: [Lina, Ben]      # optional, Standard: alle Personen der Karte
 # rotation_reset: false            # Ämtli nicht automatisch wieder öffnen
 persons:
   - { name: Lina, person: person.lina, lists: todo.lina }
-  - { name: Ben,  person: person.ben,  lists: todo.ben }
+  - { name: Ben,  person: person.ben,  lists: todo.ben,
+      away_entity: input_boolean.ben_weg }    # optional: übersprungen, solange an
   - { name: Mama, person: person.mama, lists: todo.mama }
 ```
 
@@ -556,6 +571,34 @@ persons:
 > Level & Rangliste nutzen die **verdienten** Punkte (nicht das Shop-Guthaben) –
 > beides ist stateless aus den `todo`-Listen abgeleitet.
 
+### Fairness-Anzeige
+
+Die Rangliste fragt, wer vorne liegt; die **Fairness-Anzeige** fragt, ob die
+Arbeit gerecht verteilt ist – zwischen den Kindern und auch zwischen den Eltern.
+Mit `show_fairness: true` zeigt ein Balken in den Farben der Personen, welchen
+Anteil der Punkte jede geschafft hat, z. B. **„Mama 58 % · Papa 42 %"**. Es zählen
+Punkte statt Aufgaben – eine große Arbeit mit mehr Punkten
+([`+30`](#kurzschrift-im-titel-person-punkte)) zählt also mehr.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/fairness.png" alt="Fairness-Anzeige unter dem Board: Mama 60 %, Papa 40 % diese Woche, beide mit Soll 50 %" width="560"></p>
+
+- **Vereinbarte Anteile:** Gib einer Person `share: 40` (*Soll-Anteil an der
+  Arbeit* im Personen-Formular). Der Balken zeigt dann „Soll 40 %" mit ✓ (bis
+  5 Punkte daneben), ▲ (mehr als vereinbart) oder ▼ (weniger).
+- **Zeitraum:** Mit dem [Punktekonto](#punktekonto-optionale-integration) gilt
+  der Balken für diese Woche (`fairness_period: week`, Standard) oder diesen
+  Monat; ohne Punktekonto für alles, was abgehakt in den Listen steht.
+- Er steht unter dem Board und unter der Eisenhower-Ansicht, der Ansicht für die
+  Eltern.
+
+```yaml
+type: custom:family-task-card
+show_fairness: true
+persons:
+  - { name: Mama, lists: todo.mama, share: 50 }
+  - { name: Papa, lists: todo.papa, share: 50 }
+```
+
 ### Dark Mode / Farbschema
 
 Die Karte ist **theme-aware**: Mit einem dunklen Home-Assistant-Theme wird sie
@@ -711,6 +754,30 @@ zuerst die Werte der Karte; was du dort änderst, gilt nur für diese Liste.
 
 So können dieselben Listen auf einer Karte als volle Liste und auf einer zweiten
 als Übersicht „was ansteht" dienen (`hide_undated: true`, `show_within: 0`).
+
+### Kurzschrift im Titel (@Person, +Punkte)
+
+Mit `title_tags: true` kann der Titel einer Aufgabe sagen, wem sie gehört und
+was sie wert ist – in jeder App getippt oder dem Sprachassistenten gesagt
+(„Hey Siri, füge ‚Zimmer aufräumen @Lina +20' zu Familie hinzu"):
+
+- **`@Name`** macht die Aufgabe zu der dieser Person, egal in welcher Liste sie
+  steht. Eine gemeinsame Liste „Familie" reicht: Jede Aufgabe landet in der
+  richtigen Spalte. Der Vorname genügt, die Personen-Entität geht auch (`@lina`
+  für `person.lina`); nennt eine Aufgabe mehrere Personen, gehört sie jeder von
+  ihnen.
+- **`+20`** legt die Punkte für diese Aufgabe fest (sonst `points_per_task`).
+- Die Karte zeigt nur **„Zimmer aufräumen"**. Ein Name, den die Karte nicht
+  kennt, eine E-Mail-Adresse oder „2+1" bleiben Teil des Titels.
+- Auf einer **Rotationsliste** bleibt ein Ämtli mit `@Name` bei dieser Person;
+  die anderen wechseln sich weiter ab.
+- Auf einer **Einkaufsliste** verlässt „Milch @Ben" den Einkauf und wird Bens
+  eigene Aufgabe.
+- Eine Aufgabe, die in der Spalte einer Person hinzugefügt wird, bekommt deren
+  `@Name`, wenn andere die Liste mitbenutzen – so landet sie bei ihr und nicht
+  bei allen.
+- Mit dem [Punktekonto](#punktekonto-optionale-integration) bekommt jede
+  genannte Person die Punkte; Haken weg nimmt sie allen wieder ab.
 
 ### Aufgaben hinzufügen, Sortierung & Sprache
 

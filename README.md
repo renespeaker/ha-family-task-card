@@ -4,8 +4,9 @@
 
 ![Family Task Card – a board per person with tasks, points, levels, streaks, a shopping trip and the weekly leaderboard](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/board.png)
 
-> **Status: usable (v0.18.2).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
+> **Status: usable (v0.19.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, **auto-rotation (take turns)** that knows who is away,
+> **shorthand in titles (@person, +points)**, a **fair-share bar**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
 > (size/text/pictures)**, **add-task** and sort/hide options. The card reads
@@ -186,6 +187,8 @@ persons:
 | `persons[].person` | `person.*` | optional — provides avatar & display name. |
 | `persons[].color` | color | optional — overrides the palette. |
 | `persons[].points_entity` | `input_number` | balance helper (redeemed points) for the shop. |
+| `persons[].share` | number | optional — agreed share of the work in percent, for the fair-share bar. |
+| `persons[].away_entity` | entity | optional — "on" while this person is away; the rotation skips them (see below). |
 | `title` | text | card title. |
 | `points_per_task` | number | points per completed task (default 10). |
 | `goal` | number | family points goal → progress bar. |
@@ -202,11 +205,14 @@ persons:
 | `level_size` | number | points per level (default 100, 0 = off). |
 | `level_emojis` | list | badge per level tier (optional). |
 | `show_leaderboard` | bool | ranking of persons by points under the board. |
+| `show_fairness` | bool | fair-share bar: each person's share of the points (see below). |
+| `fairness_period` | text | fair-share bar for `week` (default), `month` or `all`; week/month need `points_backend`. |
 | `theme` | text | color scheme: `auto` (HA theme, default) / `dark` / `light`. |
 | `active_person_entity` | entity | card follows the active person (NFC/presence); empty = manual. |
 | `kiosk` | bool | wall-tablet mode: idle "Who's there?" picker + auto-return. |
 | `auto_return` | number | seconds of inactivity before returning to the picker (default 30, 0 = never). |
 | `allow_add` | bool | "add task" field per person (default on). |
+| `title_tags` | bool | shorthand in titles: `@Name` makes a task that person's, `+20` sets its points (see below). |
 | `sort` | text | order of open tasks: `manual` / `due` / `alpha`. |
 | `hide_empty` | bool | hide persons with no open tasks. |
 | `due_soon` | number | mark tasks due within X days as "due soon". |
@@ -284,6 +290,13 @@ Monday) or daily. Switch it on in the visual editor under
   round, so live points would vanish every Monday. With the
   [points ledger](#points-ledger-optional-integration) chores earn
   points once per round.
+- **Away? The others take over.** Give a person an `away_entity` – anything
+  that is "on" while they are away, e.g. an `input_boolean` for a holiday or a
+  school trip, or a calendar that is on during an entry. Their chores go to the
+  others, to whoever has the fewest first; everyone else keeps their own. The
+  chore says whose it is ("🤝 instead of Ben"), the column shows "✈️ away", and
+  the points go to whoever did it. Once the switch is off, the usual turns
+  apply again. In the editor this is *Away while on* in the person form.
 
 ```yaml
 type: custom:family-task-card
@@ -294,7 +307,8 @@ rotation_persons: [Lina, Ben]      # optional, default: everyone on the card
 # rotation_reset: false            # don't reopen chores automatically
 persons:
   - { name: Lina, person: person.lina, lists: todo.lina }
-  - { name: Ben,  person: person.ben,  lists: todo.ben }
+  - { name: Ben,  person: person.ben,  lists: todo.ben,
+      away_entity: input_boolean.ben_away }   # optional: skipped while on
   - { name: Mom,  person: person.mom,  lists: todo.mom }
 ```
 
@@ -543,6 +557,33 @@ persons:
 > Levels & leaderboard use the **earned** points (not the shop balance) — both
 > are derived statelessly from the `todo` lists.
 
+### Fair share
+
+A leaderboard asks who is ahead; the **fair-share bar** asks whether the work is
+shared fairly – between the kids, and between the parents too. With
+`show_fairness: true` a bar in the persons' colours shows what part of the
+points each of them earned, e.g. **"Mom 58 % · Dad 42 %"**. Points rather than
+tasks, so a big job worth more ([`+30`](#shorthand-in-titles-person-points))
+counts for more.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/fairness.png" alt="Fair-share bar under the board: Mom 60 %, Dad 40 % this week, both with a target of 50 %" width="560"></p>
+
+- **Agreed shares:** give a person `share: 40` (*Agreed share of the work* in the
+  person form). The bar then shows "target 40 %" with ✓ (within 5 points),
+  ▲ (more than agreed) or ▼ (less).
+- **Period:** with the [points ledger](#points-ledger-optional-integration) the
+  bar covers this week (`fairness_period: week`, default) or this month; without
+  it, everything checked off in the lists.
+- It sits under the board and under the Eisenhower view, the parents' view.
+
+```yaml
+type: custom:family-task-card
+show_fairness: true
+persons:
+  - { name: Mom, lists: todo.mom, share: 50 }
+  - { name: Dad, lists: todo.dad, share: 50 }
+```
+
 ### Dark mode / color scheme
 
 The card is **theme-aware**: with a dark Home Assistant theme it turns dark
@@ -695,6 +736,28 @@ the card's values; whatever you change there applies to that list only.
 
 The same lists can serve as a full list on one card and as a "what's due"
 overview on another (`hide_undated: true`, `show_within: 0`).
+
+### Shorthand in titles (@person, +points)
+
+With `title_tags: true` a task's title can say whose it is and what it is
+worth – typed into any app, or told to a voice assistant ("Hey Siri, add
+'Tidy room @Lina +20' to Family"):
+
+- **`@Name`** makes the task that person's, whichever list it is on. One shared
+  "Family" list is enough: every task lands in the right column. The first name
+  will do, and so will the person entity (`@lina` for `person.lina`); a task
+  naming several persons belongs to each of them.
+- **`+20`** sets the points for this task (otherwise `points_per_task`).
+- The card shows just **"Tidy room"**. A name the card doesn't know, an e-mail
+  address or "2+1" stay part of the title.
+- On a **rotation list**, a chore with `@Name` stays with that person; the
+  others keep taking turns.
+- On a **shopping list**, "Milk @Ben" leaves the shopping trip and becomes Ben's
+  own task.
+- A task added in a person's column, on a list others share too, gets their
+  `@Name`, so it lands with them and not with everyone.
+- With the [points ledger](#points-ledger-optional-integration) every person
+  named gets the points; unchecking the task takes them back from all of them.
 
 ### Add tasks, sorting & language
 

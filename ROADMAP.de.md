@@ -92,11 +92,19 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 
 ## Später / Roadmap
 
-- [ ] Einzel-Item einer Person zuweisen (statt „ganzer Einkauf").
+- [x] Einzel-Item einer Person zuweisen (statt „ganzer Einkauf") – mit
+      `title_tags`: „Milch @Ben" wird Bens eigene Aufgabe.
+- [x] **Kurzschrift im Titel** – `title_tags`: „Zimmer aufräumen @Lina +20", in jeder
+      App getippt oder dem Sprachassistenten gesagt, macht die Aufgabe zu Linas und
+      20 Punkte wert; eine gemeinsame Liste reicht für die ganze Familie.
 - [ ] Standort-Erinnerung (Geofence) & Auto-Zuweisung „wer unterwegs ist".
 - [x] Faire Auto-Rotation wiederkehrender Ämtli („reihum") – `rotation`: Schalter
       im Editor, wöchentliche/tägliche Runden aus dem Kalender, Ämtli öffnen sich
       jede Runde neu, Hinweis „nächste Woche: …"; mit Punktekonto geben Ämtli Punkte.
+- [x] **Die Rotation weiß, wer weg ist** – `persons[].away_entity`: Solange sie an
+      ist (Urlaubs-Schalter, Kalender-Eintrag), übernehmen die anderen die Ämtli
+      dieser Person, wer am wenigsten hat zuerst („🤝 statt Ben"). Offen: danach
+      nachholen – braucht ein Gedächtnis (Integration, zusammen mit Ämtli tauschen).
 - [x] **Punktekonto** (optionale
       [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), Phase 1) –
       `points_backend`: Punkte dauerhaft gebucht, einmal pro Aufgabe (bei Ämtli
@@ -108,6 +116,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Statistik** (Integration v0.3.0) – Rangliste für diese Woche/diesen
       Monat (`leaderboard_period`), Serien „⚡ 5" (`show_streak`). Als Nächstes:
       Foto-Beweis.
+- [x] **Fairness-Anzeige** – `show_fairness`: ein Balken mit dem Anteil jeder
+      Person an den Punkten (mit Punktekonto diese Woche/diesen Monat), verglichen
+      mit einem vereinbarten Anteil pro Person (`persons[].share`).
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
       Statistik/Verlauf.

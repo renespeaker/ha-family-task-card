@@ -291,6 +291,18 @@ const SCENES = {
       persons: persons(t, ["lina", "ben", "mom", "dad"]),
     }),
   },
+  fairness: {
+    width: 760,
+    config: (t) => ({
+      title: t.parents,
+      points_backend: true,
+      show_fairness: true,
+      persons: [
+        { ...who(t, "mom", "todo.mom"), share: 50 },
+        { ...who(t, "dad", "todo.dad"), share: 50 },
+      ],
+    }),
+  },
   eisenhower: {
     width: 860,
     config: (t) => ({

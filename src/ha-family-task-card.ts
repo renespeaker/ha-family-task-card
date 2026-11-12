@@ -6,6 +6,7 @@ import { PERSON_PALETTE } from "./shared/person-palette";
 import { assignChores, roundBounds, roundFix, roundIndex, type RotationPeriod } from "./rotation";
 import { runActions, type CelebrateAction, type Vars } from "./celebrate";
 import { listRefs, listsOf, type ListFilter, type ListRef } from "./lists";
+import { nameKeys, parseTags, tagFor, type PersonNames, type TitleTags } from "./tags";
 
 /**
  * Family Task Card — a gamified family task / chore card for Home Assistant.
@@ -33,6 +34,8 @@ import { listRefs, listsOf, type ListFilter, type ListRef } from "./lists";
  * Open tasks can be grouped by due date and filtered (`group_by_due`,
  * `hide_undated`, `show_within`, also per list). For parents there is an
  * Eisenhower view (`eisenhower`): urgent × important instead of columns.
+ * With `title_tags`, a title can say whose task it is and what it is worth:
+ * "Zimmer aufräumen @Lina +20" (see tags.ts).
  */
 
 const CARD_NAME = "Family Task Card";
@@ -50,6 +53,13 @@ const TODO_SET_DUE_DATE = 16; // set a due date (rotation keeps chores in their 
 /* Same person palette as the Family Board Card: one mirrored file, so the same
    person is the same colour on both cards. */
 const FALLBACK_COLORS = PERSON_PALETTE;
+
+/** Fair share: this close to the agreed share (percentage points) counts as kept. */
+const FAIR_SLACK = 5;
+const FAIR_MARK = { ok: "✓", more: "▲", less: "▼" } as const;
+
+/** No shorthand while title_tags is off (never written to). */
+const NO_TAGS: ReadonlyMap<string, TitleTags> = new Map();
 
 /* Lightweight auto-emoji for common chores (matches the board's playful feel). */
 const EMOJI_RULES: Array<[RegExp, string]> = [
@@ -79,6 +89,8 @@ interface PersonConfig {
   lists?: ListRef | ListRef[];
   goal?: number; // optional per-person points goal
   points_entity?: string; // input_number holding this person's SPENT points (reward shop)
+  share?: number; // agreed share of the work in percent (fair-share bar)
+  away_entity?: string; // "on" while away (input_boolean, calendar …): the rotation skips them
 }
 
 /** A reward that can be redeemed in the shop for points. */
@@ -118,6 +130,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   hide_empty?: boolean; // hide persons with no open tasks (and nothing to show)
   due_soon?: number; // mark tasks due within N days as "due soon" (highlight)
   allow_add?: boolean; // show an "add task" field per person (needs a creatable list). default true
+  title_tags?: boolean; // "@Lina" in a title makes it Lina's task, "+20" sets its points. default off
   theme?: "auto" | "dark" | "light"; // force the card's color scheme. default auto (HA theme)
   active_person_entity?: string; // entity whose state names the person to focus (NFC/presence)
   kiosk?: boolean; // wall-tablet mode: idle "who's there?" picker + auto-return
@@ -138,6 +151,8 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   group_by_due?: boolean; // board: group open tasks by due date, later/undated collapsed. default off
   eisenhower?: boolean; // parents' view: urgent/important matrix instead of the board. default off
   urgent_within?: number; // Eisenhower: due within N days (or overdue) counts as urgent. default 2
+  show_fairness?: boolean; // fair-share bar: each person's share of the points. default off
+  fairness_period?: "week" | "month" | "all"; // with the points ledger. default week
   show_streak?: boolean; // "⚡ 5" next to the name: days in a row with a task (points ledger). default off
 }
 
@@ -157,6 +172,13 @@ interface PendingRequest {
   id: string;
   reward: string;
   points: number;
+}
+
+/** Who does a rotating chore this round and next; `covers`: for someone away. */
+interface RotationTurn {
+  now: number;
+  next: number;
+  covers?: number;
 }
 
 /** What the parent PIN confirms: a redemption, or a decision on a request. */
@@ -613,27 +635,63 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   private _rotCache?: {
     items: Record<string, TodoItem[]>;
+    tags: ReadonlyMap<string, TitleTags>;
     sig: string;
-    map: Map<string, { now: number; next: number }>;
+    map: Map<string, RotationTurn>;
   };
 
-  /** "entity|uid" -> person index doing it this round and next round. */
-  private _rotationMap(): Map<string, { now: number; next: number }> {
+  /** Persons (indices) whose away_entity is on right now. */
+  private _away(): Set<number> {
+    const out = new Set<number>();
+    (this._config?.persons ?? []).forEach((p, i) => {
+      const st = p.away_entity ? this.hass?.states[p.away_entity]?.state : undefined;
+      if (st?.toLowerCase() === "on") out.add(i);
+    });
+    return out;
+  }
+
+  /**
+   * "entity|uid" -> who does it this round and next round. A chore of someone
+   * who is away goes to whoever present has the fewest so far (ties take
+   * turns by round); the others keep their own chores.
+   */
+  private _rotationMap(): Map<string, RotationTurn> {
     const lists = this._rotationLists();
     const group = this._rotationGroup();
     const period = this._rotationPeriod();
     const round = roundIndex(new Date(), period);
-    const sig = `${lists.join(",")}|${group.join(",")}|${period}|${round}`;
-    if (this._rotCache && this._rotCache.items === this._items && this._rotCache.sig === sig) {
-      return this._rotCache.map;
-    }
+    const away = this._away();
+    const present = group.filter((i) => !away.has(i));
+    const sig = `${lists.join(",")}|${group.join(",")}|${period}|${round}|${present.join(",")}`;
+    const tags = this._tagMap();
+    const c = this._rotCache;
+    if (c && c.items === this._items && c.tags === tags && c.sig === sig) return c.map;
+    // A chore whose "@" names someone stays theirs; the others take turns.
     const chores = lists.flatMap((entity) =>
-      (this._items[entity] ?? []).map((item) => ({ key: `${entity}|${item.uid}`, item })),
+      (this._items[entity] ?? [])
+        .filter((item) => !this._taggedFor(entity, item))
+        .map((item) => ({ key: `${entity}|${item.uid}`, item: this._shown(entity, item) })),
     );
     const byPos = assignChores(chores, group.length, round);
-    const map = new Map<string, { now: number; next: number }>();
-    for (const [key, a] of byPos) map.set(key, { now: group[a.now], next: group[a.next] });
-    this._rotCache = { items: this._items, sig, map };
+    const map = new Map<string, RotationTurn>();
+    // Nobody there, or everybody: the usual turns.
+    const covering = present.length > 0 && present.length < group.length;
+    const load = new Map<number, number>(present.map((i) => [i, 0]));
+    const orphans: string[] = [];
+    for (const [key, a] of byPos) {
+      const owner = group[a.now];
+      map.set(key, { now: owner, next: group[a.next] });
+      if (covering && away.has(owner)) orphans.push(key);
+      else if (load.has(owner)) load.set(owner, load.get(owner)! + 1);
+    }
+    const order = present.map((_, k) => present[(k + round) % present.length]);
+    for (const key of orphans) {
+      const pick = order.reduce((best, i) => (load.get(i)! < load.get(best)! ? i : best));
+      const turn = map.get(key)!;
+      map.set(key, { ...turn, now: pick, covers: turn.now });
+      load.set(pick, load.get(pick)! + 1);
+    }
+    this._rotCache = { items: this._items, tags, sig, map };
     return map;
   }
 
@@ -643,6 +701,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (this._rotationGroup().length < 2) return undefined;
     const a = this._rotationMap().get(`${owned.entity}|${owned.item.uid}`);
     if (!a) return undefined;
+    if (a.covers !== undefined) {
+      return `🤝 ${this._t("rot_cover")} ${this._personName(persons[a.covers], a.covers)}`;
+    }
     const when = this._t(this._rotationPeriod() === "day" ? "rot_next_day" : "rot_next_week");
     return `🔄 ${when}: ${this._personName(persons[a.next], a.next)}`;
   }
@@ -679,26 +740,137 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     }
   }
 
-  private async _addTask(entity: string, input: HTMLInputElement): Promise<void> {
+  /* ---- shorthand in titles: "Zimmer aufräumen @Lina +20" (title_tags) -- */
+
+  private _tagCache?: {
+    items: Record<string, TodoItem[]>;
+    config: FamilyTaskConfig;
+    hass?: HomeAssistant;
+    names: string;
+    map: Map<string, TitleTags>;
+  };
+
+  /** What each person can be called after "@". */
+  private _personNames(): PersonNames[] {
+    return (this._config?.persons ?? []).map((p) => ({
+      name: p.name,
+      person: p.person,
+      friendly: p.person
+        ? (this.hass?.states[p.person]?.attributes?.friendly_name as string | undefined)
+        : undefined,
+    }));
+  }
+
+  /** The shorthand of every loaded task that has some, by "entity|uid"; empty while off. */
+  private _tagMap(): ReadonlyMap<string, TitleTags> {
+    const cfg = this._config;
+    if (!cfg?.title_tags) return NO_TAGS;
+    const c = this._tagCache;
+    if (c && c.items === this._items && c.config === cfg) {
+      if (c.hass === this.hass) return c.map;
+      if (JSON.stringify(this._personNames()) === c.names) {
+        c.hass = this.hass;
+        return c.map;
+      }
+    }
+    const names = this._personNames();
+    const keys = nameKeys(names);
+    const map = new Map<string, TitleTags>();
+    for (const [entity, items] of Object.entries(this._items)) {
+      for (const item of items) {
+        const tags = parseTags(item.summary, keys);
+        if (tags.title !== item.summary) map.set(`${entity}|${item.uid}`, tags);
+      }
+    }
+    this._tagCache = {
+      items: this._items,
+      config: cfg,
+      hass: this.hass,
+      names: JSON.stringify(names),
+      map,
+    };
+    return map;
+  }
+
+  /** The persons a task's "@" names, or undefined when it names nobody (its list decides). */
+  private _taggedFor(entity: string, item: TodoItem): number[] | undefined {
+    const who = this._tagMap().get(`${entity}|${item.uid}`)?.persons;
+    return who?.length ? who : undefined;
+  }
+
+  /** What a task is worth: its "+N", else points_per_task. */
+  private _pointsOf(entity: string, item: TodoItem): number {
+    return (
+      this._tagMap().get(`${entity}|${item.uid}`)?.points ??
+      this._config?.points_per_task ??
+      DEFAULT_POINTS
+    );
+  }
+
+  /** A task as the card shows it: without its shorthand. */
+  private _shown(entity: string, item: TodoItem): TodoItem {
+    const tags = this._tagMap().get(`${entity}|${item.uid}`);
+    return tags ? { ...item, summary: tags.title } : item;
+  }
+
+  /** Every list the card shows tasks from: the persons' lists and the rotation lists. */
+  private _shownLists(): string[] {
+    const all = new Set<string>();
+    for (const p of this._config?.persons ?? []) for (const e of listsOf(p)) all.add(e);
+    for (const e of this._rotationLists()) all.add(e);
+    return [...all];
+  }
+
+  /** Tasks whose "@" names this person, from any list the card shows. */
+  private _taggedTasks(idx: number): OwnedItem[] {
+    if (!this._config?.title_tags) return [];
+    const out: OwnedItem[] = [];
+    for (const entity of this._shownLists()) {
+      for (const item of this._items[entity] ?? []) {
+        if (this._taggedFor(entity, item)?.includes(idx)) out.push({ entity, item });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * A task typed into a person's column, on a list others share too, gets
+   * "@Name" (title_tags on): so it lands with that person, not with everyone.
+   */
+  private _tagNew(text: string, entity: string, idx: number): string {
+    const cfg = this._config;
+    if (!cfg?.title_tags || idx < 0) return text;
+    const sharing = cfg.persons.filter((p) => this._ownLists(p).includes(entity)).length;
+    if (sharing < 2) return text;
+    const names = this._personNames();
+    if (parseTags(text, nameKeys(names)).persons.length) return text; // says whose it is
+    const tag = tagFor(idx, names, this._personName(cfg.persons[idx], idx));
+    return tag ? `${text} ${tag}` : text;
+  }
+
+  private async _addTask(entity: string, input: HTMLInputElement, idx = -1): Promise<void> {
     if (!this.hass) return;
-    const text = input.value.trim();
-    if (!text) return;
+    const typed = input.value.trim();
+    if (!typed) return;
     input.value = "";
     try {
-      await this.hass.callService("todo", "add_item", { entity_id: entity, item: text });
+      await this.hass.callService("todo", "add_item", {
+        entity_id: entity,
+        item: this._tagNew(typed, entity, idx),
+      });
       this._sig[entity] = ""; // force a refetch so the new item appears
       this._refresh();
     } catch (err) {
-      input.value = text; // restore on failure
+      input.value = typed; // restore on failure
     }
   }
 
   /** Split a person's lists into tasks + shopping trips and tally points. */
   private _personView(p: PersonConfig): PersonView {
     const cfg = this._config!;
-    const pts = cfg.points_per_task ?? DEFAULT_POINTS;
-    const shopPts = cfg.shopping_points ?? pts;
+    const shopPts = cfg.shopping_points ?? cfg.points_per_task ?? DEFAULT_POINTS;
     const shopping = this._shoppingSet();
+    const idx = cfg.persons.indexOf(p);
 
     const rawOpen: OwnedItem[] = [];
     const tasksDone: OwnedItem[] = [];
@@ -706,7 +878,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     let earned = 0;
 
     for (const entity of this._ownLists(p)) {
-      const items: OwnedItem[] = (this._items[entity] ?? []).map((item) => ({ entity, item }));
+      // A task whose "@" names someone is theirs, wherever it is (see below).
+      const items: OwnedItem[] = (this._items[entity] ?? [])
+        .filter((item) => !this._taggedFor(entity, item))
+        .map((item) => ({ entity, item: this._shown(entity, item) }));
       if (shopping.has(entity)) {
         const open = items.filter((o) => o.item.status !== "completed");
         const done = items.filter((o) => o.item.status === "completed");
@@ -717,22 +892,34 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       } else {
         const filter = this._listFilter(p, entity);
         for (const o of items) {
-          if (o.item.status === "completed") tasksDone.push(o);
-          else if (this._visible(o.item, filter)) rawOpen.push(o);
+          if (o.item.status === "completed") {
+            tasksDone.push(o);
+            earned += this._pointsOf(entity, o.item);
+          } else if (this._visible(o.item, filter)) rawOpen.push(o);
         }
       }
     }
-    earned += tasksDone.length * pts;
-    // Rotation chores this person has this round. They earn no points: they
-    // reopen every round, and points that vanish each Monday would only hurt.
+    // Rotation chores earn no live points: they reopen every round, and points
+    // that vanish each Monday would only hurt. The points ledger keeps them.
     const rot = this._rotationLists();
+    // Tasks named for this person ("@Lina") from any list the card shows; an
+    // item of a shopping list leaves the trip and becomes a task of its own.
+    for (const { entity, item } of this._taggedTasks(idx)) {
+      const o = { entity, item: this._shown(entity, item) };
+      const rotating = rot.includes(entity);
+      if (item.status === "completed") {
+        tasksDone.push(o);
+        if (!rotating) earned += this._pointsOf(entity, item);
+      } else if (rotating || this._visible(item, this._listFilter(p, entity))) rawOpen.push(o);
+    }
+    // Rotation chores this person has this round.
     if (rot.length) {
-      const idx = this._config!.persons.indexOf(p);
       const map = this._rotationMap();
       for (const entity of rot) {
         for (const item of this._items[entity] ?? []) {
           if (map.get(`${entity}|${item.uid}`)?.now !== idx) continue;
-          (item.status === "completed" ? tasksDone : rawOpen).push({ entity, item });
+          const o = { entity, item: this._shown(entity, item) };
+          (item.status === "completed" ? tasksDone : rawOpen).push(o);
         }
       }
     }
@@ -747,7 +934,6 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     };
     if (this._backendOn()) {
       // Points live in the ledger: kept when lists are cleared, chores count too.
-      const idx = this._config!.persons.indexOf(p);
       const l = this._ledger(this._personKey(p, idx));
       const booked = l?.earned ?? 0;
       const spent = l?.redeemed ?? 0;
@@ -814,6 +1000,19 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return `${entity}|${item.uid}|${roundBounds(roundIndex(new Date(), period), period).end}`;
   }
 
+  /**
+   * The ledger keys of a checked-off task: one per person it is for. A task
+   * named for several persons ("@Mama @Papa") pays each of them; the first
+   * keeps the plain key.
+   */
+  private _awardKeys(entity: string, item: TodoItem): string[] {
+    const base = this._awardKey(entity, item);
+    const who = this._taggedFor(entity, item);
+    if (!who || who.length < 2) return [base];
+    const persons = this._config!.persons;
+    return who.map((i, n) => (n === 0 ? base : `${base}|${this._personKey(persons[i], i)}`));
+  }
+
   /** Keys already sent this session; the integration ignores repeats anyway. */
   private _reported = new Set<string>();
 
@@ -839,28 +1038,53 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   private _reportCompletions(): void {
     if (!this._backendOn()) return;
     const cfg = this._config!;
-    const pts = cfg.points_per_task ?? DEFAULT_POINTS;
     const shopping = this._shoppingSet();
+    const rot = this._rotationLists();
+    const period = this._rotationPeriod();
+    const bounds = roundBounds(roundIndex(new Date(), period), period);
+    const title = (entity: string, item: TodoItem) => this._shown(entity, item).summary;
     cfg.persons.forEach((p, idx) => {
       for (const entity of this._ownLists(p)) {
         if (shopping.has(entity)) continue; // trips are booked when completed in the card
         for (const item of this._items[entity] ?? []) {
-          if (item.status === "completed")
-            this._award(`${entity}|${item.uid}`, idx, pts, item.summary);
+          if (item.status !== "completed" || this._taggedFor(entity, item)) continue;
+          this._award(
+            `${entity}|${item.uid}`,
+            idx,
+            this._pointsOf(entity, item),
+            title(entity, item),
+          );
         }
       }
     });
-    const rot = this._rotationLists();
+    // A task named for persons ("@Lina") pays each of them, from any list; a
+    // rotating one only this round: last round's are reopened, not paid again.
+    if (cfg.title_tags) {
+      for (const entity of this._shownLists()) {
+        for (const item of this._items[entity] ?? []) {
+          const who = this._taggedFor(entity, item);
+          if (!who || item.status !== "completed") continue;
+          if (rot.includes(entity) && roundFix(item, bounds)) continue;
+          const keys = this._awardKeys(entity, item);
+          const pts = this._pointsOf(entity, item);
+          who.forEach((i, n) => this._award(keys[n], i, pts, title(entity, item)));
+        }
+      }
+    }
     if (!rot.length) return;
-    const period = this._rotationPeriod();
-    const bounds = roundBounds(roundIndex(new Date(), period), period);
     const map = this._rotationMap();
     for (const entity of rot) {
       for (const item of this._items[entity] ?? []) {
         // Only chores of this round: last round's are reopened, not credited again.
         if (item.status !== "completed" || roundFix(item, bounds)) continue;
         const a = map.get(`${entity}|${item.uid}`);
-        if (a) this._award(this._awardKey(entity, item), a.now, pts, item.summary);
+        if (a)
+          this._award(
+            this._awardKey(entity, item),
+            a.now,
+            this._pointsOf(entity, item),
+            title(entity, item),
+          );
       }
     }
   }
@@ -1128,9 +1352,10 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       });
       if (status === "needs_action" && this._backendOn()) {
         // Unchecked in the card: take the points back (a reopened chore keeps them).
-        const key = this._awardKey(entityId, item);
-        this._reported.delete(key);
-        await this.hass.callService("family_tasks", "revoke", { key });
+        for (const key of this._awardKeys(entityId, item)) {
+          this._reported.delete(key);
+          await this.hass.callService("family_tasks", "revoke", { key });
+        }
       }
       if (status === "completed" && !silent) {
         this._fireCelebrate("task", { name: this._ownerName(entityId, item), task: item.summary });
@@ -1176,7 +1401,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </div>
 
         <div class="board">${visible.map((c) => this._column(c.p, c.idx, c.view))}</div>
-        ${this._leaderboard(columns)}
+        ${this._leaderboard(columns)} ${this._fairness(columns)}
       </ha-card>
     `;
   }
@@ -1194,8 +1419,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     type Entry = { o: DecoratedItem; idx: number; who: string[]; important: boolean };
     // A list several persons share shows each task once, with all their names.
     const tasks = new Map<string, Entry>();
-    cfg.persons.forEach((p, idx) => {
-      for (const o of this._personView(p).tasksOpen) {
+    const columns = cfg.persons.map((p, idx) => ({ p, idx, view: this._personView(p) }));
+    columns.forEach(({ p, idx, view }) => {
+      for (const o of view.tasksOpen) {
         const key = `${o.entity}|${o.item.uid}`;
         const name = this._personName(p, idx);
         const important = this._listImportant(p, o.entity);
@@ -1266,6 +1492,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
             })}
           </div>
         </div>
+        ${this._fairness(columns)}
       </ha-card>
     `;
   }
@@ -1308,6 +1535,90 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         )}
       </div>
     `;
+  }
+
+  /**
+   * Fair share: what part of the work each person did, as one bar in their
+   * colours – points, so a task worth more ("+30") counts for more. With an
+   * agreed share per person (persons[].share) it says whether that holds.
+   */
+  private _fairness(columns: { p: PersonConfig; idx: number; view: PersonView }[]) {
+    if (!this._config?.show_fairness || columns.length < 2) return nothing;
+    // This week / month needs the points ledger; without it, count what the lists hold.
+    const period = this._backendOn() ? (this._config.fairness_period ?? "week") : "all";
+    const score = (v: PersonView): number =>
+      Math.max(
+        0,
+        period === "week"
+          ? (v.weekPoints ?? 0)
+          : period === "month"
+            ? (v.monthPoints ?? 0)
+            : v.earned,
+      );
+    const total = columns.reduce((sum, c) => sum + score(c.view), 0);
+    const fmt = new Intl.NumberFormat(this.hass?.locale?.language || "de", { style: "percent" });
+    const rows = columns.map((c) => {
+      const share = total > 0 ? score(c.view) / total : 0;
+      const target = typeof c.p.share === "number" && c.p.share >= 0 ? c.p.share : undefined;
+      // within 5 percentage points counts as "as agreed"
+      const diff = target === undefined ? 0 : Math.round(share * 100) - target;
+      const mark: keyof typeof FAIR_MARK =
+        Math.abs(diff) <= FAIR_SLACK ? "ok" : diff > 0 ? "more" : "less";
+      return { ...c, name: this._personName(c.p, c.idx), share, target, mark };
+    });
+    return html`
+      <div class="fairness">
+        <div class="lb-title">
+          ${this._t("fairness")}${
+            period === "all"
+              ? nothing
+              : html` · ${this._t(period === "week" ? "lb_week" : "lb_month")}`
+          }
+        </div>
+        ${
+          total > 0
+            ? html`<div class="fair-bar">
+                  ${rows.map((r) =>
+                    r.share > 0
+                      ? html`<div
+                          class="fair-seg"
+                          style="flex:${r.share};background:${personColor(r.p, r.idx)}"
+                          title="${r.name} ${fmt.format(r.share)}"
+                        ></div>`
+                      : nothing,
+                  )}
+                </div>
+                <div class="fair-legend">
+                  ${rows.map(
+                    (r) => html`
+                      <span class="fair-item">
+                        <span class="lb-dot" style="background:${personColor(r.p, r.idx)}"></span>
+                        <span class="fair-name">${r.name}</span>
+                        <span class="fair-pct">${fmt.format(r.share)}</span>
+                        ${
+                          r.target === undefined
+                            ? nothing
+                            : html`<span
+                                class="fair-target ${r.mark}"
+                                title=${this._t(`fair_${r.mark}`)}
+                                >${this._t("fair_target")} ${fmt.format(r.target / 100)}
+                                ${FAIR_MARK[r.mark]}</span
+                              >`
+                        }
+                      </span>
+                    `,
+                  )}
+                </div>`
+            : html`<div class="fair-none">${this._t("fair_none")}</div>`
+        }
+      </div>
+    `;
+  }
+
+  /** "✈️ away" while a person's away_entity is on. */
+  private _awayChip(idx: number) {
+    if (!this._away().has(idx)) return nothing;
+    return html`<span class="lvl away">${this._t("away")}</span>`;
   }
 
   /** "⚡ 5": days in a row with a task, from two days on (points ledger only). */
@@ -1512,7 +1823,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   private _kidTask(owned: DecoratedItem, color: string) {
     const { entity, item, flag, label } = owned;
-    const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
+    const emoji = flag === "urgent" ? "⚠️" : this._emoji(entity, item);
     const editable = this._canToggle(entity);
     const sub = label ?? this._rotationHint(owned);
     return html`
@@ -1569,6 +1880,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   /** The persons a task belongs to (a rotating chore: whoever does it this round). */
   private _ownersOf(entity: string, item: TodoItem): number[] {
+    const tagged = this._taggedFor(entity, item);
+    if (tagged) return tagged;
     if (this._rotationLists().includes(entity)) {
       const a = this._rotationMap().get(`${entity}|${item.uid}`);
       return a ? [a.now] : [];
@@ -1580,6 +1893,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   /** Name of the person a task belongs to (for {name}); rotation chores go by turn. */
   private _ownerName(entity: string, item?: TodoItem): string | undefined {
     const persons = this._config?.persons ?? [];
+    const tagged = item ? this._taggedFor(entity, item) : undefined;
+    if (tagged) return tagged.map((i) => this._personName(persons[i], i)).join(" & ");
     if (item && this._rotationLists().includes(entity)) {
       const a = this._rotationMap().get(`${entity}|${item.uid}`);
       return a ? this._personName(persons[a.now], a.now) : undefined;
@@ -1749,7 +2064,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                     >`
                   : nothing
               }
-              ${this._streakChip(view)}
+              ${this._streakChip(view)}${this._awayChip(idx)}
             </div>
             <div class="pstatus">
               ${view.openCount} ${this._t("open")} · ${view.hasWallet ? "💰" : "⭐"} ${points}
@@ -1790,7 +2105,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                   type="text"
                   placeholder=${this._t("add_task")}
                   @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === "Enter") this._addTask(addEntity, e.target as HTMLInputElement);
+                    if (e.key === "Enter")
+                      this._addTask(addEntity, e.target as HTMLInputElement, idx);
                   }}
                 />
               </div>`
@@ -2002,7 +2318,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     matrix?: { title: string; who: string },
   ) {
     const { entity, item } = owned;
-    const emoji = flag === "urgent" ? "⚠️" : emojiFor(item.summary);
+    const emoji = flag === "urgent" ? "⚠️" : this._emoji(entity, item);
     const editable = this._canToggle(entity);
     const rotHint = completed ? undefined : this._rotationHint(owned);
     return html`
@@ -2045,6 +2361,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </div>
       </div>
     `;
+  }
+
+  /** A shopping item named for one person ("Milch @Ben") is still shopping. */
+  private _emoji(entity: string, item: TodoItem): string {
+    return this._shoppingSet().has(entity) ? "🛒" : emojiFor(item.summary);
   }
 
   private _formatDue(raw: string): string {
@@ -2838,12 +3159,67 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       border-radius: 50%;
       flex: none;
     }
+    .fairness {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--primary-color) 5%, var(--card-background-color, #fff));
+      border: 1px solid var(--divider-color);
+    }
+    .leaderboard + .fairness {
+      margin-top: 10px;
+    }
+    .fair-bar {
+      display: flex;
+      gap: 2px;
+      height: 14px;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .fair-seg {
+      min-width: 4px;
+    }
+    .fair-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      margin-top: 10px;
+      font-size: 0.92em;
+    }
+    .fair-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fair-name {
+      font-weight: 600;
+    }
+    .fair-pct {
+      font-weight: 700;
+    }
+    .fair-target {
+      color: var(--secondary-text-color);
+      font-size: 0.92em;
+    }
+    .fair-target.more,
+    .fair-target.less {
+      color: var(--warning-color, #f59e0b);
+      font-weight: 600;
+    }
+    .fair-none {
+      color: var(--secondary-text-color);
+      font-size: 0.92em;
+    }
     .lb-name {
       flex: 1 1 auto;
       font-weight: 600;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .lvl.away {
+      background: color-mix(in srgb, var(--secondary-text-color) 14%, transparent);
+      color: var(--secondary-text-color);
     }
     .lvl.streak {
       background: color-mix(in srgb, #ff7043 16%, transparent);

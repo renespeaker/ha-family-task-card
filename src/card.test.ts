@@ -1441,6 +1441,7 @@ describe("visual editor covers everything", () => {
       kiosk: true,
       rotation: true,
       show_leaderboard: true,
+      show_fairness: true,
       points_backend: true,
     });
     const menu = new Set([
@@ -1451,7 +1452,7 @@ describe("visual editor covers everything", () => {
       "rewards",
       "persons",
       // persons[].x: the person form, plus the colour swatches
-      ...["name", "person", "lists", "goal", "points_entity", "color"].map((k) => `persons[].${k}`),
+      ...[...names(call("_personSchema") as any[]), "color"].map((k) => `persons[].${k}`),
     ]);
     const missing = documented.filter((k) => !menu.has(k));
     expect(missing).toEqual([]);
@@ -1562,6 +1563,27 @@ describe("visual editor covers everything", () => {
     );
     expect(out.last!.auto_return).toBeUndefined(); // emptied: back to the default
     expect(out.last!.shopping_points).toBeUndefined();
+  });
+
+  it("keeps an agreed share of 0 % and drops an emptied one", async () => {
+    const { call, out } = await editor({ persons: [{ name: "Ben", share: 20 }] });
+    call("_personChanged", 0, value({ name: "Ben", share: 0 }));
+    expect(out.last!.persons[0]).toEqual({ name: "Ben", share: 0 });
+    call("_personChanged", 0, value({ name: "Ben", share: undefined }));
+    expect(out.last!.persons[0]).toEqual({ name: "Ben" });
+  });
+
+  it("offers the fair-share period only with the bar on, and stores week as default", async () => {
+    const names = (schema: any[]): string[] =>
+      schema.flatMap((s) => (Array.isArray(s.schema) ? names(s.schema) : [s.name]));
+    const off = await editor({});
+    expect(names(off.call("_schema") as any[])).not.toContain("fairness_period");
+    const { ed, call, out } = await editor({ show_fairness: true, fairness_period: "month" });
+    expect(names(call("_schema") as any[])).toContain("fairness_period");
+    const data = ed["_settingsData"] as Record<string, unknown>;
+    call("_settingsChanged", value({ ...data, fairness_period: "week" }));
+    expect(out.last!.fairness_period).toBeUndefined();
+    expect(out.last!.show_fairness).toBe(true);
   });
 
   it("lets a list differ from the card both ways", async () => {
@@ -1718,5 +1740,416 @@ describe("celebrate actions from the HA action editor", () => {
     await phone.settle();
     expect(phone.text()).not.toContain("Müll");
     expect(tts(phone.services)).toEqual([]); // announced once, not on every screen
+  });
+});
+
+describe("shorthand in titles (title_tags)", () => {
+  const FT = { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } };
+  const lina = { name: "Lina", lists: ["todo.familie", "todo.lina"] };
+  const ben = { name: "Ben", lists: ["todo.familie", "todo.ben"] };
+  const family = (familie: unknown[], own: { lina?: unknown[]; ben?: unknown[] } = {}) => ({
+    lists: {
+      "todo.familie": { items: familie },
+      "todo.lina": { items: own.lina ?? [] },
+      "todo.ben": { items: own.ben ?? [] },
+    },
+  });
+  const columns = (root: ShadowRoot) =>
+    [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => (n.textContent ?? "").trim()),
+    );
+  const calls = (services: ServiceCall[], name: string) =>
+    services.filter((s) => s.domain === "family_tasks" && s.service === name).map((s) => s.data);
+
+  it("changes nothing while switched off", async () => {
+    const { root } = await mount(
+      { persons: [lina, ben] },
+      family([task("f1", "Zimmer @Lina +20")]),
+    );
+    expect(columns(root)).toEqual([["Zimmer @Lina +20"], ["Zimmer @Lina +20"]]);
+  });
+
+  it("gives a task of a shared list to the person it names, without the tags", async () => {
+    const { root } = await mount(
+      { persons: [lina, ben], title_tags: true },
+      family([task("f1", "Zimmer aufräumen @Lina +20"), task("f2", "Tisch decken")]),
+    );
+    expect(columns(root)).toEqual([["Tisch decken", "Zimmer aufräumen"], ["Tisch decken"]]);
+  });
+
+  it("moves a task from one person's list to the person it names", async () => {
+    const { root } = await mount(
+      { persons: [lina, ben], title_tags: true },
+      family([], { ben: [task("b1", "Hausaufgaben zeigen @lina")] }),
+    );
+    expect(columns(root)).toEqual([["Hausaufgaben zeigen"], []]);
+  });
+
+  it("counts the points a title gives", async () => {
+    const { texts } = await mount(
+      { persons: [{ name: "Lina", lists: "todo.lina" }], title_tags: true },
+      { lists: { "todo.lina": { items: [done("l1", "Bad putzen +30"), done("l2", "Bett")] } } },
+    );
+    expect(texts(".col-meta").join(" ")).toContain("⭐ 40"); // 30 + the usual 10
+  });
+
+  it("books the points for everyone named, with the clean title", async () => {
+    const { services, el, settle } = await mount(
+      { persons: [lina, ben], title_tags: true, points_backend: true },
+      {
+        ...family([done("f1", "Garage @Lina @Ben +40"), done("f2", "Zimmer @Ben")]),
+        services: FT,
+      },
+    );
+    (el as unknown as { requestUpdate(): void }).requestUpdate();
+    await settle();
+    expect(calls(services, "award")).toEqual([
+      { key: "todo.familie|f1", person: "Lina", points: 40, task: "Garage" },
+      { key: "todo.familie|f1|Ben", person: "Ben", points: 40, task: "Garage" },
+      { key: "todo.familie|f2", person: "Ben", points: 10, task: "Zimmer" },
+    ]);
+  });
+
+  it("takes the points back from everyone it was for", async () => {
+    const { services, all, settle } = await mount(
+      { persons: [lina, ben], title_tags: true, points_backend: true, show_completed: true },
+      { ...family([done("f1", "Garage @Lina @Ben +40")]), services: FT },
+    );
+    (all(".tile.done")[0] as HTMLElement).click();
+    await settle();
+    expect(calls(services, "revoke")).toEqual([
+      { key: "todo.familie|f1" },
+      { key: "todo.familie|f1|Ben" },
+    ]);
+  });
+
+  it("keeps a rotating chore with the person it names, the others take turns", async () => {
+    const config = {
+      persons: [{ name: "Lina" }, { name: "Ben" }],
+      title_tags: true,
+      rotation: true,
+      rotation_lists: "todo.aemtli",
+    };
+    const chores = {
+      lists: {
+        "todo.aemtli": {
+          items: [
+            task("c1", "Müll", { due: "2026-10-11" }),
+            task("c2", "Spülmaschine @Ben", { due: "2026-10-11" }),
+            task("c3", "Bad", { due: "2026-10-11" }),
+          ],
+          features: CREATE | UPDATE | 16,
+        },
+      },
+    };
+    const week1 = await mount(config, { ...chores, now: "2026-10-07T10:00:00" });
+    const week2 = await mount(config, { ...chores, now: "2026-10-14T10:00:00" });
+    for (const { root } of [week1, week2]) {
+      const [l, b] = columns(root);
+      expect(b).toContain("Spülmaschine");
+      expect(l).not.toContain("Spülmaschine");
+      expect(l).toHaveLength(1); // Müll or Bad
+    }
+    expect(columns(week1.root)[0]).not.toEqual(columns(week2.root)[0]); // they swapped
+    const fixed = week1.all(".tile").find((t) => t.textContent!.includes("Spülmaschine"))!;
+    expect(fixed.textContent).not.toContain("🔄");
+  });
+
+  it("takes a shopping item named for someone out of the trip", async () => {
+    const { root, texts } = await mount(
+      {
+        persons: [
+          { name: "Anna", lists: ["todo.anna", "todo.bring"] },
+          { name: "Ben", lists: "todo.ben" },
+        ],
+        shopping_lists: "todo.bring",
+        title_tags: true,
+      },
+      {
+        lists: {
+          "todo.anna": { items: [] },
+          "todo.ben": { items: [] },
+          "todo.bring": {
+            items: [task("s1", "Milch @Ben"), task("s2", "Brot"), task("s3", "Eier")],
+          },
+        },
+      },
+    );
+    expect(texts(".tile.shopping .tile-due")).toEqual(["2 Artikel"]);
+    const [, benCol] = [...root.querySelectorAll(".col")];
+    expect(benCol.querySelector(".tile-title")!.textContent!.trim()).toBe("Milch");
+    expect(benCol.querySelector(".tile-emoji")!.textContent).toBe("🛒");
+  });
+
+  it("names the person when a task is added on a list others share", async () => {
+    const add = async (config: Partial<FamilyTaskConfig>, lists: MountOpts["lists"]) => {
+      const m = await mount(config, { lists });
+      const input = m.all(".add-input")[0] as HTMLInputElement;
+      input.value = "Zimmer";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+      await m.settle();
+      return m.services.find((s) => s.service === "add_item")?.data;
+    };
+    const shared = family([]).lists;
+    expect(await add({ persons: [lina, ben], title_tags: true }, shared)).toEqual({
+      entity_id: "todo.familie",
+      item: "Zimmer @Lina",
+    });
+    expect(await add({ persons: [lina, ben] }, shared)).toMatchObject({ item: "Zimmer" });
+    const own = { "todo.lina": { items: [] } };
+    expect(
+      await add({ persons: [{ name: "Lina", lists: "todo.lina" }], title_tags: true }, own),
+    ).toMatchObject({ item: "Zimmer" });
+  });
+
+  it("shows the clean title in kid mode and names the person in the Eisenhower view", async () => {
+    const kid = await mount(
+      { persons: [lina], kid_mode: true, title_tags: true },
+      family([task("f1", "Zimmer aufräumen @Lina +20")]),
+    );
+    expect(kid.texts(".kid-task-title")).toEqual(["Zimmer aufräumen"]);
+    const matrix = await mount(
+      { persons: [lina, ben], eisenhower: true, title_tags: true },
+      family([task("f1", "!Steuer @Ben")]),
+    );
+    const tile = matrix.root.querySelector(".quad.plan .tile")!;
+    expect(tile.querySelector(".tile-title")!.textContent!.trim()).toBe("Steuer");
+    expect(tile.querySelector(".tile-due")!.textContent!.trim()).toBe("Ben");
+  });
+});
+
+describe("shorthand in titles: celebrate", () => {
+  it("names the person a task is for in celebrate actions", async () => {
+    const { all, services, settle } = await mount(
+      {
+        persons: [
+          { name: "Lina", lists: "todo.familie" },
+          { name: "Ben", lists: "todo.familie" },
+        ],
+        title_tags: true,
+        celebrate: {
+          on: "task",
+          actions: [{ action: "tts.speak", data: { message: "{name}: {task}" } }],
+        },
+      },
+      { lists: { "todo.familie": { items: [task("f1", "Zimmer aufräumen @Ben +20")] } } },
+    );
+    (all(".tile")[0] as HTMLElement).click();
+    await settle();
+    expect(services.find((s) => s.domain === "tts")?.data).toEqual({
+      message: "Ben: Zimmer aufräumen",
+    });
+  });
+});
+
+describe("fair share (show_fairness)", () => {
+  const mama = { name: "Mama", person: "person.mama", lists: "todo.mama" };
+  const papa = { name: "Papa", person: "person.papa", lists: "todo.papa" };
+  const lists = (mamaDone: number, papaItems: unknown[] = [done("p1", "Müll")]) => ({
+    "todo.mama": {
+      items: Array.from({ length: mamaDone }, (_, i) => done(`m${i}`, `Aufgabe ${i}`)),
+    },
+    "todo.papa": { items: papaItems },
+  });
+  const sensor = (who: string, week: number, month: number) => ({
+    [`sensor.${who}_points`]: {
+      entity_id: `sensor.${who}_points`,
+      state: "0",
+      last_changed: "x",
+      attributes: { person: `person.${who}`, earned: 500, week_points: week, month_points: month },
+    },
+  });
+  const FT = { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } };
+
+  it("stays off unless switched on", async () => {
+    const { all } = await mount({ persons: [mama, papa] }, { lists: lists(3) });
+    expect(all(".fairness")).toHaveLength(0);
+  });
+
+  it("shows each person's share of the points, live from the lists", async () => {
+    const { texts, all } = await mount(
+      { persons: [mama, papa], show_fairness: true },
+      { lists: lists(3) },
+    );
+    expect(texts(".fair-item")).toEqual(["Mama 75 %", "Papa 25 %"]);
+    const widths = all(".fair-seg").map((s) => s.getAttribute("style")!.split(";")[0]);
+    expect(widths).toEqual(["flex:0.75", "flex:0.25"]);
+  });
+
+  it("counts a task by what it is worth", async () => {
+    const { texts } = await mount(
+      { persons: [mama, papa], show_fairness: true, title_tags: true },
+      { lists: lists(3, [done("p1", "Garage ausmisten +30")]) },
+    );
+    expect(texts(".fair-item")).toEqual(["Mama 50 %", "Papa 50 %"]);
+  });
+
+  it("takes this week's points from the ledger, or this month's", async () => {
+    const opts = {
+      lists: lists(0, []),
+      services: FT,
+      states: { ...sensor("mama", 30, 100), ...sensor("papa", 10, 300) },
+    };
+    const week = await mount(
+      { persons: [mama, papa], show_fairness: true, points_backend: true },
+      opts,
+    );
+    expect(week.texts(".fair-item")).toEqual(["Mama 75 %", "Papa 25 %"]);
+    expect(week.texts(".fairness .lb-title")[0]).toContain("diese Woche");
+    const month = await mount(
+      {
+        persons: [mama, papa],
+        show_fairness: true,
+        points_backend: true,
+        fairness_period: "month",
+      },
+      opts,
+    );
+    expect(month.texts(".fair-item")).toEqual(["Mama 25 %", "Papa 75 %"]);
+    expect(month.texts(".fairness .lb-title")[0]).toContain("diesen Monat");
+  });
+
+  it("compares with the share agreed for each person", async () => {
+    const agreed = [
+      { ...mama, share: 50 },
+      { ...papa, share: 50 },
+    ];
+    const off = await mount({ persons: agreed, show_fairness: true }, { lists: lists(3) });
+    expect(off.texts(".fair-target")).toEqual(["Soll 50 % ▲", "Soll 50 % ▼"]);
+    const kept = await mount(
+      {
+        persons: [
+          { ...mama, share: 55 },
+          { ...papa, share: 45 },
+        ],
+        show_fairness: true,
+      },
+      { lists: lists(1) },
+    );
+    expect(kept.texts(".fair-target")).toEqual(["Soll 55 % ✓", "Soll 45 % ✓"]); // 50/50 is close
+  });
+
+  it("says so when nothing is done yet", async () => {
+    const { all, texts } = await mount(
+      { persons: [mama, papa], show_fairness: true },
+      { lists: lists(0, []) },
+    );
+    expect(all(".fair-bar")).toHaveLength(0);
+    expect(texts(".fair-none")).toEqual(["Noch nichts erledigt"]);
+  });
+
+  it("needs two persons, and shows under the Eisenhower view too", async () => {
+    const single = await mount({ persons: [mama], show_fairness: true }, { lists: lists(3) });
+    expect(single.all(".fairness")).toHaveLength(0);
+    const matrix = await mount(
+      { persons: [mama, papa], show_fairness: true, eisenhower: true },
+      { lists: lists(3) },
+    );
+    expect(matrix.texts(".fair-item")).toEqual(["Mama 75 %", "Papa 25 %"]);
+  });
+});
+
+describe("rotation: who is away", () => {
+  const ROT = CREATE | UPDATE | 16;
+  const kids = ["Lina", "Ben", "Mia"].map((name) => ({
+    name,
+    away_entity: `input_boolean.${name.toLowerCase()}_weg`,
+  }));
+  const config = { persons: kids, rotation: true, rotation_lists: "todo.aemtli" };
+  const chores = ["Bad", "Fenster", "Küche", "Müll", "Spülen", "Wäsche"].map((s, i) =>
+    task(`c${i}`, s, { due: "2026-10-11" }),
+  );
+  const lists = { "todo.aemtli": { items: chores, features: ROT } };
+  const away = (who: Record<string, "on" | "off">) =>
+    Object.fromEntries(
+      Object.entries(who).map(([k, v]) => [`input_boolean.${k}_weg`, { state: v, attributes: {} }]),
+    );
+  const columns = (root: ShadowRoot) =>
+    [...root.querySelectorAll(".col")].map((c) =>
+      [...c.querySelectorAll(".tile-title")].map((n) => (n.textContent ?? "").trim()),
+    );
+  const now = "2026-10-07T10:00:00";
+
+  it("gives the chores of someone away to the others, who keep their own", async () => {
+    const usual = columns((await mount(config, { lists, now })).root);
+    expect(usual.map((c) => c.length)).toEqual([2, 2, 2]);
+    const [lina, ben, mia] = usual;
+    const [lina2, ben2, mia2] = columns(
+      (await mount(config, { lists, now, states: away({ ben: "on" }) })).root,
+    );
+    expect(ben2).toEqual([]);
+    expect(lina2).toEqual(expect.arrayContaining(lina));
+    expect(mia2).toEqual(expect.arrayContaining(mia));
+    expect([lina2.length, mia2.length]).toEqual([3, 3]); // shared out evenly
+    expect([...lina2, ...mia2].sort()).toEqual([...lina, ...ben, ...mia].sort());
+  });
+
+  it("follows the switch while the card is open", async () => {
+    const m = await mount(config, { lists, now, states: away({ ben: "off" }) });
+    expect(columns(m.root)[1]).toHaveLength(2);
+    update(m.el, { "input_boolean.ben_weg": { state: "on" } });
+    await m.settle();
+    expect(columns(m.root)[1]).toEqual([]);
+    update(m.el, { "input_boolean.ben_weg": { state: "off" } });
+    await m.settle();
+    expect(columns(m.root)[1]).toHaveLength(2);
+  });
+
+  it("says whose chore it is and who is away", async () => {
+    const { text, texts } = await mount(config, { lists, now, states: away({ ben: "on" }) });
+    expect(text()).toContain("🤝 statt Ben");
+    expect(texts(".col-head")[1]).toContain("✈️ weg");
+    expect(texts(".col-head")[0]).not.toContain("✈️");
+  });
+
+  it("takes the usual turns when nobody or everybody is away", async () => {
+    const usual = columns((await mount(config, { lists, now })).root);
+    const off = await mount(config, { lists, now, states: away({ lina: "off", ben: "off" }) });
+    expect(columns(off.root)).toEqual(usual);
+    const all = await mount(config, {
+      lists,
+      now,
+      states: away({ lina: "on", ben: "on", mia: "on" }),
+    });
+    expect(columns(all.root)).toEqual(usual);
+  });
+
+  it("pays whoever covered", async () => {
+    const { services } = await mount(
+      { ...config, persons: kids.slice(0, 2), points_backend: true },
+      {
+        lists: {
+          "todo.aemtli": {
+            items: [task("c1", "Müll", { status: "completed", due: "2026-10-11" })],
+            features: ROT,
+          },
+        },
+        services: { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } },
+        now,
+        states: away({ lina: "on" }),
+      },
+    );
+    const awards = services.filter((s) => s.service === "award").map((s) => s.data);
+    expect(awards).toEqual([
+      { key: "todo.aemtli|c1|2026-10-11", person: "Ben", points: 10, task: "Müll" },
+    ]);
+  });
+
+  it("asks for the away switch only with the rotation on", async () => {
+    await import("./editor");
+    const names = async (config: Record<string, unknown>) => {
+      const ed = document.createElement("family-task-card-editor") as HTMLElement & {
+        setConfig(c: unknown): void;
+        hass: unknown;
+        _personSchema(): Array<{ name: string }>;
+      };
+      ed.hass = { locale: { language: "de" }, states: {} };
+      ed.setConfig({ type: "custom:family-task-card", persons: [], ...config });
+      return ed._personSchema().map((s) => s.name);
+    };
+    expect(await names({})).not.toContain("away_entity");
+    expect(await names({ rotation: true })).toContain("away_entity");
+    expect(await names({})).not.toContain("share");
+    expect(await names({ show_fairness: true })).toContain("share");
   });
 });
