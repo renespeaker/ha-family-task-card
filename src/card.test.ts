@@ -2153,3 +2153,227 @@ describe("rotation: who is away", () => {
     expect(await names({ show_fairness: true })).toContain("share");
   });
 });
+
+describe("handing chores over (chore_swap)", () => {
+  const SWAP = {
+    family_tasks: {
+      award: {},
+      revoke: {},
+      redeem: {},
+      adjust: {},
+      offer_chore: {},
+      answer_offer: {},
+    },
+  };
+  const persons = [
+    { name: "Lina", person: "person.lina" },
+    { name: "Ben", person: "person.ben" },
+  ];
+  const config = {
+    persons,
+    rotation: true,
+    rotation_lists: "todo.aemtli",
+    points_backend: true,
+    chore_swap: true,
+  };
+  const now = "2026-10-07T10:00:00"; // the round runs to Sunday 11 Oct
+  const chore = (status = "needs_action") => ({
+    "todo.aemtli": {
+      items: [task("c1", "Müll", { status, due: "2026-10-11" })],
+      features: CREATE | UPDATE | 16,
+    },
+  });
+  const ledger = (who: string, extra: Record<string, unknown> = {}) => ({
+    [`sensor.${who}_points`]: {
+      entity_id: `sensor.${who}_points`,
+      state: "0",
+      last_changed: "x",
+      attributes: { person: `person.${who}`, earned: 30, redeemed: 0, reserved: 0, ...extra },
+    },
+  });
+  const offer = (extra: Record<string, unknown> = {}) => ({
+    id: "o1",
+    key: "todo.aemtli|c1|2026-10-11",
+    chore: "Müll",
+    from: "person.lina",
+    to: "person.ben",
+    points: 10,
+    until: "2026-10-11",
+    accepted: false,
+    ...extra,
+  });
+  /** Who has the chore this round: whatever the turn order says. */
+  const owner = (root: ShadowRoot) =>
+    [...root.querySelectorAll(".col")].findIndex((c) => c.textContent!.includes("Müll"));
+  const calls = (services: ServiceCall[], name: string) =>
+    services.filter((s) => s.domain === "family_tasks" && s.service === name).map((s) => s.data);
+
+  it("offers nothing unless switched on and the integration knows offers", async () => {
+    const off = await mount(
+      { ...config, chore_swap: false },
+      { lists: chore(), now, services: SWAP },
+    );
+    expect(off.all(".swap-btn")).toHaveLength(0);
+    const old = await mount(config, {
+      lists: chore(),
+      now,
+      services: { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } },
+    });
+    expect(old.all(".swap-btn")).toHaveLength(0);
+  });
+
+  it("offers a chore to someone else, for points", async () => {
+    // whoever has it this round offers it; the other one gets the offer
+    const probe = await mount(config, { lists: chore(), now, services: SWAP });
+    const from = owner(probe.root);
+    const who = ["lina", "ben"];
+    const m = await mount(config, {
+      lists: chore(),
+      now,
+      services: SWAP,
+      states: { ...ledger(who[from], { earned: 15 }), ...ledger(who[1 - from]) },
+    });
+    (m.all(".swap-btn")[0] as HTMLElement).click();
+    await m.settle();
+    expect(m.all(".offer")).toHaveLength(1); // under the chore's own column only
+    const chips = m.all(".offer .chip") as HTMLButtonElement[];
+    const byText = (t: string) => chips.find((c) => c.textContent!.trim() === t)!;
+    expect(byText("+20").disabled).toBe(true); // 15 points to spare
+    byText(persons[1 - from].name).click();
+    await m.settle();
+    byText("+10").click();
+    await m.settle();
+    (m.root.querySelector(".offer .reward-btn") as HTMLElement).click();
+    await m.settle();
+    expect(calls(m.services, "offer_chore")).toEqual([
+      {
+        key: "todo.aemtli|c1|2026-10-11",
+        person: `person.${who[from]}`,
+        to: `person.${who[1 - from]}`,
+        points: 10,
+        chore: "Müll",
+        until: "2026-10-11",
+      },
+    ]);
+    expect(m.all(".offer")).toHaveLength(0); // sent: the panel closes
+  });
+
+  it("shows an open offer on both sides: withdraw, or take it over", async () => {
+    const probe = await mount(config, { lists: chore(), now, services: SWAP });
+    const from = owner(probe.root);
+    const who = ["lina", "ben"];
+    const open = offer({ from: `person.${who[from]}`, to: `person.${who[1 - from]}` });
+    const m = await mount(config, {
+      lists: chore(),
+      now,
+      services: SWAP,
+      states: {
+        ...ledger(who[from], { offers: [open] }),
+        ...ledger(who[1 - from], { offers: [open] }),
+      },
+    });
+    const cols = [...m.root.querySelectorAll(".col")];
+    expect(cols[from].textContent).toContain(`⏳ angeboten an ${persons[1 - from].name} · +10`);
+    expect(cols[from].querySelector(".offer-in")).toBeNull(); // not for the one offering
+    const row = cols[1 - from].querySelector(".offer-in")!;
+    expect(row.textContent!.replace(/\s+/g, " ")).toContain(
+      `🔁 ${persons[from].name} gibt dir Müll · +10 ⭐`,
+    );
+    (cols[from].querySelector(".swap-btn") as HTMLElement).click(); // ✕: withdraw
+    (row.querySelector(".reward-btn.approve") as HTMLElement).click();
+    await m.settle();
+    expect(calls(m.services, "answer_offer")).toEqual([
+      { offer_id: "o1", accept: false },
+      { offer_id: "o1", accept: true },
+    ]);
+    // the ✕ sits on the tile: the tile itself must not be checked off
+    expect(m.services.filter((s) => s.domain === "todo")).toEqual([]);
+  });
+
+  it("gives a chore taken over to whoever took it, with the points", async () => {
+    const probe = await mount(config, { lists: chore(), now, services: SWAP });
+    const from = owner(probe.root);
+    const who = ["lina", "ben"];
+    const taken = offer({
+      from: `person.${who[from]}`,
+      to: `person.${who[1 - from]}`,
+      accepted: true,
+    });
+    const states = {
+      ...ledger(who[from], { offers: [taken], transferred: -10 }),
+      ...ledger(who[1 - from], { offers: [taken], transferred: 10 }),
+    };
+    const m = await mount(config, { lists: chore(), now, services: SWAP, states });
+    expect(owner(m.root)).toBe(1 - from);
+    expect(m.text()).toContain(`🔁 von ${persons[from].name}`);
+    expect(m.all(".swap-btn")).toHaveLength(0); // taken over once is enough
+    const metas = m.texts(".col-meta");
+    expect(metas[from]).toContain("💰 20"); // 30 earned, 10 paid
+    expect(metas[1 - from]).toContain("💰 40"); // 30 earned, 10 received
+    const doneM = await mount(config, {
+      lists: chore("completed"),
+      now,
+      services: SWAP,
+      states,
+    });
+    expect(calls(doneM.services, "award")).toEqual([
+      {
+        key: "todo.aemtli|c1|2026-10-11",
+        person: `person.${who[1 - from]}`,
+        points: 10,
+        task: "Müll",
+      },
+    ]);
+  });
+
+  it("ignores what was handed over in an earlier round", async () => {
+    const probe = await mount(config, { lists: chore(), now, services: SWAP });
+    const from = owner(probe.root);
+    const who = ["lina", "ben"];
+    const old = offer({
+      key: "todo.aemtli|c1|2026-10-04",
+      from: `person.${who[from]}`,
+      to: `person.${who[1 - from]}`,
+      accepted: true,
+    });
+    const m = await mount(config, {
+      lists: chore(),
+      now,
+      services: SWAP,
+      states: {
+        ...ledger(who[from], { offers: [old] }),
+        ...ledger(who[1 - from], { offers: [old] }),
+      },
+    });
+    expect(owner(m.root)).toBe(from);
+  });
+
+  it("works in kid mode, too", async () => {
+    const probe = await mount(config, { lists: chore(), now, services: SWAP });
+    const from = owner(probe.root);
+    const kid = await mount({ ...config, kid_mode: true }, { lists: chore(), now, services: SWAP });
+    // switch to whoever has the chore
+    (kid.all(".kid-people .kid-av")[from] as HTMLElement).click();
+    await kid.settle();
+    expect(kid.all(".kid-row .swap-btn.kid")).toHaveLength(1);
+    (kid.all(".kid-row .swap-btn")[0] as HTMLElement).click();
+    await kid.settle();
+    expect(kid.all(".kid-tasks .offer")).toHaveLength(1);
+  });
+
+  it("asks for it in the editor only with the rotation on", async () => {
+    await import("./editor");
+    const ed = document.createElement("family-task-card-editor") as HTMLElement & {
+      setConfig(c: unknown): void;
+      hass: unknown;
+      _schema(): any[];
+    };
+    ed.hass = { locale: { language: "de" }, states: {} };
+    const names = (schema: any[]): string[] =>
+      schema.flatMap((s) => (Array.isArray(s.schema) ? names(s.schema) : [s.name]));
+    ed.setConfig({ type: "custom:family-task-card", persons: [] });
+    expect(names(ed._schema())).not.toContain("chore_swap");
+    ed.setConfig({ type: "custom:family-task-card", persons: [], rotation: true });
+    expect(names(ed._schema())).toContain("chore_swap");
+  });
+});

@@ -104,7 +104,10 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Die Rotation weiß, wer weg ist** – `persons[].away_entity`: Solange sie an
       ist (Urlaubs-Schalter, Kalender-Eintrag), übernehmen die anderen die Ämtli
       dieser Person, wer am wenigsten hat zuerst („🤝 statt Ben"). Offen: danach
-      nachholen – braucht ein Gedächtnis (Integration, zusammen mit Ämtli tauschen).
+      nachholen.
+- [x] **Ämtli abgeben** – `chore_swap`: ein Ämtli dieser Runde jemand anderem
+      anbieten, als Gefallen oder gegen Punkte; die andere Person übernimmt oder
+      lehnt ab (Punktekonto, Integration ab v0.4.0).
 - [x] **Punktekonto** (optionale
       [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), Phase 1) –
       `points_backend`: Punkte dauerhaft gebucht, einmal pro Aufgabe (bei Ämtli

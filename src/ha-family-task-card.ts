@@ -57,6 +57,8 @@ const FALLBACK_COLORS = PERSON_PALETTE;
 /** Fair share: this close to the agreed share (percentage points) counts as kept. */
 const FAIR_SLACK = 5;
 const FAIR_MARK = { ok: "✓", more: "▲", less: "▼" } as const;
+/** What a chore handed over can be worth to the one taking it. */
+const SWAP_POINTS = [0, 5, 10, 20];
 
 /** No shorthand while title_tags is off (never written to). */
 const NO_TAGS: ReadonlyMap<string, TitleTags> = new Map();
@@ -143,6 +145,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rotation_period?: RotationPeriod; // how often chores move on. default "week" (Monday)
   rotation_persons?: string[]; // who takes part (person name or person.*). default everyone
   rotation_reset?: boolean; // reopen chores at the start of each round. default true
+  chore_swap?: boolean; // hand a chore of this round to someone else, maybe for points (ledger). default off
   points_backend?: boolean; // book points in the Family Task Card Integration (when installed). default off
   reward_approval?: boolean; // with points_backend: rewards are requested, parents approve by push. default off
   leaderboard_period?: "all" | "week" | "month"; // rank by points of this week/month (points ledger). default all
@@ -160,11 +163,25 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
 interface LedgerView {
   earned: number;
   redeemed: number;
-  reserved: number; // held by open reward requests
+  reserved: number; // held by open reward requests and chore offers
+  transferred: number; // points handed over for chores: received minus paid
   pending: PendingRequest[];
+  offers: ChoreOffer[];
   weekPoints: number;
   monthPoints: number;
   streak: number;
+}
+
+/** A chore of this round handed to someone else (from the ledger sensors). */
+interface ChoreOffer {
+  id: string;
+  key: string; // "entity|uid|last day of the round", as the card books the chore
+  chore: string;
+  from: string; // ledger person keys
+  to: string;
+  points: number;
+  until: string;
+  accepted: boolean;
 }
 
 /** A reward request waiting for a parent (from the ledger sensor). */
@@ -174,11 +191,15 @@ interface PendingRequest {
   points: number;
 }
 
-/** Who does a rotating chore this round and next; `covers`: for someone away. */
+/**
+ * Who does a rotating chore this round and next; `covers`: for someone away,
+ * `handedBy`: taken over from that person this round.
+ */
 interface RotationTurn {
   now: number;
   next: number;
   covers?: number;
+  handedBy?: number;
 }
 
 /** What the parent PIN confirms: a redemption, or a decision on a request. */
@@ -662,7 +683,15 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const round = roundIndex(new Date(), period);
     const away = this._away();
     const present = group.filter((i) => !away.has(i));
-    const sig = `${lists.join(",")}|${group.join(",")}|${period}|${round}|${present.join(",")}`;
+    const taken = this._offers().filter((o) => o.accepted);
+    const sig = [
+      lists.join(","),
+      group.join(","),
+      period,
+      round,
+      present.join(","),
+      taken.map((o) => `${o.key}>${o.to}`).join(","),
+    ].join("|");
     const tags = this._tagMap();
     const c = this._rotCache;
     if (c && c.items === this._items && c.tags === tags && c.sig === sig) return c.map;
@@ -691,6 +720,17 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       map.set(key, { ...turn, now: pick, covers: turn.now });
       load.set(pick, load.get(pick)! + 1);
     }
+    // A chore handed over this round belongs to whoever took it.
+    const end = `|${roundBounds(round, period).end}`;
+    for (const o of taken) {
+      if (!o.key.endsWith(end)) continue;
+      const key = o.key.slice(0, -end.length);
+      const turn = map.get(key);
+      const to = this._personIndexByKey(o.to);
+      if (!turn || to < 0) continue;
+      const from = this._personIndexByKey(o.from);
+      map.set(key, { ...turn, now: to, handedBy: from >= 0 ? from : turn.now });
+    }
     this._rotCache = { items: this._items, tags, sig, map };
     return map;
   }
@@ -701,11 +741,246 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (this._rotationGroup().length < 2) return undefined;
     const a = this._rotationMap().get(`${owned.entity}|${owned.item.uid}`);
     if (!a) return undefined;
+    if (a.handedBy !== undefined) {
+      return `🔁 ${this._t("swap_from")} ${this._personName(persons[a.handedBy], a.handedBy)}`;
+    }
     if (a.covers !== undefined) {
       return `🤝 ${this._t("rot_cover")} ${this._personName(persons[a.covers], a.covers)}`;
     }
     const when = this._t(this._rotationPeriod() === "day" ? "rot_next_day" : "rot_next_week");
     return `🔄 ${when}: ${this._personName(persons[a.next], a.next)}`;
+  }
+
+  /* ---- handing chores over (chore_swap, points ledger) ----------- */
+
+  /** Lina offers a chore of this round; the picked person and points. */
+  @state() private _offering: { entity: string; item: TodoItem; from: number } | null = null;
+  @state() private _offerTo: number | null = null;
+  @state() private _offerPoints = 0;
+  @state() private _offerFailed = false;
+
+  /** Opt-in, and only with the rotation and an integration that knows offers. */
+  private _swapOn(): boolean {
+    return (
+      !!this._config?.chore_swap &&
+      this._backendOn() &&
+      !!this.hass?.services?.family_tasks?.offer_chore &&
+      this._rotationLists().length > 0
+    );
+  }
+
+  private _offerCache?: { states: unknown; list: ChoreOffer[] };
+
+  /** Every open or taken chore offer, from all ledger sensors. */
+  private _offers(): ChoreOffer[] {
+    if (!this._swapOn()) return [];
+    const states = this.hass?.states ?? {};
+    if (this._offerCache?.states === states) return this._offerCache.list;
+    const byId = new Map<string, ChoreOffer>();
+    for (const st of Object.values(states)) {
+      const a = st.attributes ?? {};
+      if (!st.entity_id?.startsWith("sensor.") || typeof a.person !== "string") continue;
+      if (!Array.isArray(a.offers)) continue;
+      for (const o of a.offers as ChoreOffer[]) {
+        if (o && typeof o.id === "string" && typeof o.key === "string") byId.set(o.id, o);
+      }
+    }
+    const list = [...byId.values()];
+    this._offerCache = { states, list };
+    return list;
+  }
+
+  /** Card index of a person named by their ledger key, or -1. */
+  private _personIndexByKey(key: string): number {
+    return (this._config?.persons ?? []).findIndex((p, i) => this._personKey(p, i) === key);
+  }
+
+  /** Last day of the current round (YYYY-MM-DD). */
+  private _roundEnd(): string {
+    const period = this._rotationPeriod();
+    return roundBounds(roundIndex(new Date(), period), period).end;
+  }
+
+  /** This round's turn of a rotating chore that can be handed over, else undefined. */
+  private _swapTurn(owned: OwnedItem): RotationTurn | undefined {
+    if (!this._swapOn() || owned.item.status === "completed") return undefined;
+    if (!this._rotationLists().includes(owned.entity)) return undefined;
+    return this._rotationMap().get(`${owned.entity}|${owned.item.uid}`);
+  }
+
+  /** The open offer for a chore of this round, if there is one. */
+  private _openOffer(entity: string, item: TodoItem): ChoreOffer | undefined {
+    const key = this._awardKey(entity, item);
+    return this._offers().find((o) => !o.accepted && o.key === key);
+  }
+
+  /** Open offers to this person, for chores of this round. */
+  private _incoming(idx: number): ChoreOffer[] {
+    const p = this._config?.persons[idx];
+    if (!p) return [];
+    const me = this._personKey(p, idx);
+    const end = `|${this._roundEnd()}`;
+    return this._offers().filter((o) => !o.accepted && o.to === me && o.key.endsWith(end));
+  }
+
+  private _startOffer(owned: OwnedItem, from: number): void {
+    this._offering = { entity: owned.entity, item: owned.item, from };
+    this._offerTo = null;
+    this._offerPoints = 0;
+    this._offerFailed = false;
+  }
+
+  private async _sendOffer(): Promise<void> {
+    const off = this._offering;
+    const to = this._offerTo;
+    if (!off || to === null || !this.hass) return;
+    const persons = this._config!.persons;
+    try {
+      await this.hass.callService("family_tasks", "offer_chore", {
+        key: this._awardKey(off.entity, off.item),
+        person: this._personKey(persons[off.from], off.from),
+        to: this._personKey(persons[to], to),
+        points: this._offerPoints,
+        chore: off.item.summary,
+        until: this._roundEnd(),
+      });
+      this._offering = null;
+    } catch (err) {
+      this._offerFailed = true; // e.g. not enough points left
+    }
+  }
+
+  /** Take a chore over, turn it down, or withdraw one's own offer. */
+  private _answerOffer(id: string, accept: boolean): void {
+    this.hass
+      ?.callService("family_tasks", "answer_offer", { offer_id: id, accept })
+      .catch(() => undefined);
+  }
+
+  /** "Hand over: Bins" – to whom, and for how many points. */
+  private _offerPanel(idx: number) {
+    const off = this._offering;
+    if (!off || off.from !== idx) return nothing;
+    const persons = this._config!.persons;
+    const away = this._away();
+    const others = this._rotationGroup().filter((i) => i !== idx && !away.has(i));
+    const balance = this._personView(persons[idx]).balance;
+    return html`
+      <div class="offer">
+        <div class="offer-head">🔁 ${this._t("swap")}: ${off.item.summary}</div>
+        <div class="offer-row">
+          <span class="offer-label">${this._t("swap_to")}</span>
+          ${others.map(
+            (i) =>
+              html`<button
+                class="chip ${this._offerTo === i ? "on" : ""}"
+                style="--pc:${personColor(persons[i], i)}"
+                @click=${() => (this._offerTo = i)}
+              >
+                ${this._personName(persons[i], i)}
+              </button>`,
+          )}
+        </div>
+        <div class="offer-row">
+          <span class="offer-label">${this._t("swap_points")}</span>
+          ${SWAP_POINTS.map(
+            (n) =>
+              html`<button
+                class="chip ${this._offerPoints === n ? "on" : ""}"
+                ?disabled=${n > balance}
+                @click=${() => (this._offerPoints = n)}
+              >
+                ${n ? `+${n}` : "0"}
+              </button>`,
+          )}
+        </div>
+        ${this._offerFailed ? html`<div class="offer-err">${this._t("swap_failed")}</div>` : nothing}
+        <div class="offer-row end">
+          <button class="reward-btn" ?disabled=${this._offerTo === null} @click=${this._sendOffer}>
+            ${this._t("swap_offer")}
+          </button>
+          <button
+            class="pin-cancel"
+            title=${this._t("cancel")}
+            @click=${() => (this._offering = null)}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** "Lina offers you Bins · +10 ⭐ [Take over] [✕]" */
+  private _incomingRows(idx: number) {
+    const persons = this._config?.persons ?? [];
+    return this._incoming(idx).map((o) => {
+      const from = this._personIndexByKey(o.from);
+      const name = from >= 0 ? this._personName(persons[from], from) : o.from;
+      return html`
+        <div class="offer-in">
+          <span class="offer-in-text"
+            >🔁 ${name} ${this._t("swap_incoming")} <b>${o.chore}</b>${
+              o.points ? ` · +${o.points} ⭐` : ""
+            }</span
+          >
+          <button class="reward-btn approve" @click=${() => this._answerOffer(o.id, true)}>
+            ${this._t("swap_take")}
+          </button>
+          <button
+            class="reward-btn deny"
+            title=${this._t("swap_decline")}
+            @click=${() => this._answerOffer(o.id, false)}
+          >
+            ✕
+          </button>
+        </div>
+      `;
+    });
+  }
+
+  /** The 🔁 button of a chore (or ✕ to withdraw its open offer); nothing if it can't move. */
+  private _swapButton(owned: OwnedItem, kid = false) {
+    const turn = this._swapTurn(owned);
+    if (!turn || turn.handedBy !== undefined) return nothing;
+    const open = this._openOffer(owned.entity, owned.item);
+    const stop = (e: Event) => e.stopPropagation();
+    return open
+      ? html`<button
+          class="swap-btn ${kid ? "kid" : ""}"
+          title=${this._t("swap_withdraw")}
+          aria-label=${this._t("swap_withdraw")}
+          @click=${(e: Event) => {
+            stop(e);
+            this._answerOffer(open.id, false);
+          }}
+          @keydown=${stop}
+        >
+          ✕
+        </button>`
+      : html`<button
+          class="swap-btn ${kid ? "kid" : ""}"
+          title=${this._t("swap")}
+          aria-label=${this._t("swap")}
+          @click=${(e: Event) => {
+            stop(e);
+            this._startOffer(owned, turn.now);
+          }}
+          @keydown=${stop}
+        >
+          🔁
+        </button>`;
+  }
+
+  /** "⏳ offered to Ben · +10" while an offer for this chore is open. */
+  private _offerNote(owned: OwnedItem): string | undefined {
+    if (!this._swapTurn(owned)) return undefined;
+    const open = this._openOffer(owned.entity, owned.item);
+    if (!open) return undefined;
+    const persons = this._config?.persons ?? [];
+    const to = this._personIndexByKey(open.to);
+    const name = to >= 0 ? this._personName(persons[to], to) : open.to;
+    return `⏳ ${this._t("swap_offered")} ${name}${open.points ? ` · +${open.points}` : ""}`;
   }
 
   private _canSetDue(entity: string): boolean {
@@ -942,7 +1217,8 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         ...counts,
         earned: booked,
         spent,
-        balance: booked - spent - reserved, // what is still spendable
+        // what is still spendable; points handed over for chores count here
+        balance: booked - spent - reserved + (l?.transferred ?? 0),
         hasWallet: true,
         requests: l?.pending ?? [],
         weekPoints: l?.weekPoints ?? 0,
@@ -982,7 +1258,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           earned: a.earned,
           redeemed: Number(a.redeemed) || 0,
           reserved: Number(a.reserved) || 0,
+          transferred: Number(a.transferred) || 0,
           pending: Array.isArray(a.pending) ? (a.pending as PendingRequest[]) : [],
+          offers: Array.isArray(a.offers) ? (a.offers as ChoreOffer[]) : [],
           weekPoints: Number(a.week_points) || 0,
           monthPoints: Number(a.month_points) || 0,
           streak: Number(a.streak) || 0,
@@ -1782,6 +2060,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           hasShop && this._kidShopOpen
             ? this._shopPanel(idx, view.balance, view.hasWallet, view.requests)
             : html`<div class="kid-tasks">
+                ${this._incomingRows(idx)}${this._offerPanel(idx)}
                 ${
                   allDone
                     ? html`<div class="kid-alldone">
@@ -1825,8 +2104,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const { entity, item, flag, label } = owned;
     const emoji = flag === "urgent" ? "⚠️" : this._emoji(entity, item);
     const editable = this._canToggle(entity);
-    const sub = label ?? this._rotationHint(owned);
-    return html`
+    const sub = label ?? this._offerNote(owned) ?? this._rotationHint(owned);
+    const swap = this._swapButton(owned, true);
+    const task = html`
       <button
         class="kid-task ${flag}"
         style="--pc:${color}"
@@ -1841,6 +2121,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         <span class="kid-check">${editable ? "◯" : "🔒"}</span>
       </button>
     `;
+    return swap === nothing ? task : html`<div class="kid-row">${task}${swap}</div>`;
   }
 
   private _kidShopping(entry: ShoppingEntry, color: string) {
@@ -2087,6 +2368,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         </div>
 
         <div class="tiles">
+          ${this._incomingRows(idx)}
           ${isEmpty ? html`<div class="empty">${this._t("all_done_board")}</div>` : nothing}
           ${view.shopOpen.map((s) => this._shoppingTile(s, color))}
           ${
@@ -2112,6 +2394,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
               </div>`
             : nothing
         }
+        ${this._offerPanel(idx)}
         ${shopOpen ? this._shopPanel(idx, view.balance, view.hasWallet, view.requests) : nothing}
       </div>
     `;
@@ -2320,7 +2603,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const { entity, item } = owned;
     const emoji = flag === "urgent" ? "⚠️" : this._emoji(entity, item);
     const editable = this._canToggle(entity);
-    const rotHint = completed ? undefined : this._rotationHint(owned);
+    const rotHint = completed
+      ? undefined
+      : ((matrix ? undefined : this._offerNote(owned)) ?? this._rotationHint(owned));
     return html`
       <div
         class="tile ${completed ? "done" : flag} ${editable ? "" : "readonly"}"
@@ -2359,6 +2644,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
                     : nothing
           }
         </div>
+        ${completed || matrix ? nothing : this._swapButton(owned)}
       </div>
     `;
   }
@@ -2843,6 +3129,102 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     .kid-emoji {
       font-size: 34px;
       flex: none;
+    }
+    /* A chore that can be handed over: the big tile plus its 🔁 button. */
+    .kid-row {
+      display: flex;
+      gap: 8px;
+    }
+    .kid-row .kid-task {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .swap-btn {
+      flex: none;
+      margin-left: auto;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      font: inherit;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--primary-text-color);
+      background: color-mix(in srgb, var(--pc) 22%, var(--card-background-color, #fff));
+    }
+    .swap-btn.kid {
+      margin-left: 0;
+      width: 56px;
+      height: auto;
+      border-radius: 16px;
+      font-size: 24px;
+    }
+    .offer {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      background: var(--secondary-background-color);
+      border: 1px solid var(--divider-color);
+    }
+    .offer-head {
+      font-weight: 700;
+      margin-bottom: 8px;
+      overflow-wrap: anywhere;
+    }
+    .offer-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .offer-row.end {
+      justify-content: flex-end;
+    }
+    .offer-label {
+      font-size: 0.85em;
+      color: var(--secondary-text-color);
+      min-width: 52px;
+    }
+    .chip {
+      border: 1px solid var(--divider-color);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font: inherit;
+      font-size: 0.85em;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--primary-text-color);
+      background: var(--card-background-color, #fff);
+    }
+    .chip.on {
+      border-color: var(--pc, var(--primary-color));
+      background: color-mix(in srgb, var(--pc, var(--primary-color)) 22%, transparent);
+    }
+    .chip:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .offer-err {
+      margin-top: 6px;
+      font-size: 0.8em;
+      font-weight: 700;
+      color: var(--error-color, #db4437);
+    }
+    .offer-in {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--pc) 16%, var(--card-background-color, #fff));
+      border: 1px dashed var(--pc);
+    }
+    .offer-in-text {
+      flex: 1 1 auto;
+      font-size: 0.9em;
+      overflow-wrap: anywhere;
     }
     .kid-task-title {
       flex: 1 1 auto;

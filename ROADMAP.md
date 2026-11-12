@@ -100,7 +100,10 @@ The goal: a usable, coherent card with the core loop.
 - [x] **The rotation knows who is away** — `persons[].away_entity`: while it is on
       (a holiday switch, a calendar entry), the others take over that person's
       chores, the one with the fewest first ("🤝 instead of Ben"). Open: catching up
-      afterwards, which needs a memory (integration, with swapping chores).
+      afterwards.
+- [x] **Hand a chore over** — `chore_swap`: offer a chore of this round to someone
+      else, as a favour or for points; they take it over or say no (points ledger,
+      integration v0.4.0).
 - [x] **Points ledger** (optional
       [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), phase 1) —
       `points_backend`: points booked for good, once per task (and once per round
