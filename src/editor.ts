@@ -145,6 +145,10 @@ const LABELS: Record<string, Bi> = {
   rotation_period: { de: "Wechsel", en: "Rotate" },
   rotation_persons: { de: "Wer macht mit?", en: "Who takes part?" },
   rotation_reset: { de: "Ämtli jede Runde wieder öffnen", en: "Reopen chores every round" },
+  chore_swap: {
+    de: "Ämtli abgeben (auf Wunsch gegen Punkte)",
+    en: "Hand over chores (for points if you like)",
+  },
   scale: { de: "Kartengröße", en: "Card size" },
   font_scale: { de: "Schriftgröße", en: "Font size" },
   avatar_scale: { de: "Avatar-/Bildgröße", en: "Avatar / picture size" },
@@ -296,6 +300,10 @@ const HELPERS: Record<string, Bi> = {
   rotation_reset: {
     de: "Abgehakte Ämtli zu Beginn der nächsten Runde wieder öffnen (die Karte setzt dafür die Fälligkeit auf das Rundenende). Ämtli geben nur mit Punktekonto (Family Task Card Integration) Punkte, weil sie jede Runde neu starten.",
     en: "Reopen checked-off chores when the next round starts (the card sets their due date to the end of the round). Chores only earn points with the points ledger (Family Task Card Integration), as they start over every round.",
+  },
+  chore_swap: {
+    de: "Wer dran ist, kann ein Ämtli dieser Runde mit 🔁 jemand anderem anbieten, auf Wunsch gegen Punkte. Die andere Person übernimmt oder lehnt ab; die Punkte wandern mit. Braucht das Punktekonto (Family Task Card Integration ab v0.4.0).",
+    en: "Whoever has a chore this round can offer it to someone else with 🔁, for points if they like. The other person takes it over or says no; the points move along. Needs the points ledger (Family Task Card Integration v0.4.0 or newer).",
   },
   scale: {
     de: "Gesamte Karte vergrößern/verkleinern (Zoom über alles: Layout, Schrift, Bilder). 100 % = Standard.",
@@ -585,6 +593,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
         selector: { select: { multiple: true, mode: "list", options: persons } },
       },
       { name: "rotation_reset", selector: BOOL },
+      { name: "chore_swap", selector: BOOL },
     ];
   }
 
@@ -645,6 +654,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.rotation_period || next.rotation_period === "week") delete next.rotation_period;
     if (!next.rotation_persons?.length) delete next.rotation_persons;
     if (next.rotation_reset !== false) delete next.rotation_reset;
+    if (!next.chore_swap) delete next.chore_swap;
     if (Array.isArray(next.rotation_lists)) {
       if (next.rotation_lists.length === 0) delete next.rotation_lists;
       else if (next.rotation_lists.length === 1) next.rotation_lists = next.rotation_lists[0];

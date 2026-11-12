@@ -98,6 +98,7 @@ persons:
 # rotation_period: week           # week | day
 # rotation_persons: [Lina, Ben]   # optional, default everyone
 # A person's away_entity (e.g. input_boolean.ben_away) skips them in the rotation while on.
+# chore_swap: true              # with points_backend: hand a chore over, for points if you like
 
 # --- Optional: points ledger (separate Family Task Card Integration) ---
 # Points are booked for good instead of computed live: they stay when lists are

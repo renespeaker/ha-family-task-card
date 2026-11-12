@@ -4,8 +4,9 @@
 
 ![Family Task Card – ein Board pro Person mit Aufgaben, Punkten, Leveln, Serien, Einkauf und Wochen-Rangliste](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/board.png)
 
-> **Status: nutzbar (v0.19.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, die weiß, wer weg ist,
+> **Status: nutzbar (v0.20.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, die weiß, wer weg ist
+> und Ämtli **abgeben** lässt,
 > **Kurzschrift im Titel (@Person, +Punkte)**, eine **Fairness-Anzeige**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
@@ -231,6 +232,7 @@ persons:
 | `rotation_period` | Text               | `week` (Std., ab Montag) oder `day`.                    |
 | `rotation_persons`| Liste              | Wer mitmacht (Personenname oder `person.*`); Std. alle. |
 | `rotation_reset`  | Bool               | Ämtli zu Beginn jeder Runde wieder öffnen (Std. an).    |
+| `chore_swap`      | Bool               | Mit `points_backend`: ein Ämtli dieser Runde an jemand anderen abgeben, auf Wunsch gegen Punkte (siehe unten). |
 | `points_backend`  | Bool               | Punkte in der optionalen [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration) buchen (siehe unten). |
 | `reward_approval` | Bool               | Mit `points_backend`: Belohnungen werden angefragt und per Push freigegeben (siehe unten). |
 | `leaderboard_period` | Text            | Mit `points_backend`: Rangliste nach `all` (Std.), `week` oder `month`. |
@@ -304,6 +306,14 @@ ist.
   Spalte zeigt „✈️ weg", und die Punkte bekommt, wer es gemacht hat. Ist der
   Schalter wieder aus, gilt die normale Reihenfolge. Im Editor heißt das
   *Abwesend, solange an* im Personen-Formular.
+- **Ämtli abgeben.** Mit `chore_swap: true` (*Ämtli abgeben* im Editor) kann,
+  wer in dieser Runde ein Ämtli hat, es mit 🔁 jemand anderem anbieten – als
+  Gefallen oder für 5, 10 oder 20 eigene Punkte. Die andere Person sieht
+  „🔁 Lina gibt dir Geschirr spülen · +10 ⭐" und übernimmt oder lehnt ab; das
+  Ämtli zeigt dann „🔁 von Lina", und seine Punkte bekommt, wer es erledigt.
+  Offene Angebote lassen sich mit ✕ zurückziehen, und jedes Angebot endet mit
+  seiner Runde. Das braucht das [Punktekonto](#punktekonto-optionale-integration)
+  (Integration ab v0.4.0), das die Angebote speichert und die Punkte überträgt.
 
 ```yaml
 type: custom:family-task-card
