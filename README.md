@@ -4,8 +4,9 @@
 
 ![Family Task Card – a board per person with tasks, points, levels, streaks, a shopping trip and the weekly leaderboard](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/board.png)
 
-> **Status: usable (v0.18.2).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
+> **Status: usable (v0.19.0).** Per-person board, visual editor, kid mode, Bring!
+> shopping, **Microsoft To Do**, **auto-rotation (take turns)** that knows who is away,
+> **shorthand in titles (@person, +points)**, a **fair-share bar**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
 > (size/text/pictures)**, **add-task** and sort/hide options. The card reads

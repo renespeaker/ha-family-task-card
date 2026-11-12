@@ -4,8 +4,9 @@
 
 ![Family Task Card – ein Board pro Person mit Aufgaben, Punkten, Leveln, Serien, Einkauf und Wochen-Rangliste](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/board.png)
 
-> **Status: nutzbar (v0.18.2).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
+> **Status: nutzbar (v0.19.0).** Personen-Board, visueller Editor, Kinder-Modus,
+> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, die weiß, wer weg ist,
+> **Kurzschrift im Titel (@Person, +Punkte)**, eine **Fairness-Anzeige**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
 > **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
