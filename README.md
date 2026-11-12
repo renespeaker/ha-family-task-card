@@ -223,7 +223,7 @@ persons:
 | `rotation_period` | text | `week` (default, from Monday) or `day`. |
 | `rotation_persons` | list | who takes part (person name or `person.*`); default everyone. |
 | `rotation_reset` | bool | reopen chores at the start of each round (default on). |
-| `points_backend` | bool | book points in the optional [Family Tasks](https://github.com/renespeaker/ha-family-task-integration) integration (see below). |
+| `points_backend` | bool | book points in the optional [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration) (see below). |
 | `reward_approval` | bool | with `points_backend`: rewards are requested and approved by push (see below). |
 | `leaderboard_period` | text | with `points_backend`: rank by `all` (default), `week` or `month`. |
 | `show_streak` | bool | with `points_backend`: "⚡ 5" next to the name — days in a row with a task. |
@@ -282,7 +282,7 @@ Monday) or daily. Switch it on in the visual editor under
   *Reopen chores every round* off and reopen them with an automation.
 - **Points for chores only with the points ledger** — chores start over every
   round, so live points would vanish every Monday. With the
-  [points ledger](#points-ledger-optional-family-tasks-integration) chores earn
+  [points ledger](#points-ledger-optional-integration) chores earn
   points once per round.
 
 ```yaml
@@ -332,7 +332,7 @@ the card) — a ready template is in
 > Note: there is no public deep link to a *specific* Bring! list; the button
 > opens Bring! in general. Shopping points are currently estimated live from the
 > list state — or booked for good with the
-> [points ledger](#points-ledger-optional-family-tasks-integration).
+> [points ledger](#points-ledger-optional-integration).
 
 ### Context tasks
 
@@ -413,20 +413,21 @@ Usage: the 🎁 button in the person column (or in kid mode) opens the shop.
 **parent PIN** and, on success, raises the `input_number`.
 
 > Without `points_entity` (or the
-> [points ledger](#points-ledger-optional-family-tasks-integration)) the shop only
+> [points ledger](#points-ledger-optional-integration)) the shop only
 > displays the rewards (redeeming disabled). The **asynchronous approval flow**
 > ("kid requests, parents confirm later via push") is
-> available with the [points ledger](#points-ledger-optional-family-tasks-integration)
+> available with the [points ledger](#points-ledger-optional-integration)
 > (`reward_approval`); photo proof is on the roadmap.
 
-### Points ledger (optional Family Tasks integration)
+### Points ledger (optional integration)
 
 By default the card works out points live from checked-off tasks — nothing to
 install, but points disappear when a list is cleared, and chores that reopen
 every round can't earn any. For points that **stay**, install the separate
-integration [**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration)
-(in the Marketplace or HACS, search for **"Family Tasks"**) and switch on **"Use points ledger
-(Family Tasks)"** in the visual editor (`points_backend: true`).
+[**Family Task Card Integration**](https://github.com/renespeaker/ha-family-task-integration)
+(in the Marketplace or HACS, search for **"Family Task Card Integration"**) and
+switch on **"Use points ledger (Family Task Card Integration)"** in the visual editor
+(`points_backend: true`).
 
 - **Checked-off tasks are booked** in the ledger — also ones checked off in
   another app. Every task is booked once, even if phone and wall tablet both
@@ -460,11 +461,11 @@ true`). Then the shop button says **Request** instead of *Redeem*:
   their own requests.
 
 Who gets the push is set in the integration: Settings → Devices & services →
-Family Tasks → **Configure**.
+Family Task Card Integration → **Configure**.
 
 #### Statistics
 
-With the ledger on (Family Tasks v0.3.0 or newer), two more opt-in options:
+With the ledger on (integration v0.3.0 or newer), two more opt-in options:
 
 - **Leaderboard for** *this week* or *this month* (`leaderboard_period: week` /
   `month`, default all time) — a fresh race every Monday, so whoever is behind

@@ -191,7 +191,7 @@ const TEXT = {
   },
 };
 
-// The points ledger (Family Tasks integration): week points and streaks.
+// The points ledger (Family Task Card Integration): week points and streaks.
 const LEDGER = {
   lina: { earned: 260, redeemed: 50, week_points: 70, month_points: 210, streak: 6 },
   ben: { earned: 180, redeemed: 0, week_points: 50, month_points: 150, streak: 3 },

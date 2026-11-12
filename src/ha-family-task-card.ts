@@ -29,7 +29,7 @@ import { listRefs, listsOf, type ListFilter, type ListRef } from "./lists";
  * `font_scale` (text) and `avatar_scale` (avatars/pictures), each in percent.
  * With `rotation` switched on, chores from shared lists take turns between the
  * persons, round by round (see rotation.ts). With `points_backend` on and the
- * optional Family Tasks integration installed, points are booked in its ledger.
+ * optional Family Task Card Integration installed, points are booked in its ledger.
  * Open tasks can be grouped by due date and filtered (`group_by_due`,
  * `hide_undated`, `show_within`, also per list). For parents there is an
  * Eisenhower view (`eisenhower`): urgent × important instead of columns.
@@ -130,7 +130,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rotation_period?: RotationPeriod; // how often chores move on. default "week" (Monday)
   rotation_persons?: string[]; // who takes part (person name or person.*). default everyone
   rotation_reset?: boolean; // reopen chores at the start of each round. default true
-  points_backend?: boolean; // book points in the Family Tasks integration (when installed). default off
+  points_backend?: boolean; // book points in the Family Task Card Integration (when installed). default off
   reward_approval?: boolean; // with points_backend: rewards are requested, parents approve by push. default off
   leaderboard_period?: "all" | "week" | "month"; // rank by points of this week/month (points ledger). default all
   hide_undated?: boolean; // hide open tasks without a due date (lists can override). default off
@@ -769,7 +769,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return { ...counts, earned, spent, balance: earned - spent, hasWallet };
   }
 
-  /* ---- points ledger (optional Family Tasks integration) ------------ */
+  /* ---- points ledger (optional Family Task Card Integration) -------- */
 
   /** Opt-in, and only while the integration is actually installed. */
   private _backendOn(): boolean {
@@ -783,7 +783,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   private _ledgerCache?: { states: unknown; map: Map<string, LedgerView> };
 
-  /** Points and open requests of a person, read from their Family Tasks sensor. */
+  /** Points and open requests of a person, read from their ledger sensor. */
   private _ledger(key: string): LedgerView | undefined {
     const states = this.hass?.states ?? {};
     if (this._ledgerCache?.states !== states) {

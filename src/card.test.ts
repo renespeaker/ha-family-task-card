@@ -28,7 +28,7 @@ interface MountOpts {
   lists?: Record<string, { items: unknown[]; features?: number }>;
   lang?: string;
   now?: string;
-  /** Extra entity states, e.g. the points sensors of the Family Tasks integration. */
+  /** Extra entity states, e.g. the points sensors of the Family Task Card Integration. */
   states?: Record<string, unknown>;
   /** Services HA knows about (hass.services), e.g. { family_tasks: { award: {} } }. */
   services?: Record<string, Record<string, unknown>>;
@@ -790,7 +790,7 @@ describe("auto-rotation", () => {
   });
 });
 
-describe("points ledger (Family Tasks integration)", () => {
+describe("points ledger (Family Task Card Integration)", () => {
   const FT = { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } };
   const lina = { name: "Lina", person: "person.lina", lists: "todo.lina" };
   const sensor = (person: string, balance: number, earned: number, redeemed: number) => ({

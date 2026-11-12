@@ -97,15 +97,15 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] Faire Auto-Rotation wiederkehrender Ämtli („reihum") – `rotation`: Schalter
       im Editor, wöchentliche/tägliche Runden aus dem Kalender, Ämtli öffnen sich
       jede Runde neu, Hinweis „nächste Woche: …"; mit Punktekonto geben Ämtli Punkte.
-- [x] **Punktekonto** (optionale Integration
-      [Family Tasks](https://github.com/renespeaker/ha-family-task-integration), Phase 1) –
+- [x] **Punktekonto** (optionale
+      [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), Phase 1) –
       `points_backend`: Punkte dauerhaft gebucht, einmal pro Aufgabe (bei Ämtli
       einmal pro Runde), Haken entfernen nimmt sie zurück, Belohnungen vom Konto
       bezahlt, ein Punkte-Sensor pro Person.
-- [x] **Belohnungs-Freigabe per Push** (Family Tasks v0.2.0) – `reward_approval`:
+- [x] **Belohnungs-Freigabe per Push** (Integration v0.2.0) – `reward_approval`:
       Kinder fragen an, Punkte werden reserviert, Eltern geben per Push frei oder
       lehnen ab (oder in der Karte mit Eltern-PIN).
-- [x] **Statistik** (Family Tasks v0.3.0) – Rangliste für diese Woche/diesen
+- [x] **Statistik** (Integration v0.3.0) – Rangliste für diese Woche/diesen
       Monat (`leaderboard_period`), Serien „⚡ 5" (`show_streak`). Als Nächstes:
       Foto-Beweis.
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste

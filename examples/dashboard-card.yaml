@@ -97,12 +97,12 @@ persons:
 # rotation_period: week           # week | day
 # rotation_persons: [Lina, Ben]   # optional, default everyone
 
-# --- Optional: points ledger (separate Family Tasks integration) ---
+# --- Optional: points ledger (separate Family Task Card Integration) ---
 # Points are booked for good instead of computed live: they stay when lists are
 # cleared, chores earn points once per round, rewards are paid from the ledger.
-# Install the Family Tasks integration first (Marketplace or HACS: search "Family Tasks";
-# https://github.com/renespeaker/ha-family-task-integration); without it this
-# switch changes nothing.
+# Install the Family Task Card Integration first (Marketplace or HACS: search
+# "Family Task Card Integration"; https://github.com/renespeaker/ha-family-task-integration);
+# without it this switch changes nothing.
 # points_backend: true
 # reward_approval: true           # kids request rewards, parents approve by push
 # leaderboard_period: week       # with show_leaderboard: rank this week (or month)

@@ -225,7 +225,7 @@ persons:
 | `rotation_period` | Text               | `week` (Std., ab Montag) oder `day`.                    |
 | `rotation_persons`| Liste              | Wer mitmacht (Personenname oder `person.*`); Std. alle. |
 | `rotation_reset`  | Bool               | Ämtli zu Beginn jeder Runde wieder öffnen (Std. an).    |
-| `points_backend`  | Bool               | Punkte in der optionalen Integration [Family Tasks](https://github.com/renespeaker/ha-family-task-integration) buchen (siehe unten). |
+| `points_backend`  | Bool               | Punkte in der optionalen [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration) buchen (siehe unten). |
 | `reward_approval` | Bool               | Mit `points_backend`: Belohnungen werden angefragt und per Push freigegeben (siehe unten). |
 | `leaderboard_period` | Text            | Mit `points_backend`: Rangliste nach `all` (Std.), `week` oder `month`. |
 | `show_streak`     | Bool               | Mit `points_backend`: „⚡ 5" neben dem Namen – Tage am Stück mit einer Aufgabe. |
@@ -288,7 +288,7 @@ ist.
   zurücksetzen.
 - **Punkte für Ämtli nur mit Punktekonto** – Ämtli starten jede Runde neu, live
   berechnete Punkte wären also jeden Montag wieder weg. Mit dem
-  [Punktekonto](#punktekonto-optionale-integration-family-tasks) geben Ämtli
+  [Punktekonto](#punktekonto-optionale-integration) geben Ämtli
   einmal pro Runde Punkte.
 
 ```yaml
@@ -339,7 +339,7 @@ Assistant-Automation (nicht die Karte) – eine fertige Vorlage liegt unter
 > Hinweis: Einen offiziellen Deep-Link auf eine *bestimmte* Bring!-Liste gibt es
 > öffentlich nicht; der Button öffnet Bring! allgemein. Die Punkte für Einkäufe
 > werden live aus dem Listenzustand geschätzt – oder dauerhaft gebucht mit dem
-> [Punktekonto](#punktekonto-optionale-integration-family-tasks).
+> [Punktekonto](#punktekonto-optionale-integration).
 
 ### Kontext-Aufgaben
 
@@ -421,21 +421,22 @@ Shop. „Einlösen" ist nur aktiv, wenn das Guthaben reicht; danach fragt die Ka
 die **Eltern-PIN** ab und bucht bei Erfolg vom `input_number` ab.
 
 > Ohne `points_entity` (oder das
-> [Punktekonto](#punktekonto-optionale-integration-family-tasks)) zeigt der Shop
+> [Punktekonto](#punktekonto-optionale-integration)) zeigt der Shop
 > die Belohnungen nur an (Einlösen deaktiviert). Der **asynchrone Freigabe-Ablauf**
 > („Kind stellt Antrag, Eltern bestätigen später per Push") ist
-> mit dem [Punktekonto](#punktekonto-optionale-integration-family-tasks)
+> mit dem [Punktekonto](#punktekonto-optionale-integration)
 > verfügbar (`reward_approval`); Foto-Beweis ist geplant.
 
-### Punktekonto (optionale Integration Family Tasks)
+### Punktekonto (optionale Integration)
 
 Standardmäßig berechnet die Karte Punkte live aus den abgehakten Aufgaben –
 nichts zu installieren, aber Punkte verschwinden, wenn eine Liste geleert wird,
 und Ämtli, die jede Runde wieder öffnen, können keine bekommen. Für Punkte, die
-**bleiben**, installiere die eigene Integration
-[**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration) (im Marketplace oder in HACS
-nach **„Family Tasks"** suchen) und schalte im visuellen Editor **„Punktekonto nutzen
-(Family Tasks)"** ein (`points_backend: true`).
+**bleiben**, installiere die eigene
+[**Family Task Card Integration**](https://github.com/renespeaker/ha-family-task-integration)
+(im Marketplace oder in HACS nach **„Family Task Card Integration"** suchen) und
+schalte im visuellen Editor **„Punktekonto nutzen (Family Task Card Integration)"** ein
+(`points_backend: true`).
 
 - **Abgehakte Aufgaben werden gebucht** – auch solche, die in einer anderen App
   abgehakt wurden. Jede Aufgabe wird einmal gebucht, auch wenn Handy und
@@ -471,11 +472,11 @@ Mit Punktekonto kannst du **„Belohnungs-Freigabe per Push"** einschalten
   können ihre Anfragen also nicht selbst freigeben.
 
 Wer die Push bekommt, stellst du in der Integration ein: Einstellungen → Geräte &
-Dienste → Family Tasks → **Konfigurieren**.
+Dienste → Family Task Card Integration → **Konfigurieren**.
 
 #### Statistik
 
-Mit Punktekonto (Family Tasks ab v0.3.0) gibt es zwei weitere Opt-in-Optionen:
+Mit Punktekonto (Integration ab v0.3.0) gibt es zwei weitere Opt-in-Optionen:
 
 - **Rangliste für** *diese Woche* oder *diesen Monat* (`leaderboard_period:
   week` / `month`, Standard: gesamt) – jeden Montag ein neues Rennen, so hat
