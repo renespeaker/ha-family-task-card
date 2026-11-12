@@ -146,6 +146,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rotation_persons?: string[]; // who takes part (person name or person.*). default everyone
   rotation_reset?: boolean; // reopen chores at the start of each round. default true
   chore_swap?: boolean; // hand a chore of this round to someone else, maybe for points (ledger). default off
+  catch_up?: boolean; // who was covered for while away does one of the helper's chores later (ledger). default off
   points_backend?: boolean; // book points in the Family Task Card Integration (when installed). default off
   reward_approval?: boolean; // with points_backend: rewards are requested, parents approve by push. default off
   leaderboard_period?: "all" | "week" | "month"; // rank by points of this week/month (points ledger). default all
@@ -184,6 +185,15 @@ interface ChoreOffer {
   accepted: boolean;
 }
 
+/** A chore done for someone who was away; settled once they did one in return. */
+interface ChoreCover {
+  key: string; // the chore done for them, as the card books it ("…|last day of round")
+  helper: string; // ledger person keys
+  absent: string;
+  chore: string;
+  settled_by: string | null; // the chore that evened it out
+}
+
 /** A reward request waiting for a parent (from the ledger sensor). */
 interface PendingRequest {
   id: string;
@@ -193,13 +203,15 @@ interface PendingRequest {
 
 /**
  * Who does a rotating chore this round and next; `covers`: for someone away,
- * `handedBy`: taken over from that person this round.
+ * `handedBy`: taken over from that person this round, `evens`: done in return
+ * for that person, who covered for this one earlier (catch_up).
  */
 interface RotationTurn {
   now: number;
   next: number;
   covers?: number;
   handedBy?: number;
+  evens?: number; // done in return for this person, who covered earlier
 }
 
 /** What the parent PIN confirms: a redemption, or a decision on a request. */
@@ -672,6 +684,59 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
   }
 
   /**
+   * Making up for it (catch_up): whoever was covered for, and is back, does
+   * one of the helper's chores – one for every chore owed from an earlier
+   * round, the helper's chores taken in a fixed order. A chore that evened one
+   * out this round stays with whoever did it.
+   */
+  private _catchUp(
+    map: Map<string, RotationTurn>,
+    covers: ChoreCover[],
+    end: string,
+    away: Set<number>,
+    group: number[],
+  ): void {
+    const evened = new Set<string>();
+    for (const c of covers) {
+      if (!c.settled_by?.endsWith(end)) continue;
+      const key = c.settled_by.slice(0, -end.length);
+      const turn = map.get(key);
+      const to = this._personIndexByKey(c.absent);
+      const helper = this._personIndexByKey(c.helper);
+      if (!turn || to < 0 || helper < 0) continue;
+      map.set(key, { ...turn, now: to, evens: helper });
+      evened.add(key);
+    }
+    const thisRound = end.slice(1);
+    const owed = new Map<string, { to: number; helper: number; n: number }>();
+    for (const c of covers) {
+      if (c.settled_by || c.key.slice(c.key.lastIndexOf("|") + 1) >= thisRound) continue;
+      const to = this._personIndexByKey(c.absent);
+      const helper = this._personIndexByKey(c.helper);
+      if (to < 0 || helper < 0 || away.has(to) || !group.includes(to)) continue;
+      const pair = `${to}>${helper}`;
+      const known = owed.get(pair);
+      if (known) known.n += 1;
+      else owed.set(pair, { to, helper, n: 1 });
+    }
+    for (const { to, helper, n } of owed.values()) {
+      const theirs = [...map.entries()]
+        .filter(
+          ([key, t]) =>
+            t.now === helper &&
+            t.covers === undefined &&
+            t.evens === undefined &&
+            t.handedBy === undefined &&
+            !evened.has(key),
+        )
+        .map(([key]) => key)
+        .sort();
+      for (const key of theirs.slice(0, n))
+        map.set(key, { ...map.get(key)!, now: to, evens: helper });
+    }
+  }
+
+  /**
    * "entity|uid" -> who does it this round and next round. A chore of someone
    * who is away goes to whoever present has the fewest so far (ties take
    * turns by round); the others keep their own chores.
@@ -684,6 +749,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     const away = this._away();
     const present = group.filter((i) => !away.has(i));
     const taken = this._offers().filter((o) => o.accepted);
+    const covers = this._covers();
     const sig = [
       lists.join(","),
       group.join(","),
@@ -691,6 +757,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       round,
       present.join(","),
       taken.map((o) => `${o.key}>${o.to}`).join(","),
+      covers.map((c) => `${c.key}>${c.settled_by ?? ""}`).join(","),
     ].join("|");
     const tags = this._tagMap();
     const c = this._rotCache;
@@ -720,8 +787,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       map.set(key, { ...turn, now: pick, covers: turn.now });
       load.set(pick, load.get(pick)! + 1);
     }
-    // A chore handed over this round belongs to whoever took it.
     const end = `|${roundBounds(round, period).end}`;
+    this._catchUp(map, covers, end, away, group);
+    // A chore handed over this round belongs to whoever took it.
     for (const o of taken) {
       if (!o.key.endsWith(end)) continue;
       const key = o.key.slice(0, -end.length);
@@ -743,6 +811,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     if (!a) return undefined;
     if (a.handedBy !== undefined) {
       return `🔁 ${this._t("swap_from")} ${this._personName(persons[a.handedBy], a.handedBy)}`;
+    }
+    if (a.evens !== undefined) {
+      return `↩️ ${this._t("rot_evens")} ${this._personName(persons[a.evens], a.evens)}`;
     }
     if (a.covers !== undefined) {
       return `🤝 ${this._t("rot_cover")} ${this._personName(persons[a.covers], a.covers)}`;
@@ -787,6 +858,37 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     }
     const list = [...byId.values()];
     this._offerCache = { states, list };
+    return list;
+  }
+
+  /** Opt-in, and only with the rotation and an integration that keeps covers. */
+  private _catchUpOn(): boolean {
+    return (
+      !!this._config?.catch_up &&
+      this._backendOn() &&
+      !!this.hass?.services?.family_tasks?.cover &&
+      this._rotationLists().length > 0
+    );
+  }
+
+  private _coverCache?: { states: unknown; list: ChoreCover[] };
+
+  /** Every chore done for someone away, from all ledger sensors (catch_up). */
+  private _covers(): ChoreCover[] {
+    if (!this._catchUpOn()) return [];
+    const states = this.hass?.states ?? {};
+    if (this._coverCache?.states === states) return this._coverCache.list;
+    const byKey = new Map<string, ChoreCover>();
+    for (const st of Object.values(states)) {
+      const a = st.attributes ?? {};
+      if (!st.entity_id?.startsWith("sensor.") || typeof a.person !== "string") continue;
+      if (!Array.isArray(a.covers)) continue;
+      for (const c of a.covers as ChoreCover[]) {
+        if (c && typeof c.key === "string" && !byKey.has(c.key)) byKey.set(c.key, c);
+      }
+    }
+    const list = [...byKey.values()];
+    this._coverCache = { states, list };
     return list;
   }
 
@@ -1356,14 +1458,37 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
         // Only chores of this round: last round's are reopened, not credited again.
         if (item.status !== "completed" || roundFix(item, bounds)) continue;
         const a = map.get(`${entity}|${item.uid}`);
-        if (a)
-          this._award(
-            this._awardKey(entity, item),
-            a.now,
-            this._pointsOf(entity, item),
-            title(entity, item),
-          );
+        if (!a) continue;
+        const key = this._awardKey(entity, item);
+        this._award(key, a.now, this._pointsOf(entity, item), title(entity, item));
+        if (this._catchUpOn()) this._noteCover(key, a, title(entity, item));
       }
+    }
+  }
+
+  /** Covers / chores done in return already sent this session. */
+  private _coverSent = new Set<string>();
+
+  /** Tell the ledger who covered for whom, or that a chore evened it out (catch_up). */
+  private _noteCover(key: string, a: RotationTurn, chore: string): void {
+    const persons = this._config!.persons;
+    const who = (i: number) => this._personKey(persons[i], i);
+    if (!this.hass || this._coverSent.has(key)) return;
+    if (a.covers !== undefined) {
+      this._coverSent.add(key);
+      this.hass
+        .callService("family_tasks", "cover", {
+          key,
+          person: who(a.now),
+          absent: who(a.covers),
+          chore,
+        })
+        .catch(() => this._coverSent.delete(key));
+    } else if (a.evens !== undefined) {
+      this._coverSent.add(key);
+      this.hass
+        .callService("family_tasks", "even_out", { key, person: who(a.now), helper: who(a.evens) })
+        .catch(() => this._coverSent.delete(key));
     }
   }
 

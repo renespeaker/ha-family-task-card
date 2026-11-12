@@ -291,6 +291,18 @@ const SCENES = {
       persons: persons(t, ["lina", "ben", "mom", "dad"]),
     }),
   },
+  swap: {
+    width: 760,
+    offer: true, // Lina or Ben offers the first chore to the other one
+    config: (t) => ({
+      title: t.title,
+      points_backend: true,
+      chore_swap: true,
+      allow_add: false,
+      ...rotation(t),
+      persons: [who(t, "lina", []), who(t, "ben", [])],
+    }),
+  },
   fairness: {
     width: 760,
     config: (t) => ({
@@ -350,6 +362,35 @@ const page = (width, dark) => `<!doctype html><html><head><meta charset="utf-8">
 </style></head><body><div id="shot"></div></body></html>`;
 
 /** Runs in the page: fake Home Assistant + the card. */
+/** In the page: whoever has this chore this round offers it to the other one, for 10 points. */
+async function offerFirstChore(title) {
+  const el = document.querySelector("family-task-card");
+  const owner = [...el.shadowRoot.querySelectorAll(".col")].findIndex((c) =>
+    c.textContent.includes(title),
+  );
+  const who = ["lina", "ben"];
+  const h = el.hass;
+  const { items } = await h.callWS({ type: "todo/item/list", entity_id: "todo.chores" });
+  const item = items.find((i) => i.summary === title);
+  const offer = {
+    id: "o1",
+    key: `todo.chores|${item.uid}|${item.due}`,
+    chore: title,
+    from: `person.${who[owner]}`,
+    to: `person.${who[1 - owner]}`,
+    points: 10,
+    until: item.due,
+    accepted: false,
+  };
+  const states = { ...h.states };
+  for (const w of who) {
+    const s = states[`sensor.${w}_points`];
+    states[`sensor.${w}_points`] = { ...s, attributes: { ...s.attributes, offers: [offer] } };
+  }
+  el.hass = { ...h, states };
+  await new Promise((r) => setTimeout(r, 300));
+}
+
 function mount({ config, lang, lists, names, avatars, ledger, pending }) {
   const pad = (n) => String(n).padStart(2, "0");
   const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -440,6 +481,10 @@ function mount({ config, lang, lists, names, avatars, ledger, pending }) {
         request_reward: service,
         approve: service,
         deny: service,
+        offer_chore: service,
+        answer_offer: service,
+        cover: service,
+        even_out: service,
       },
     },
     callWS: async (msg) => ({ items: items[msg.entity_id] ?? [] }),
@@ -496,6 +541,7 @@ for (const lang of ["en", "de"]) {
       pending: !!scene.pending,
     });
     await tab.waitForTimeout(600);
+    if (scene.offer) await tab.evaluate(offerFirstChore, t.lists.chores[0][0]);
     if (scene.click) {
       await tab.locator(scene.click).first().click();
       await tab.waitForTimeout(400);

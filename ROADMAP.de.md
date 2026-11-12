@@ -103,8 +103,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
       jede Runde neu, Hinweis „nächste Woche: …"; mit Punktekonto geben Ämtli Punkte.
 - [x] **Die Rotation weiß, wer weg ist** – `persons[].away_entity`: Solange sie an
       ist (Urlaubs-Schalter, Kalender-Eintrag), übernehmen die anderen die Ämtli
-      dieser Person, wer am wenigsten hat zuerst („🤝 statt Ben"). Offen: danach
-      nachholen.
+      dieser Person, wer am wenigsten hat zuerst („🤝 statt Ben"). Mit `catch_up`
+      holt sie das in einer späteren Runde nach („↩️ Ausgleich für Lina",
+      Integration ab v0.5.0).
 - [x] **Ämtli abgeben** – `chore_swap`: ein Ämtli dieser Runde jemand anderem
       anbieten, als Gefallen oder gegen Punkte; die andere Person übernimmt oder
       lehnt ab (Punktekonto, Integration ab v0.4.0).

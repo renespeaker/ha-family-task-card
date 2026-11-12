@@ -149,6 +149,7 @@ const LABELS: Record<string, Bi> = {
     de: "Ämtli abgeben (auf Wunsch gegen Punkte)",
     en: "Hand over chores (for points if you like)",
   },
+  catch_up: { de: "Nachholen nach Abwesenheit", en: "Make up for it after being away" },
   scale: { de: "Kartengröße", en: "Card size" },
   font_scale: { de: "Schriftgröße", en: "Font size" },
   avatar_scale: { de: "Avatar-/Bildgröße", en: "Avatar / picture size" },
@@ -304,6 +305,10 @@ const HELPERS: Record<string, Bi> = {
   chore_swap: {
     de: "Wer dran ist, kann ein Ämtli dieser Runde mit 🔁 jemand anderem anbieten, auf Wunsch gegen Punkte. Die andere Person übernimmt oder lehnt ab; die Punkte wandern mit. Braucht das Punktekonto (Family Task Card Integration ab v0.4.0).",
     en: "Whoever has a chore this round can offer it to someone else with 🔁, for points if they like. The other person takes it over or says no; the points move along. Needs the points ledger (Family Task Card Integration v0.4.0 or newer).",
+  },
+  catch_up: {
+    de: "Wer für jemanden eingesprungen ist, bekommt es zurück: Ist die Person wieder da, übernimmt sie in einer späteren Runde ein Ämtli des Helfers („↩️ Ausgleich für Lina“). Braucht das Punktekonto (Family Task Card Integration ab v0.5.0) und ein „Abwesend“-Feld bei den Personen.",
+    en: "Whoever covered for someone gets it back: once that person is back, they do one of the helper's chores in a later round (“↩️ making up for Lina”). Needs the points ledger (Family Task Card Integration v0.5.0 or newer) and an “Away” field on the persons.",
   },
   scale: {
     de: "Gesamte Karte vergrößern/verkleinern (Zoom über alles: Layout, Schrift, Bilder). 100 % = Standard.",
@@ -594,6 +599,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
       },
       { name: "rotation_reset", selector: BOOL },
       { name: "chore_swap", selector: BOOL },
+      { name: "catch_up", selector: BOOL },
     ];
   }
 
@@ -655,6 +661,7 @@ export class FamilyTaskCardEditor extends LitElement implements LovelaceCardEdit
     if (!next.rotation_persons?.length) delete next.rotation_persons;
     if (next.rotation_reset !== false) delete next.rotation_reset;
     if (!next.chore_swap) delete next.chore_swap;
+    if (!next.catch_up) delete next.catch_up;
     if (Array.isArray(next.rotation_lists)) {
       if (next.rotation_lists.length === 0) delete next.rotation_lists;
       else if (next.rotation_lists.length === 1) next.rotation_lists = next.rotation_lists[0];

@@ -99,8 +99,9 @@ The goal: a usable, coherent card with the core loop.
       each round, "next week: …" hint; chores earn points with the points ledger.
 - [x] **The rotation knows who is away** — `persons[].away_entity`: while it is on
       (a holiday switch, a calendar entry), the others take over that person's
-      chores, the one with the fewest first ("🤝 instead of Ben"). Open: catching up
-      afterwards.
+      chores, the one with the fewest first ("🤝 instead of Ben"). With `catch_up`
+      they make up for it in a later round ("↩️ making up for Lina", integration
+      v0.5.0).
 - [x] **Hand a chore over** — `chore_swap`: offer a chore of this round to someone
       else, as a favour or for points; they take it over or say no (points ledger,
       integration v0.4.0).

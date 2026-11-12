@@ -104,6 +104,7 @@ const STRINGS: Record<string, Entry> = {
   rot_next_week: { de: "nächste Woche", en: "next week" },
   rot_next_day: { de: "morgen", en: "tomorrow" },
   rot_cover: { de: "statt", en: "instead of" },
+  rot_evens: { de: "Ausgleich für", en: "making up for" },
   away: { de: "✈️ weg", en: "✈️ away" },
   swap: { de: "Abgeben", en: "Hand over" },
   swap_to: { de: "an", en: "to" },
