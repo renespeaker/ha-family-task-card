@@ -28,7 +28,7 @@ interface MountOpts {
   lists?: Record<string, { items: unknown[]; features?: number }>;
   lang?: string;
   now?: string;
-  /** Extra entity states, e.g. the points sensors of the Family Tasks integration. */
+  /** Extra entity states, e.g. the points sensors of the Family Task Card Integration. */
   states?: Record<string, unknown>;
   /** Services HA knows about (hass.services), e.g. { family_tasks: { award: {} } }. */
   services?: Record<string, Record<string, unknown>>;
@@ -387,6 +387,29 @@ describe("shopping lists", () => {
     // the individual items stay inside the shopping tile, not as own tiles
     expect(texts(".tile-title")).not.toContain("Milch");
     expect(texts(".tile.shopping").join(" ")).toContain("2");
+  });
+});
+
+describe("card header", () => {
+  it("does not repeat the title as subtitle", async () => {
+    // "Familien-Aufgaben" is also what the editor suggests as title
+    const same = await mount({ title: "Familien-Aufgaben", persons: [] });
+    expect(same.all(".sub")).toHaveLength(0);
+    const own = await mount({ title: "Haushalt", persons: [] });
+    expect(own.texts(".sub")).toEqual(["Familien-Aufgaben"]);
+  });
+});
+
+describe("shopping trip in a narrow column", () => {
+  it("can shrink the Bring! button to an icon and still names it", async () => {
+    const { root } = await mount(
+      { persons: [{ name: "Papa", lists: "todo.bring" }], shopping_lists: "todo.bring" },
+      { lists: { "todo.bring": { items: [task("b1", "Milch")] } }, lang: "en" },
+    );
+    const link = root.querySelector(".tile.shopping .bring-open")!;
+    expect(link.getAttribute("aria-label")).toBe("Open in Bring!");
+    expect(link.querySelector(".bo-text")!.textContent).toBe("Open");
+    expect(link.querySelector(".bo-icon")!.textContent).toBe("↗");
   });
 });
 
@@ -767,7 +790,7 @@ describe("auto-rotation", () => {
   });
 });
 
-describe("points ledger (Family Tasks integration)", () => {
+describe("points ledger (Family Task Card Integration)", () => {
   const FT = { family_tasks: { award: {}, revoke: {}, redeem: {}, adjust: {} } };
   const lina = { name: "Lina", person: "person.lina", lists: "todo.lina" };
   const sensor = (person: string, balance: number, earned: number, redeemed: number) => ({

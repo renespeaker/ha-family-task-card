@@ -113,8 +113,8 @@ const LABELS: Record<string, Bi> = {
   bring_deeplink: { de: "Bring!-Link", en: "Bring! link" },
   parent_pin: { de: "Eltern-PIN (Belohnungen)", en: "Parent PIN (rewards)" },
   points_backend: {
-    de: "Punktekonto nutzen (Family Tasks)",
-    en: "Use points ledger (Family Tasks)",
+    de: "Punktekonto nutzen (Family Task Card Integration)",
+    en: "Use points ledger (Family Task Card Integration)",
   },
   reward_approval: {
     de: "Belohnungs-Freigabe per Push",
@@ -214,12 +214,12 @@ const HELPERS: Record<string, Bi> = {
     en: "Target of the 'Open in Bring!' button (default web.getbring.com).",
   },
   reward_approval: {
-    de: "Kinder fragen Belohnungen an, die Punkte werden reserviert, und die Eltern geben per Push frei oder lehnen ab. Wer die Push bekommt, stellst du in der Integration Family Tasks ein (Konfigurieren). Mit Eltern-PIN geht die Freigabe auch in der Karte.",
-    en: "Kids request rewards, the points are reserved, and the parents approve or deny by push. Who gets the push is set in the Family Tasks integration (Configure). With a parent PIN, requests can also be decided in the card.",
+    de: "Kinder fragen Belohnungen an, die Punkte werden reserviert, und die Eltern geben per Push frei oder lehnen ab. Wer die Push bekommt, stellst du in der Family Task Card Integration ein (Konfigurieren). Mit Eltern-PIN geht die Freigabe auch in der Karte.",
+    en: "Kids request rewards, the points are reserved, and the parents approve or deny by push. Who gets the push is set in the Family Task Card Integration (Configure). With a parent PIN, requests can also be decided in the card.",
   },
   points_backend: {
-    de: "Punkte dauerhaft im Punktekonto der Integration „Family Tasks“ buchen: Sie bleiben, wenn Listen geleert werden, Ämtli geben Punkte, Einlösen läuft übers Konto. Braucht die installierte Integration, sonst bleibt alles wie bisher.",
-    en: "Book points permanently in the ledger of the “Family Tasks” integration: they stay when lists are cleared, chores earn points, rewards are paid from it. Needs the integration installed, otherwise nothing changes.",
+    de: "Punkte dauerhaft im Punktekonto der Family Task Card Integration buchen: Sie bleiben, wenn Listen geleert werden, Ämtli geben Punkte, Einlösen läuft übers Konto. Braucht die installierte Integration, sonst bleibt alles wie bisher.",
+    en: "Book points permanently in the ledger of the Family Task Card Integration: they stay when lists are cleared, chores earn points, rewards are paid from it. Needs the integration installed, otherwise nothing changes.",
   },
   parent_pin: {
     de: "PIN, die zum Einlösen einer Belohnung abgefragt wird (Eltern-Freigabe). Leer = ohne PIN.",
@@ -230,12 +230,12 @@ const HELPERS: Record<string, Bi> = {
     en: "Points per level (from earned points). Default 100, 0 = no levels.",
   },
   leaderboard_period: {
-    de: "Gesamt, diese Woche oder diesen Monat. Woche/Monat braucht das Punktekonto (Family Tasks), sonst wird gesamt gezählt.",
-    en: "All time, this week or this month. Week/month needs the points ledger (Family Tasks), otherwise all time is used.",
+    de: "Gesamt, diese Woche oder diesen Monat. Woche/Monat braucht das Punktekonto (Family Task Card Integration), sonst wird gesamt gezählt.",
+    en: "All time, this week or this month. Week/month needs the points ledger (Family Task Card Integration), otherwise all time is used.",
   },
   show_streak: {
-    de: "Zeigt „⚡ 5“ neben dem Namen: an wie vielen Tagen am Stück jemand mindestens eine Aufgabe erledigt hat (ab 2 Tagen). Braucht das Punktekonto (Family Tasks).",
-    en: "Shows “⚡ 5” next to the name: how many days in a row someone has done at least one task (from 2 days). Needs the points ledger (Family Tasks).",
+    de: "Zeigt „⚡ 5“ neben dem Namen: an wie vielen Tagen am Stück jemand mindestens eine Aufgabe erledigt hat (ab 2 Tagen). Braucht das Punktekonto (Family Task Card Integration).",
+    en: "Shows “⚡ 5” next to the name: how many days in a row someone has done at least one task (from 2 days). Needs the points ledger (Family Task Card Integration).",
   },
   show_leaderboard: {
     de: "Rangliste der Personen nach verdienten Punkten unter dem Board anzeigen.",
@@ -258,8 +258,8 @@ const HELPERS: Record<string, Bi> = {
     en: "Nothing selected = every person on the card takes part.",
   },
   rotation_reset: {
-    de: "Abgehakte Ämtli zu Beginn der nächsten Runde wieder öffnen (die Karte setzt dafür die Fälligkeit auf das Rundenende). Ämtli geben nur mit Punktekonto (Family Tasks) Punkte, weil sie jede Runde neu starten.",
-    en: "Reopen checked-off chores when the next round starts (the card sets their due date to the end of the round). Chores only earn points with the points ledger (Family Tasks), as they start over every round.",
+    de: "Abgehakte Ämtli zu Beginn der nächsten Runde wieder öffnen (die Karte setzt dafür die Fälligkeit auf das Rundenende). Ämtli geben nur mit Punktekonto (Family Task Card Integration) Punkte, weil sie jede Runde neu starten.",
+    en: "Reopen checked-off chores when the next round starts (the card sets their due date to the end of the round). Chores only earn points with the points ledger (Family Task Card Integration), as they start over every round.",
   },
   scale: {
     de: "Gesamte Karte vergrößern/verkleinern (Zoom über alles: Layout, Schrift, Bilder). 100 % = Standard.",

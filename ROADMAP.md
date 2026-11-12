@@ -93,15 +93,15 @@ The goal: a usable, coherent card with the core loop.
 - [x] Fair auto-rotation of recurring chores ("taking turns") — `rotation`: switch
       in the editor, weekly/daily rounds worked out from the calendar, chores reopen
       each round, "next week: …" hint; chores earn points with the points ledger.
-- [x] **Points ledger** (optional integration
-      [Family Tasks](https://github.com/renespeaker/ha-family-task-integration), phase 1) —
+- [x] **Points ledger** (optional
+      [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration), phase 1) —
       `points_backend`: points booked for good, once per task (and once per round
       for chores), unchecking takes them back, rewards paid from the ledger, a
       points sensor per person.
-- [x] **Reward approval by push** (Family Tasks v0.2.0) — `reward_approval`: kids
+- [x] **Reward approval by push** (integration v0.2.0) — `reward_approval`: kids
       request, points are reserved, parents approve/deny from the push (or in the
       card with the parent PIN).
-- [x] **Statistics** (Family Tasks v0.3.0) — leaderboard for this week/month
+- [x] **Statistics** (integration v0.3.0) — leaderboard for this week/month
       (`leaderboard_period`), streaks "⚡ 5" (`show_streak`). Next: photo proof.
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,

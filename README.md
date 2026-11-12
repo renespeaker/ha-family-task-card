@@ -2,9 +2,9 @@
 
 > 🌐 **English** (this page) · [Deutsch](README.de.md)
 
-![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
+![Family Task Card – a board per person with tasks, points, levels, streaks, a shopping trip and the weekly leaderboard](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/board.png)
 
-> **Status: usable (v0.18.1).** Per-person board, visual editor, kid mode, Bring!
+> **Status: usable (v0.18.2).** Per-person board, visual editor, kid mode, Bring!
 > shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
@@ -117,17 +117,19 @@ through `notify.mobile_app_*`; to open an app/URL use `url` on iOS and
 The Family Task Card is a **Lovelace card** (frontend) — just like the Family
 Board Card. There is **no integration** to add and **no restart** required.
 
-### Via HACS (recommended)
+### Via the Marketplace or HACS (recommended)
 
-[![Open the Family Task Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
+[![Open the Family Task Card in the Marketplace or HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renespeaker&repository=ha-family-task-card&category=plugin)
 
-1. In **HACS**, search for **"Family Task Card"** and download it (or use the
-   button above). HACS registers the resource automatically.
+1. Home Assistant 2026.11 or newer: **Settings → Marketplace**, search for
+   **"Family Task Card"** and install it. Older versions: the same in **HACS**.
+   The button above opens the right one, and the resource is registered
+   automatically.
 2. **Hard-refresh** the browser once (Ctrl+Shift+R) so the card loads.
 3. Dashboard → Add card → search for **"Family Task Card"**.
 
-> **Not listed in your HACS yet?** Add it as a custom repository instead: HACS →
-> ⋮ → **Custom repositories** → `https://github.com/renespeaker/ha-family-task-card`,
+> **Not listed yet?** Add it as a custom repository (*Custom repositories* in the
+> Marketplace or in HACS): `https://github.com/renespeaker/ha-family-task-card`,
 > type **Dashboard**.
 
 ### Manual (without HACS)
@@ -221,7 +223,7 @@ persons:
 | `rotation_period` | text | `week` (default, from Monday) or `day`. |
 | `rotation_persons` | list | who takes part (person name or `person.*`); default everyone. |
 | `rotation_reset` | bool | reopen chores at the start of each round (default on). |
-| `points_backend` | bool | book points in the optional [Family Tasks](https://github.com/renespeaker/ha-family-task-integration) integration (see below). |
+| `points_backend` | bool | book points in the optional [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration) (see below). |
 | `reward_approval` | bool | with `points_backend`: rewards are requested and approved by push (see below). |
 | `leaderboard_period` | text | with `points_backend`: rank by `all` (default), `week` or `month`. |
 | `show_streak` | bool | with `points_backend`: "⚡ 5" next to the name — days in a row with a task. |
@@ -232,6 +234,8 @@ With `kid_mode: true` the card shows a **big, tappable single-child layout** for
 the wall tablet: an avatar switcher on top (whose turn is it?), XL tiles with
 emoji below, a points/goal bar and a short confetti feedback on check-off. Great
 as its own card on a kids' dashboard while the full board stays for the parents.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/kid.png" alt="Kid mode: avatar switcher on top, big tiles, points, level and streak" width="460"></p>
 
 ### Appearance (size, text, pictures)
 
@@ -278,7 +282,7 @@ Monday) or daily. Switch it on in the visual editor under
   *Reopen chores every round* off and reopen them with an automation.
 - **Points for chores only with the points ledger** — chores start over every
   round, so live points would vanish every Monday. With the
-  [points ledger](#points-ledger-optional-family-tasks-integration) chores earn
+  [points ledger](#points-ledger-optional-integration) chores earn
   points once per round.
 
 ```yaml
@@ -328,7 +332,7 @@ the card) — a ready template is in
 > Note: there is no public deep link to a *specific* Bring! list; the button
 > opens Bring! in general. Shopping points are currently estimated live from the
 > list state — or booked for good with the
-> [points ledger](#points-ledger-optional-family-tasks-integration).
+> [points ledger](#points-ledger-optional-integration).
 
 ### Context tasks
 
@@ -385,6 +389,8 @@ none → "state is on/active". `invert: true` flips the condition. Without
 Points can be redeemed for **rewards** — with **parent approval via PIN**. Define
 rewards in `rewards`; the PIN in `parent_pin`.
 
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/rewards.png" alt="Reward shop in kid mode: the balance, rewards to request and one waiting for approval" width="460"></p>
+
 So spent points persist (across reloads/restarts), each person gets an HA helper
 **`input_number`** that holds the **already-redeemed** points. **Balance = earned
 − redeemed.**
@@ -407,19 +413,20 @@ Usage: the 🎁 button in the person column (or in kid mode) opens the shop.
 **parent PIN** and, on success, raises the `input_number`.
 
 > Without `points_entity` (or the
-> [points ledger](#points-ledger-optional-family-tasks-integration)) the shop only
+> [points ledger](#points-ledger-optional-integration)) the shop only
 > displays the rewards (redeeming disabled). The **asynchronous approval flow**
 > ("kid requests, parents confirm later via push") is
-> available with the [points ledger](#points-ledger-optional-family-tasks-integration)
+> available with the [points ledger](#points-ledger-optional-integration)
 > (`reward_approval`); photo proof is on the roadmap.
 
-### Points ledger (optional Family Tasks integration)
+### Points ledger (optional integration)
 
 By default the card works out points live from checked-off tasks — nothing to
 install, but points disappear when a list is cleared, and chores that reopen
 every round can't earn any. For points that **stay**, install the separate
-integration [**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration)
-and switch on **"Use points ledger (Family Tasks)"** in the visual editor
+[**Family Task Card Integration**](https://github.com/renespeaker/ha-family-task-integration)
+(in the Marketplace or HACS, search for **"Family Task Card Integration"**) and
+switch on **"Use points ledger (Family Task Card Integration)"** in the visual editor
 (`points_backend: true`).
 
 - **Checked-off tasks are booked** in the ledger — also ones checked off in
@@ -454,11 +461,11 @@ true`). Then the shop button says **Request** instead of *Redeem*:
   their own requests.
 
 Who gets the push is set in the integration: Settings → Devices & services →
-Family Tasks → **Configure**.
+Family Task Card Integration → **Configure**.
 
 #### Statistics
 
-With the ledger on (Family Tasks v0.3.0 or newer), two more opt-in options:
+With the ledger on (integration v0.3.0 or newer), two more opt-in options:
 
 - **Leaderboard for** *this week* or *this month* (`leaderboard_period: week` /
   `month`, default all time) — a fresh race every Monday, so whoever is behind
@@ -542,6 +549,8 @@ The card is **theme-aware**: with a dark Home Assistant theme it turns dark
 automatically — no configuration. To **force** the color scheme (e.g. a wall
 tablet always dark, regardless of the dashboard theme), use `theme`:
 
+![The board in dark mode](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/dark.png)
+
 ```yaml
 type: custom:family-task-card
 theme: dark        # auto (default, follows HA) | dark | light
@@ -586,6 +595,8 @@ switching.
 For a tablet/display mounted on the wall: `kiosk: true` turns it into a **shared
 family station**.
 
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/kiosk.png" alt="Kiosk mode: the “Who's there?” screen with big avatars" width="640"></p>
+
 - **Idle "Who's there?" screen** — big avatars of everyone. Tap your own face →
   your tasks appear (the big kid layout).
 - **Auto-return** — after `auto_return` seconds without input (default 30) it
@@ -612,6 +623,8 @@ back to the neutral state.
 A separate mode for grown-ups who want to prioritise: switch on **"Eisenhower
 view (for parents)"** (`eisenhower: true`) and the card shows all open tasks of
 its persons in a 2×2 grid instead of columns:
+
+![Eisenhower view: Do now, Schedule, Delegate and Later, with the person on every task](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/eisenhower.png)
 
 | | urgent | not urgent |
 |---|---|---|
@@ -647,6 +660,8 @@ persons:
 
 Long lists — e.g. Todoist with tasks planned months ahead or without a date —
 can be kept tidy. All three options are off by default:
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/groups.png" alt="Tasks grouped by due date: Overdue, Today and Soon; Later and No date collapsed" width="400"></p>
 
 - **Group by due date** (`group_by_due: true`, board) — open tasks under
   🔴 *Overdue* · 📌 *Today* · 📅 *Soon* (7 days) · 🗓 *Later* · 📥 *No date*.
@@ -710,7 +725,8 @@ hacs.json                   HACS metadata (Lovelace/dashboard card)
 ROADMAP.md / ROADMAP.de.md  vision, MVP & roadmap (English / German)
 examples/                   example dashboards & the Bring! push automation
 docs/                       guides (e.g. Microsoft To Do, illustrated; English / German)
-tools/                      helper scripts (palette check, guide pictures)
+assets/screenshots/         README pictures (English / German)
+tools/                      helper scripts (palette check, guide pictures, screenshots)
 ```
 
 ## Development
@@ -728,6 +744,10 @@ npm run lint       # typecheck (tsc --noEmit)
 npm test           # Vitest (card against a mocked Home Assistant)
 npm run format     # Prettier
 ```
+
+The README pictures are real screenshots of the built card with sample data;
+`node tools/make-screenshots.mjs` renders them again (after `npm run build` and
+`npm i --no-save playwright-core`, with Chromium installed).
 
 The GitHub Actions build & test on every push (`CI`), validate the HACS structure
 (`Validate`) and attach the built card as a release asset (`Release`).

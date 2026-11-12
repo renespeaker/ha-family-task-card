@@ -29,7 +29,7 @@ import { listRefs, listsOf, type ListFilter, type ListRef } from "./lists";
  * `font_scale` (text) and `avatar_scale` (avatars/pictures), each in percent.
  * With `rotation` switched on, chores from shared lists take turns between the
  * persons, round by round (see rotation.ts). With `points_backend` on and the
- * optional Family Tasks integration installed, points are booked in its ledger.
+ * optional Family Task Card Integration installed, points are booked in its ledger.
  * Open tasks can be grouped by due date and filtered (`group_by_due`,
  * `hide_undated`, `show_within`, also per list). For parents there is an
  * Eisenhower view (`eisenhower`): urgent × important instead of columns.
@@ -130,7 +130,7 @@ export interface FamilyTaskConfig extends LovelaceCardConfig {
   rotation_period?: RotationPeriod; // how often chores move on. default "week" (Monday)
   rotation_persons?: string[]; // who takes part (person name or person.*). default everyone
   rotation_reset?: boolean; // reopen chores at the start of each round. default true
-  points_backend?: boolean; // book points in the Family Tasks integration (when installed). default off
+  points_backend?: boolean; // book points in the Family Task Card Integration (when installed). default off
   reward_approval?: boolean; // with points_backend: rewards are requested, parents approve by push. default off
   leaderboard_period?: "all" | "week" | "month"; // rank by points of this week/month (points ledger). default all
   hide_undated?: boolean; // hide open tasks without a due date (lists can override). default off
@@ -769,7 +769,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
     return { ...counts, earned, spent, balance: earned - spent, hasWallet };
   }
 
-  /* ---- points ledger (optional Family Tasks integration) ------------ */
+  /* ---- points ledger (optional Family Task Card Integration) -------- */
 
   /** Opt-in, and only while the integration is actually installed. */
   private _backendOn(): boolean {
@@ -783,7 +783,7 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
 
   private _ledgerCache?: { states: unknown; map: Map<string, LedgerView> };
 
-  /** Points and open requests of a person, read from their Family Tasks sensor. */
+  /** Points and open requests of a person, read from their ledger sensor. */
   private _ledger(key: string): LedgerView | undefined {
     const states = this.hass?.states ?? {};
     if (this._ledgerCache?.states !== states) {
@@ -1161,13 +1161,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       ? columns.filter((c) => c.view.openCount > 0 || (showDone && c.view.tasksDone.length > 0))
       : columns;
 
+    // The editor suggests "Family tasks" as title – don't say it twice.
+    const title = (cfg.title || CARD_NAME).trim();
+    const sub = this._t("subtitle");
     return html`
       <ha-card class=${this._themeClass()}>
         <div class="head">
           <div class="badge">🧹</div>
           <div class="head-text">
-            <div class="title">${cfg.title || CARD_NAME}</div>
-            <div class="sub">${this._t("subtitle")}</div>
+            <div class="title">${title}</div>
+            ${sub.toLowerCase() !== title.toLowerCase() ? html`<div class="sub">${sub}</div>` : nothing}
           </div>
           ${this._goalBar(familyEarned)}
         </div>
@@ -1980,9 +1983,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           target="_blank"
           rel="noopener"
           title=${this._t("open_in_bring")}
+          aria-label=${this._t("open_in_bring")}
           @click=${(e: MouseEvent) => e.stopPropagation()}
         >
-          ${this._t("open_app")}
+          <span class="bo-text">${this._t("open_app")}</span
+          ><span class="bo-icon" aria-hidden="true">↗</span>
         </a>
       </div>
     `;
@@ -2353,6 +2358,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       color: var(--secondary-text-color);
       margin-top: 2px;
     }
+    .tile.shopping {
+      container-type: inline-size;
+    }
     .tile.shopping .tile-text {
       flex: 1 1 auto;
     }
@@ -2370,6 +2378,24 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       color: #fff;
       background: var(--pc);
       white-space: nowrap;
+    }
+    .bring-open .bo-icon {
+      display: none;
+    }
+    /* Narrow columns (many persons): a compact ↗ leaves room for the list name. */
+    @container (max-width: 300px) {
+      .bring-open {
+        width: 34px;
+        padding: 0;
+        justify-content: center;
+        font-size: 1em;
+      }
+      .bring-open .bo-text {
+        display: none;
+      }
+      .bring-open .bo-icon {
+        display: inline;
+      }
     }
 
     /* ---- kid mode ---- */
