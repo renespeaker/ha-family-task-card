@@ -100,7 +100,8 @@ persons:
 # --- Optional: points ledger (separate Family Tasks integration) ---
 # Points are booked for good instead of computed live: they stay when lists are
 # cleared, chores earn points once per round, rewards are paid from the ledger.
-# Install https://github.com/renespeaker/ha-family-task-integration first; without it this
+# Install the Family Tasks integration first (HACS: search "Family Tasks";
+# https://github.com/renespeaker/ha-family-task-integration); without it this
 # switch changes nothing.
 # points_backend: true
 # reward_approval: true           # kids request rewards, parents approve by push

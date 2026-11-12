@@ -419,8 +419,8 @@ By default the card works out points live from checked-off tasks — nothing to
 install, but points disappear when a list is cleared, and chores that reopen
 every round can't earn any. For points that **stay**, install the separate
 integration [**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration)
-and switch on **"Use points ledger (Family Tasks)"** in the visual editor
-(`points_backend: true`).
+(in HACS, search for **"Family Tasks"**) and switch on **"Use points ledger
+(Family Tasks)"** in the visual editor (`points_backend: true`).
 
 - **Checked-off tasks are booked** in the ledger — also ones checked off in
   another app. Every task is booked once, even if phone and wall tablet both

@@ -429,9 +429,9 @@ Standardmäßig berechnet die Karte Punkte live aus den abgehakten Aufgaben –
 nichts zu installieren, aber Punkte verschwinden, wenn eine Liste geleert wird,
 und Ämtli, die jede Runde wieder öffnen, können keine bekommen. Für Punkte, die
 **bleiben**, installiere die eigene Integration
-[**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration) und schalte im
-visuellen Editor **„Punktekonto nutzen (Family Tasks)"** ein
-(`points_backend: true`).
+[**Family Tasks**](https://github.com/renespeaker/ha-family-task-integration) (in HACS nach
+**„Family Tasks"** suchen) und schalte im visuellen Editor **„Punktekonto nutzen
+(Family Tasks)"** ein (`points_backend: true`).
 
 - **Abgehakte Aufgaben werden gebucht** – auch solche, die in einer anderen App
   abgehakt wurden. Jede Aufgabe wird einmal gebucht, auch wenn Handy und
