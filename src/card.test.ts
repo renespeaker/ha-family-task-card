@@ -390,6 +390,29 @@ describe("shopping lists", () => {
   });
 });
 
+describe("card header", () => {
+  it("does not repeat the title as subtitle", async () => {
+    // "Familien-Aufgaben" is also what the editor suggests as title
+    const same = await mount({ title: "Familien-Aufgaben", persons: [] });
+    expect(same.all(".sub")).toHaveLength(0);
+    const own = await mount({ title: "Haushalt", persons: [] });
+    expect(own.texts(".sub")).toEqual(["Familien-Aufgaben"]);
+  });
+});
+
+describe("shopping trip in a narrow column", () => {
+  it("can shrink the Bring! button to an icon and still names it", async () => {
+    const { root } = await mount(
+      { persons: [{ name: "Papa", lists: "todo.bring" }], shopping_lists: "todo.bring" },
+      { lists: { "todo.bring": { items: [task("b1", "Milch")] } }, lang: "en" },
+    );
+    const link = root.querySelector(".tile.shopping .bring-open")!;
+    expect(link.getAttribute("aria-label")).toBe("Open in Bring!");
+    expect(link.querySelector(".bo-text")!.textContent).toBe("Open");
+    expect(link.querySelector(".bo-icon")!.textContent).toBe("↗");
+  });
+});
+
 describe("due dates", () => {
   it("marks an overdue task", async () => {
     const { all } = await mount(

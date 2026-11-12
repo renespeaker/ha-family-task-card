@@ -2,9 +2,9 @@
 
 > 🌐 **English** (this page) · [Deutsch](README.de.md)
 
-![Family Task Card – per-person board with tasks, points, Bring! shopping and context flags](assets/preview.svg)
+![Family Task Card – a board per person with tasks, points, levels, streaks, a shopping trip and the weekly leaderboard](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/board.png)
 
-> **Status: usable (v0.18.1).** Per-person board, visual editor, kid mode, Bring!
+> **Status: usable (v0.18.2).** Per-person board, visual editor, kid mode, Bring!
 > shopping, **Microsoft To Do**, **auto-rotation (take turns)**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
 > leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
 > (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
@@ -233,6 +233,8 @@ the wall tablet: an avatar switcher on top (whose turn is it?), XL tiles with
 emoji below, a points/goal bar and a short confetti feedback on check-off. Great
 as its own card on a kids' dashboard while the full board stays for the parents.
 
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/kid.png" alt="Kid mode: avatar switcher on top, big tiles, points, level and streak" width="460"></p>
+
 ### Appearance (size, text, pictures)
 
 The **visual editor** (card → Edit) has three sliders to adjust the look without
@@ -384,6 +386,8 @@ none → "state is on/active". `invert: true` flips the condition. Without
 
 Points can be redeemed for **rewards** — with **parent approval via PIN**. Define
 rewards in `rewards`; the PIN in `parent_pin`.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/rewards.png" alt="Reward shop in kid mode: the balance, rewards to request and one waiting for approval" width="460"></p>
 
 So spent points persist (across reloads/restarts), each person gets an HA helper
 **`input_number`** that holds the **already-redeemed** points. **Balance = earned
@@ -542,6 +546,8 @@ The card is **theme-aware**: with a dark Home Assistant theme it turns dark
 automatically — no configuration. To **force** the color scheme (e.g. a wall
 tablet always dark, regardless of the dashboard theme), use `theme`:
 
+![The board in dark mode](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/dark.png)
+
 ```yaml
 type: custom:family-task-card
 theme: dark        # auto (default, follows HA) | dark | light
@@ -586,6 +592,8 @@ switching.
 For a tablet/display mounted on the wall: `kiosk: true` turns it into a **shared
 family station**.
 
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/kiosk.png" alt="Kiosk mode: the “Who's there?” screen with big avatars" width="640"></p>
+
 - **Idle "Who's there?" screen** — big avatars of everyone. Tap your own face →
   your tasks appear (the big kid layout).
 - **Auto-return** — after `auto_return` seconds without input (default 30) it
@@ -612,6 +620,8 @@ back to the neutral state.
 A separate mode for grown-ups who want to prioritise: switch on **"Eisenhower
 view (for parents)"** (`eisenhower: true`) and the card shows all open tasks of
 its persons in a 2×2 grid instead of columns:
+
+![Eisenhower view: Do now, Schedule, Delegate and Later, with the person on every task](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/eisenhower.png)
 
 | | urgent | not urgent |
 |---|---|---|
@@ -647,6 +657,8 @@ persons:
 
 Long lists — e.g. Todoist with tasks planned months ahead or without a date —
 can be kept tidy. All three options are off by default:
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/groups.png" alt="Tasks grouped by due date: Overdue, Today and Soon; Later and No date collapsed" width="400"></p>
 
 - **Group by due date** (`group_by_due: true`, board) — open tasks under
   🔴 *Overdue* · 📌 *Today* · 📅 *Soon* (7 days) · 🗓 *Later* · 📥 *No date*.
@@ -710,7 +722,8 @@ hacs.json                   HACS metadata (Lovelace/dashboard card)
 ROADMAP.md / ROADMAP.de.md  vision, MVP & roadmap (English / German)
 examples/                   example dashboards & the Bring! push automation
 docs/                       guides (e.g. Microsoft To Do, illustrated; English / German)
-tools/                      helper scripts (palette check, guide pictures)
+assets/screenshots/         README pictures (English / German)
+tools/                      helper scripts (palette check, guide pictures, screenshots)
 ```
 
 ## Development
@@ -728,6 +741,10 @@ npm run lint       # typecheck (tsc --noEmit)
 npm test           # Vitest (card against a mocked Home Assistant)
 npm run format     # Prettier
 ```
+
+The README pictures are real screenshots of the built card with sample data;
+`node tools/make-screenshots.mjs` renders them again (after `npm run build` and
+`npm i --no-save playwright-core`, with Chromium installed).
 
 The GitHub Actions build & test on every push (`CI`), validate the HACS structure
 (`Validate`) and attach the built card as a release asset (`Release`).

@@ -1161,13 +1161,16 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       ? columns.filter((c) => c.view.openCount > 0 || (showDone && c.view.tasksDone.length > 0))
       : columns;
 
+    // The editor suggests "Family tasks" as title – don't say it twice.
+    const title = (cfg.title || CARD_NAME).trim();
+    const sub = this._t("subtitle");
     return html`
       <ha-card class=${this._themeClass()}>
         <div class="head">
           <div class="badge">🧹</div>
           <div class="head-text">
-            <div class="title">${cfg.title || CARD_NAME}</div>
-            <div class="sub">${this._t("subtitle")}</div>
+            <div class="title">${title}</div>
+            ${sub.toLowerCase() !== title.toLowerCase() ? html`<div class="sub">${sub}</div>` : nothing}
           </div>
           ${this._goalBar(familyEarned)}
         </div>
@@ -1980,9 +1983,11 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
           target="_blank"
           rel="noopener"
           title=${this._t("open_in_bring")}
+          aria-label=${this._t("open_in_bring")}
           @click=${(e: MouseEvent) => e.stopPropagation()}
         >
-          ${this._t("open_app")}
+          <span class="bo-text">${this._t("open_app")}</span
+          ><span class="bo-icon" aria-hidden="true">↗</span>
         </a>
       </div>
     `;
@@ -2353,6 +2358,9 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       color: var(--secondary-text-color);
       margin-top: 2px;
     }
+    .tile.shopping {
+      container-type: inline-size;
+    }
     .tile.shopping .tile-text {
       flex: 1 1 auto;
     }
@@ -2370,6 +2378,24 @@ export class FamilyTaskCard extends LitElement implements LovelaceCard {
       color: #fff;
       background: var(--pc);
       white-space: nowrap;
+    }
+    .bring-open .bo-icon {
+      display: none;
+    }
+    /* Narrow columns (many persons): a compact ↗ leaves room for the list name. */
+    @container (max-width: 300px) {
+      .bring-open {
+        width: 34px;
+        padding: 0;
+        justify-content: center;
+        font-size: 1em;
+      }
+      .bring-open .bo-text {
+        display: none;
+      }
+      .bring-open .bo-icon {
+        display: inline;
+      }
     }
 
     /* ---- kid mode ---- */

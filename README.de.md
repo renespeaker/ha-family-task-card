@@ -2,9 +2,9 @@
 
 > 🌐 **Deutsch** (diese Seite) · [English](README.md)
 
-![Family Task Card – Personen-Board mit Aufgaben, Punkten, Bring!-Einkauf und Kontext-Markierung](assets/preview.svg)
+![Family Task Card – ein Board pro Person mit Aufgaben, Punkten, Leveln, Serien, Einkauf und Wochen-Rangliste](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/board.png)
 
-> **Status: nutzbar (v0.18.1).** Personen-Board, visueller Editor, Kinder-Modus,
+> **Status: nutzbar (v0.18.2).** Personen-Board, visueller Editor, Kinder-Modus,
 > Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
 > Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
 > **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
@@ -263,6 +263,8 @@ mit Emoji, ein Punkte-/Ziel-Balken und ein kurzes Konfetti-Feedback beim Abhaken
 Ideal als eigene Karte auf einem Kinder-Dashboard, während das volle Board für
 die Eltern bleibt.
 
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/kid.png" alt="Kinder-Modus: Avatar-Auswahl oben, große Kacheln, Punkte, Level und Serie" width="460"></p>
+
 ### Auto-Rotation (reihum)
 
 Kein Streit mehr, wer letzte Woche die Spülmaschine hatte: Mit **Auto-Rotation**
@@ -394,6 +396,8 @@ bestimmte `todo.*`-Listen ein.
 
 Punkte lassen sich gegen **Belohnungen** einlösen – mit **Eltern-Freigabe per
 PIN**. Belohnungen definierst du in `rewards`; die PIN in `parent_pin`.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/rewards.png" alt="Belohnungen im Kinder-Modus: Guthaben, Belohnungen zum Anfragen und eine, die auf Freigabe wartet" width="460"></p>
 
 Damit ausgegebene Punkte **dauerhaft** gespeichert werden (auch nach Neuladen/
 Neustart), bekommt jede Person einen HA-Helfer **`input_number`**, der die
@@ -558,6 +562,8 @@ automatisch dunkel – ganz ohne Konfiguration. Wenn du das Farbschema **fest**
 setzen willst (z. B. Wandtablet immer dunkel, egal welches Dashboard-Theme),
 nutze `theme`:
 
+![Das Board im dunklen Farbschema](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/dark.png)
+
 ```yaml
 type: custom:family-task-card
 theme: dark        # auto (Standard, folgt HA) | dark | light
@@ -572,6 +578,8 @@ Akzentfarbe (Personen-Palette, `--primary-color`) bleibt erhalten.
 
 Für ein fest an der Wand hängendes Tablet/Display: `kiosk: true` macht daraus eine
 **geteilte Familien-Station**.
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/kiosk.png" alt="Kiosk-Modus: der „Wer ist dran?“-Bildschirm mit großen Avataren" width="640"></p>
 
 - **Ruhebildschirm „Wer ist dran?"** — große Avatare aller Personen. Antippen des
   eigenen Gesichts → die eigenen Aufgaben erscheinen (großes Kinder-Layout).
@@ -629,6 +637,8 @@ Ein eigener Modus für Erwachsene, die priorisieren wollen: **„Eisenhower-Ansi
 (für Eltern)"** einschalten (`eisenhower: true`), dann zeigt die Karte alle
 offenen Aufgaben ihrer Personen in einem 2×2-Raster statt in Spalten:
 
+![Eisenhower-Ansicht: Jetzt erledigen, Einplanen, Delegieren und Später, mit der Person an jeder Aufgabe](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/eisenhower.png)
+
 | | dringend | nicht dringend |
 |---|---|---|
 | **wichtig** | 🔴 Jetzt erledigen | 🗓 Einplanen |
@@ -664,6 +674,8 @@ persons:
 Lange Listen – z. B. Todoist mit Aufgaben, die Monate im Voraus geplant sind
 oder gar kein Datum haben – lassen sich übersichtlich halten. Alle drei Optionen
 sind standardmäßig aus:
+
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/groups.png" alt="Aufgaben nach Fälligkeit gruppiert: Überfällig, Heute und Bald; Später und Ohne Termin zugeklappt" width="400"></p>
 
 - **Nach Fälligkeit gruppieren** (`group_by_due: true`, Board) – offene Aufgaben
   unter 🔴 *Überfällig* · 📌 *Heute* · 📅 *Bald* (7 Tage) · 🗓 *Später* ·
@@ -730,7 +742,8 @@ hacs.json                   HACS-Metadaten (Lovelace/Dashboard-Karte)
 ROADMAP.md / ROADMAP.de.md  Vision, MVP & Roadmap (englisch / deutsch)
 examples/                   Beispiel-Dashboards & Bring!-Push-Automation
 docs/                       Anleitungen (z. B. Microsoft To Do, bebildert; englisch / deutsch)
-tools/                      Hilfsskripte (Palette-Abgleich, Anleitungs-Bilder)
+assets/screenshots/         Bilder der README (englisch / deutsch)
+tools/                      Hilfsskripte (Palette-Abgleich, Anleitungs-Bilder, Screenshots)
 ```
 
 ## Entwicklung
@@ -748,6 +761,10 @@ npm run lint       # Typecheck (tsc --noEmit)
 npm test           # Vitest (Karte gegen ein nachgebautes Home Assistant)
 npm run format     # Prettier
 ```
+
+Die Bilder der README sind echte Screenshots der gebauten Karte mit
+Beispieldaten; `node tools/make-screenshots.mjs` erzeugt sie neu (nach
+`npm run build` und `npm i --no-save playwright-core`, mit installiertem Chromium).
 
 Getestet wird die Karte als Komponente: [`src/card.test.ts`](src/card.test.ts)
 rendert sie mit happy-dom gegen ein nachgebautes Home Assistant und prüft, was
