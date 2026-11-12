@@ -214,7 +214,8 @@ persons:
 | `active_person_entity` | Entität       | Karte folgt der aktiven Person (NFC/Anwesenheit); leer = manuell. |
 | `kiosk`           | Bool               | Wandtablet-Modus: „Wer ist dran?"-Ruhebildschirm + Auto-Rückkehr. |
 | `auto_return`     | Zahl               | Sek. Inaktivität bis zurück zum Auswahl-Bildschirm (Std. 30, 0 = nie). |
-| `night_start` / `night_end` | Uhrzeit | Nachtbildschirm zwischen diesen Zeiten (z. B. `"21:00"` / `"06:30"`): ruhige, dunkle Uhr; Antippen weckt die Karte. Beide nötig. |
+| `night_start` | Uhrzeit | Nachtbildschirm ab dieser Zeit (z. B. `"21:00"`): ruhige, dunkle Uhr; Antippen weckt die Karte. Braucht `night_end`. |
+| `night_end` | Uhrzeit | Ende des Nachtbildschirms (z. B. `"06:30"`). |
 | `night_wake_entity` | Entität / Liste | Bewegungs- oder Präsenzmelder: solange einer `on` meldet, bleibt die Karte wach, danach noch eine Weile. |
 | `allow_add`       | Bool               | „Aufgabe hinzufügen"-Feld je Person (Std. an).          |
 | `title_tags`      | Bool               | Kurzschrift im Titel: `@Name` macht eine Aufgabe zu der dieser Person, `+20` legt ihre Punkte fest (siehe unten). |

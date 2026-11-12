@@ -212,7 +212,8 @@ persons:
 | `active_person_entity` | entity | card follows the active person (NFC/presence); empty = manual. |
 | `kiosk` | bool | wall-tablet mode: idle "Who's there?" picker + auto-return. |
 | `auto_return` | number | seconds of inactivity before returning to the picker (default 30, 0 = never). |
-| `night_start` / `night_end` | time | night screen between these times (e.g. `"21:00"` / `"06:30"`): a calm, dark clock; a tap wakes the card. Both needed. |
+| `night_start` | time | night screen from this time (e.g. `"21:00"`): a calm, dark clock; a tap wakes the card. Needs `night_end`. |
+| `night_end` | time | end of the night screen (e.g. `"06:30"`). |
 | `night_wake_entity` | entity / list | motion or presence sensor(s): while one reports `on` the card stays awake, and a while after. |
 | `allow_add` | bool | "add task" field per person (default on). |
 | `title_tags` | bool | shorthand in titles: `@Name` makes a task that person's, `+20` sets its points (see below). |

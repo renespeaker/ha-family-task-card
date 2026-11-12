@@ -1443,6 +1443,7 @@ describe("visual editor covers everything", () => {
       show_leaderboard: true,
       show_fairness: true,
       points_backend: true,
+      night_start: "21:00",
     });
     const menu = new Set([
       ...names(call("_schema") as any[]),
