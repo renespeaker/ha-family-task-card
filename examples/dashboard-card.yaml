@@ -119,9 +119,17 @@ persons:
 # kiosk: true
 # auto_return: 30                 # seconds of inactivity (default 30, 0 = never)
 
+# --- Optional: night screen (wall tablet) ---
+# At night a calm, dark clock instead of bright tiles. A tap brings the tasks
+# back for auto_return seconds (at least 2 minutes); a motion sensor does too.
+# night_start: "21:00"
+# night_end: "06:30"
+# night_wake_entity: binary_sensor.flur_bewegung   # optional
+
 # --- Optional: add-task, sorting & filters ---
 # allow_add: true                 # "+ add task" field per person (default on)
 # title_tags: true                # "Tidy room @Lina +20": whose task it is, what it is worth
+# private_patterns: ["#privat"]   # a task with "#privat" shows only as "🔒 Private"
 # sort: due                       # manual (default) | due | alpha
 # hide_empty: true                # hide persons with no open tasks
 # due_soon: 2                     # mark tasks due within 2 days as "due soon"

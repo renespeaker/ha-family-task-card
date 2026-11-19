@@ -4,15 +4,10 @@
 
 ![Family Task Card – ein Board pro Person mit Aufgaben, Punkten, Leveln, Serien, Einkauf und Wochen-Rangliste](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/board.png)
 
-> **Status: nutzbar (v0.21.0).** Personen-Board, visueller Editor, Kinder-Modus,
-> Wandtablet-Kiosk, Bring!-Einkauf, **Microsoft To Do**, **Auto-Rotation (reihum)**, die weiß, wer weg ist,
-> das später ausgleicht und Ämtli **abgeben** lässt,
-> **Kurzschrift im Titel (@Person, +Punkte)**, eine **Fairness-Anzeige**, optionales **Punktekonto** mit **Belohnungs-Freigabe per Push** und **Statistik**, Kontext-Aufgaben, Belohnungs-Shop,
-> Feier-Aktionen und Level/Abzeichen + Rangliste sind da – responsiv,
-> **zweisprachig (DE/EN)**, **theme-aware inkl. Dark-Mode-Schalter**, mit
-> **Darstellungs-Reglern (Größe/Schrift/Bilder)**, **Aufgabe-hinzufügen** und
-> Sortier-/Ausblend-Optionen. Die Karte liest `todo.*`-Listen live, schreibt beim
-> Abhaken zurück und passt sich jeder Integration an – siehe [ROADMAP.de.md](ROADMAP.de.md).
+> **Status: nutzbar (v0.22.0).** Alles unter [Funktionen](#funktionen) ist da.
+> Die Karte liest `todo.*`-Listen live, schreibt beim Abhaken zurück und passt
+> sich jeder Integration an – was als Nächstes kommt, steht in
+> [ROADMAP.de.md](ROADMAP.de.md).
 
 Eine **gamifizierte Familien-Aufgaben-/Ämtli-Karte** für
 [Home Assistant](https://www.home-assistant.io/) – für Erwachsene und Kinder
@@ -30,25 +25,71 @@ Todoist, Google Tasks, Bring! und lokale To-do-Listen liefern alle solche
 Entities – Abhaken in der Karte hakt die Aufgabe **bidirektional** auch in der
 Quell-App ab. Kein separater Cloud-Account für Kinder nötig, alles läuft in HA.
 
-## Geplante Funktionen
+## Funktionen
 
-- **Aufgaben pro Person** – Spalten mit Avatar, Farbe, Punkten; Kacheln mit
-  Emoji und `border-left`-Akzent wie die Termin-Chips der Family Board Card.
-- **Kinder-Modus** – große, bunte Kacheln, Antippen = erledigt, Sterne &
-  Belohnungsziel; auch für Kinder, die noch nicht lesen.
-- **Belohnungs-Shop mit Eltern-Freigabe** – Punkte → Taschengeld / Bildschirm­zeit /
-  Wunsch; Kind löst ein, Eltern bestätigen (optional mit Foto-Beweis).
-- **Kontext-Aufgaben (HA-Superkraft)** – reagieren auf Kalender, Wetter &
-  Anwesenheit (z. B. „Müll" am Abfuhr-Vorabend, „Gießen" bei Regen überspringen,
-  Eskalations-Push wenn nicht rechtzeitig erledigt).
-- **Kiosk-Modus** – fürs Wandtablet; Erfolg wird über HA fühlbar (Licht wird
-  grün, Sound, TTS-Ansage, Eltern-Push).
-- **Einkaufen mit Bring!** – der ganze Einkauf als eine zugewiesene Aufgabe mit
-  Punkten; Push öffnet die Bring!-App, Artikel-Abhaken synchron.
-- **Am Handy einrichten** – Aufgaben, Zuständige, Punkte & Wiederholung per UI.
+**Aufgaben**
 
-Details, Reihenfolge und Roadmap-Themen (Einzel-Item-
-Zuweisung, Geofence, Level/Avatare …) in [ROADMAP.de.md](ROADMAP.de.md).
+- **Eine Spalte pro Person** – mit Avatar, Farbe, Punkten und Level, gefüllt aus
+  [jeder To-do-Liste](#plattformen--provider-ios--android): Apple Erinnerungen,
+  Google Tasks, Todoist, Microsoft To Do, Bring! oder eine lokale Liste. Wer in
+  der Karte abhakt, hakt auch in der App ab.
+- **[Kurzschrift im Titel](#kurzschrift-im-titel-person-punkte)** – „Zimmer
+  aufräumen @Lina +20“, in irgendeiner App getippt oder dem Sprachassistenten
+  gesagt, legt fest, wessen Aufgabe es ist und was sie wert ist. Eine gemeinsame
+  Liste reicht für die ganze Familie.
+- **[Kontext-Aufgaben](#kontext-aufgaben)** – Aufgaben reagieren auf Wetter,
+  Anwesenheit, Kalender oder jeden Sensor: ausgeblendet, hervorgehoben oder
+  dringend.
+- **[Gruppen & Filter nach Fälligkeit](#gruppen--filter-nach-fälligkeit)** –
+  Überfällig, Heute, Bald, Später; oder nur das, was ansteht.
+- **[Private Aufgaben](#private-aufgaben)** – eine Aufgabe mit `#privat`
+  erscheint nur als 🔒 Privat, damit das Familien-Tablet kein Geschenk verrät.
+- **[Einkaufen mit Bring!](#einkaufen-mit-bring)** – der ganze Einkauf als eine
+  Aufgabe mit Punkten.
+- **[Eisenhower-Ansicht](#eisenhower-ansicht-für-eltern)** – ein
+  Prioritäten-Raster für die Eltern.
+
+**Reihum**
+
+- **[Auto-Rotation](#auto-rotation-reihum)** – gemeinsame Ämtli wandern jede
+  Woche oder jeden Tag zur nächsten Person und öffnen sich jede Runde neu.
+- **Sie weiß, wer weg ist** – die anderen springen ein, und wer weg war, gleicht
+  es später aus.
+- **Ämtli abgeben** – an jemand anderen, als Gefallen oder für Punkte.
+- **[Fairness-Anzeige](#fairness-anzeige)** – der Anteil jeder Person an der
+  Arbeit neben dem vereinbarten Anteil.
+
+**Punkte & Belohnungen**
+
+- **[Level, Abzeichen & Rangliste](#level-abzeichen--rangliste)** – mit dem
+  Punktekonto auch Serien und eine Rangliste für Woche oder Monat.
+- **[Belohnungs-Shop](#belohnungs-shop)** – Punkte mit Eltern-PIN einlösen oder
+  anfragen und per Push freigeben lassen.
+- **[Punktekonto](#punktekonto-optionale-integration)** (optionale Integration) –
+  Punkte bleiben dauerhaft, Ämtli bringen Punkte, dazu Statistik und ein
+  Punkte-Sensor pro Person.
+- **[Feier-Aktionen](#feier-aktionen-erfolg-fühlbar-machen)** – ein Licht wird
+  grün, ein Ton, eine Ansage oder ein Push, wenn jemand fertig ist.
+
+**Am Wandtablet**
+
+- **[Kinder-Modus](#kinder-modus)** – große Kacheln, antippen = erledigt,
+  Konfetti.
+- **[Kiosk-Modus](#kiosk-modus-wandtablet)** – ein „Wer ist da?“-Bildschirm; ein
+  NFC-Tag oder die Anwesenheit wählt die Person, danach räumt er sich selbst auf.
+- **[Nachtbildschirm](#nachtbildschirm)** – nachts eine ruhige Uhr; Antippen oder
+  ein Bewegungsmelder weckt ihn.
+
+**Einrichtung & Aussehen**
+
+- **[Visueller Editor](#konfiguration)** – jede Option ohne YAML, auch am Handy.
+- **[Theme-aware](#dark-mode--farbschema)** mit Dark-Mode-Schalter und
+  [Reglern](#darstellung-anpassen-größe-schrift-bilder) für Größe, Schrift und
+  Bilder.
+- **Deutsch und Englisch**, je nach Sprache von Home Assistant.
+
+Was als Nächstes kommt (Ortserinnerungen, Foto-Beweis, weitere Sprachen …),
+steht in [ROADMAP.de.md](ROADMAP.de.md).
 
 ## Zusammenspiel mit der Family Board Card
 
@@ -708,6 +749,8 @@ hellen Kacheln mehr am Abend an der Wand. Antippen holt die Aufgaben für
 und hakt nichts ab. Mit `night_wake_entity` weckt ein Bewegungs- oder
 Präsenzmelder die Karte, sobald jemand vorbeikommt.
 
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/de/night.png" alt="Nachtbildschirm: große Uhr, Datum und wie viele Aufgaben noch offen sind" width="460"></p>
+
 ```yaml
 night_start: "21:00"
 night_end: "06:30"
@@ -855,8 +898,13 @@ Ein vollständiges Beispiel liegt unter
 ```
 src/
 ├── ha-family-task-card.ts  Quelle der Lovelace-Karte (Lit + TypeScript)
-├── editor.ts               Visueller Karten-Editor (Personen, Listen, Punkte)
-├── card.test.ts            Komponententests gegen ein nachgebautes Home Assistant
+├── editor.ts               Visueller Karten-Editor (jede Option, in Abschnitten)
+├── localize.ts             Texte auf Deutsch und Englisch
+├── rotation.ts             Auto-Rotation: wer dran ist, aus dem Kalender
+├── tags.ts                 Kurzschrift im Titel (@Person, +Punkte)
+├── celebrate.ts            Feier-Aktionen (Schritte aus dem HA-Aktionseditor)
+├── lists.ts                die Listen einer Person und ihre Einstellungen
+├── *.test.ts               Tests (Vitest) gegen ein nachgebautes Home Assistant
 └── shared/                 mit der Family Board Card gespiegelt (Personen-Palette)
 family-task-card.js         Gebaute Karte (Rollup-Output, wird eingecheckt)
 hacs.json                   HACS-Metadaten (Lovelace/Dashboard-Karte)
