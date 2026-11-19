@@ -29,8 +29,10 @@ of the Family Board Card.
   "who is responsible").
 - **Local & private.** No separate cloud account for children.
 - **A plain Lovelace card.** Shipped as a HACS dashboard card (like the Family
-  Board Card) — no integration, no restart. An optional backend (for a persistent
-  points history and approvals) can follow later.
+  Board Card) — no integration, no restart. The optional
+  [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration)
+  adds a persistent points ledger, approvals by push, statistics and handing
+  chores over; the card works without it.
 
 ## MVP (v0.x)
 
@@ -61,8 +63,8 @@ The goal: a usable, coherent card with the core loop.
 > from the frontend (`hass.callWS` / `todo.update_item`) and is set up through the
 > card configuration — exactly like the Family Board Card. Shipped as a plain
 > **HACS Lovelace card** (no integration, no restart). Persistent gamification
-> (points history, reward approvals, assignments) can move to an **optional
-> backend** once state has to outlive the runtime.
+> (points history, reward approvals, chore hand-overs) lives in an **optional
+> backend**, the Family Task Card Integration (see the points ledger below).
 
 ## Killer features (after the MVP)
 
@@ -118,9 +120,15 @@ The goal: a usable, coherent card with the core loop.
 - [x] **Fair share** — `show_fairness`: a bar with each person's share of the
       points (this week/month with the ledger), compared with an agreed share per
       person (`persons[].share`).
+- [x] **Private tasks** — `private_patterns`: a task tagged e.g. `#private` shows
+      only as "🔒 Private" — on the board, in kid mode, in the kiosk and the
+      Eisenhower view, and in celebrate actions and the points ledger.
+- [x] **Night screen** — `night_start` / `night_end`: a calm, dark clock at night
+      instead of bright tiles; a tap or a motion sensor (`night_wake_entity`)
+      brings the tasks back for a while.
 - [x] Levels and badges (from earned points) plus a family leaderboard
       (`level_size`, `level_emojis`, `show_leaderboard`). Open: avatar progress,
-      statistics/history.
+      a points history in the card.
 - [x] **Add a task** right in the card (`todo.add_item`, wherever the list
       supports CREATE; `allow_add`).
 - [x] **Sorting and filtering** of open tasks (`sort`, `hide_empty`, `due_soon`).

@@ -31,8 +31,10 @@ das im Look der Family Board Card.
   keine „Zuständigkeit").
 - **Lokal & privat.** Kein separater Cloud-Account für Kinder.
 - **Reine Lovelace-Karte.** Auslieferung als HACS-Dashboard-Karte (wie die
-  Family Board Card) – keine Integration, kein Neustart. Ein optionales Backend
-  (für persistente Punkte-Historie & Freigaben) kann später dazukommen.
+  Family Board Card) – keine Integration, kein Neustart. Die optionale
+  [Family Task Card Integration](https://github.com/renespeaker/ha-family-task-integration)
+  ergänzt ein dauerhaftes Punktekonto, Freigaben per Push, Statistik und das
+  Abgeben von Ämtli; die Karte läuft auch ohne sie.
 
 ## MVP (v0.x)
 
@@ -63,9 +65,9 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 > im Frontend (`hass.callWS` / `todo.update_item`) und wird per Karten-
 > Konfiguration eingerichtet – genau wie die Family Board Card. Ausgeliefert als
 > reine **HACS-Lovelace-Karte** (kein Integration/Neustart). Persistente
-> Gamification (Punkte-Historie, Belohnungs-Freigaben, Zuweisungen) kann später
-> ein **optionales Backend** übernehmen, sobald Zustand über die Laufzeit hinaus
-> gespeichert werden muss.
+> Gamification (Punkte-Historie, Belohnungs-Freigaben, abgegebene Ämtli) liegt in
+> einem **optionalen Backend**, der Family Task Card Integration (siehe
+> Punktekonto unten).
 
 ## Killer-Features (nach MVP)
 
@@ -123,9 +125,15 @@ Ziel: eine benutzbare, abgestimmte Karte mit dem Kern-Loop.
 - [x] **Fairness-Anzeige** – `show_fairness`: ein Balken mit dem Anteil jeder
       Person an den Punkten (mit Punktekonto diese Woche/diesen Monat), verglichen
       mit einem vereinbarten Anteil pro Person (`persons[].share`).
+- [x] **Private Aufgaben** – `private_patterns`: eine Aufgabe mit z. B. `#privat`
+      erscheint nur als „🔒 Privat“ – auf dem Board, im Kinder-Modus, im Kiosk und
+      in der Eisenhower-Ansicht, auch in Feier-Aktionen und im Punktekonto.
+- [x] **Nachtbildschirm** – `night_start` / `night_end`: nachts eine ruhige,
+      dunkle Uhr statt heller Kacheln; Antippen oder ein Bewegungsmelder
+      (`night_wake_entity`) holt die Aufgaben für eine Weile zurück.
 - [x] Level & Abzeichen (aus verdienten Punkten) + Familien-Rangliste
       (`level_size`, `level_emojis`, `show_leaderboard`). Offen: Avatare-Fortschritt,
-      Statistik/Verlauf.
+      ein Punkte-Verlauf in der Karte.
 - [x] **Aufgabe hinzufügen** direkt in der Karte (`todo.add_item`, wo die Liste
       CREATE unterstützt; `allow_add`).
 - [x] **Sortierung & Filter** offener Aufgaben (`sort`, `hide_empty`, `due_soon`).

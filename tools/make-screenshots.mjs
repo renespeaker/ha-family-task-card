@@ -341,7 +341,27 @@ const SCENES = {
       theme: "dark",
     }),
   },
+  night: {
+    width: 560,
+    at: "21:42", // the clock shows today at this time
+    config: (t) => ({
+      night_start: "21:00",
+      night_end: "06:30",
+      persons: persons(t, ["lina", "ben", "mom", "dad"]),
+    }),
+  },
 };
+
+/** Today at "HH:MM" in Berlin, the time zone of the pictures. */
+function berlinToday(hhmm) {
+  const now = new Date();
+  const zone = { timeZone: "Europe/Berlin" };
+  const ymd = new Intl.DateTimeFormat("en-CA", zone).format(now); // YYYY-MM-DD
+  const gmt = new Intl.DateTimeFormat("en-US", { ...zone, timeZoneName: "longOffset" })
+    .formatToParts(now)
+    .find((p) => p.type === "timeZoneName").value; // "GMT+01:00", or "GMT"
+  return new Date(`${ymd}T${hhmm}:00${gmt.slice(3) || "Z"}`);
+}
 
 /* ---- page ---------------------------------------------------------- */
 
@@ -515,6 +535,7 @@ for (const lang of ["en", "de"]) {
       timezoneId: "Europe/Berlin",
     });
     const tab = await ctx.newPage();
+    if (scene.at) await tab.clock.setFixedTime(berlinToday(scene.at));
     await tab.setContent(page(scene.width, scene.dark));
     // Home Assistant's <ha-card> is a block; outside HA it would be inline.
     await tab.evaluate(() =>

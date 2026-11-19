@@ -4,15 +4,9 @@
 
 ![Family Task Card – a board per person with tasks, points, levels, streaks, a shopping trip and the weekly leaderboard](https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/board.png)
 
-> **Status: usable (v0.21.0).** Per-person board, visual editor, kid mode, Bring!
-> shopping, **Microsoft To Do**, **auto-rotation (take turns)** that knows who is away,
-> makes up for it later and lets chores be **handed over**,
-> **shorthand in titles (@person, +points)**, a **fair-share bar**, an optional **points ledger** with **reward approval by push** and **statistics**, context tasks, reward shop, celebrate actions, levels/badges +
-> leaderboard and a **wall-tablet kiosk mode** are in — responsive, **bilingual
-> (DE/EN)**, **theme-aware incl. a dark-mode switch**, with **appearance sliders
-> (size/text/pictures)**, **add-task** and sort/hide options. The card reads
-> `todo.*` lists live, writes back on check-off and adapts to every integration —
-> see [ROADMAP.md](ROADMAP.md).
+> **Status: usable (v0.22.0).** Everything under [Features](#features) is in.
+> The card reads `todo.*` lists live, writes back on check-off and adapts to
+> every integration — what's next is in [ROADMAP.md](ROADMAP.md).
 
 A **gamified family task / chore card** for
 [Home Assistant](https://www.home-assistant.io/) — playful for grown-ups **and**
@@ -30,25 +24,68 @@ Bring! and local to-do lists all expose such entities — checking a task in the
 card checks it off **bidirectionally** in the source app too. No separate cloud
 account for kids, everything stays in HA.
 
-## Planned features
+## Features
 
-- **Tasks per person** – columns with avatar, colour and points; tiles with an
-  emoji and a `border-left` accent, like the event chips of the Family Board Card.
-- **Kid mode** – big, colourful tiles, tap to complete, stars and a reward goal;
-  works for children who cannot read yet.
-- **Reward shop with parental approval** – points → pocket money / screen time /
-  a wish; the child redeems, the parents confirm (optionally with photo proof).
-- **Context tasks (the Home Assistant superpower)** – react to calendar, weather
-  and presence (bin day the evening before, skip watering when it rains,
-  escalate with a push when something is not done in time).
-- **Kiosk mode** – for the wall tablet; success becomes tangible through Home
-  Assistant (a light turns green, a sound, a TTS announcement, a push to parents).
-- **Shopping with Bring!** – the whole shopping trip as one assigned task with
-  points; a push opens the Bring! app, checked-off items stay in sync.
-- **Set up from a phone** – tasks, owners, points and repetition through the UI.
+**Tasks**
 
-Details, ordering and roadmap topics (per-item assignment,
-geofencing, levels/avatars …) live in [ROADMAP.md](ROADMAP.md).
+- **A column per person** — avatar, colour, points and level, filled from
+  [any to-do list](#platforms--providers-ios--android): Apple Reminders, Google
+  Tasks, Todoist, Microsoft To Do, Bring! or a local list. Checking a task off in
+  the card checks it off in that app too.
+- **[Shorthand in titles](#shorthand-in-titles-person-points)** — "Tidy room
+  @Lina +20", typed into any app or told to a voice assistant, says whose task
+  it is and what it is worth. One shared list is enough for the whole family.
+- **[Context tasks](#context-tasks)** — tasks react to weather, presence, the
+  calendar or any sensor: hidden, highlighted or marked urgent.
+- **[Due-date groups & filters](#due-date-groups--filters)** — Overdue, Today,
+  Soon, Later; or just what is due.
+- **[Private tasks](#private-tasks)** — a task tagged `#private` shows only as
+  🔒 Private, so the family tablet doesn't give a present away.
+- **[Shopping with Bring!](#shopping-with-bring)** — the whole shopping trip as
+  one task with points.
+- **[Eisenhower view](#eisenhower-view-for-parents)** — a priority grid for the
+  parents.
+
+**Taking turns**
+
+- **[Auto-rotation](#auto-rotation-take-turns)** — shared chores move to the next
+  person every week or day and reopen each round.
+- **It knows who is away** — the others step in, and later the one who was away
+  makes up for it.
+- **Hand a chore over** — to someone else, as a favour or for points.
+- **[Fair share](#fair-share)** — each person's share of the work next to the
+  share you agreed on.
+
+**Points & rewards**
+
+- **[Levels, badges & leaderboard](#levels-badges--leaderboard)** — with the
+  points ledger also streaks and a weekly or monthly ranking.
+- **[Reward shop](#reward-shop)** — redeem points behind a parent PIN, or ask and
+  get approval by push.
+- **[Points ledger](#points-ledger-optional-integration)** (optional integration)
+  — points kept for good, chores that earn points, statistics and a points sensor
+  per person.
+- **[Celebrate actions](#celebrate-actions-make-success-tangible)** — a light
+  turns green, a sound, an announcement or a push when someone is done.
+
+**On the wall tablet**
+
+- **[Kid mode](#kid-mode)** — big tiles, tap to complete, confetti.
+- **[Kiosk mode](#kiosk-mode-wall-tablet)** — a "Who's there?" screen; an NFC tag
+  or presence picks the person, and afterwards it tidies itself back up.
+- **[Night screen](#night-screen)** — a calm clock at night; a tap or a motion
+  sensor wakes it.
+
+**Setup & look**
+
+- **[Visual editor](#configuration)** — every option without YAML, on a phone
+  too.
+- **[Theme-aware](#dark-mode--color-scheme)** with a dark-mode switch, and
+  [sliders](#appearance-size-text-pictures) for size, text and pictures.
+- **English and German**, following the Home Assistant language.
+
+What's next (location reminders, photo proof, more languages …) is in
+[ROADMAP.md](ROADMAP.md).
 
 ## How it works with the Family Board Card
 
@@ -692,6 +729,8 @@ tiles on the wall in the evening. A tap brings the tasks back for
 checks nothing off. With `night_wake_entity` a motion or presence sensor wakes
 it as soon as someone walks by.
 
+<p align="center"><img src="https://raw.githubusercontent.com/renespeaker/ha-family-task-card/main/assets/screenshots/en/night.png" alt="Night screen: a big clock, the date and how many tasks are still open" width="460"></p>
+
 ```yaml
 night_start: "21:00"
 night_end: "06:30"
@@ -833,8 +872,13 @@ A full example is in
 ```
 src/
 ├── ha-family-task-card.ts  source of the Lovelace card (Lit + TypeScript)
-├── editor.ts               visual card editor (people, lists, points)
-├── card.test.ts            component tests against a mocked Home Assistant
+├── editor.ts               visual card editor (every option, in sections)
+├── localize.ts             texts in English and German
+├── rotation.ts             auto-rotation: whose turn it is, from the calendar
+├── tags.ts                 shorthand in titles (@person, +points)
+├── celebrate.ts            celebrate actions (steps from HA's action editor)
+├── lists.ts                a person's lists and their settings
+├── *.test.ts               tests (Vitest) against a mocked Home Assistant
 └── shared/                 mirrored with the Family Board Card (person palette)
 family-task-card.js         built card (Rollup output, committed)
 hacs.json                   HACS metadata (Lovelace/dashboard card)
